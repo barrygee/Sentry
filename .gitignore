@@ -2,3 +2,18 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.venv/
+
+# Node / frontend
+node_modules/
+app/frontend/dist/
+app/frontend/coverage/
+
+# Secrets — never committed; see .env.example
+.env
+
+# SQLite runtime data (mounted volume in production)
+*.db
+*.db-wal
+*.db-shm

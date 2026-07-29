@@ -1,0 +1,58 @@
+[project]
+name = "sentry"
+version = "0.1.0"
+description = "Sentry — multi-dongle RTL-SDR fleet manager for a Raspberry Pi"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.121",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20",
+    "alembic>=1.14",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.28",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+[tool.pytest.ini_options]
+# `tests/relay/test_rtl_tcp_relay.py` imports the vendored relay unmodified as
+# `import rtl_tcp_relay`, so its containing directory is added to sys.path
+# rather than requiring the test to know its package location.
+pythonpath = ["app/backend/relay"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Vendored, frozen relay (architecture §2): only the additive §2.1 wedge-exit
+# diff is permitted here, so it is excluded from lint churn like the UP041
+# `asyncio.TimeoutError` alias rule, which predates and is unrelated to that
+# diff.
+extend-exclude = ["app/backend/relay/rtl_tcp_relay.py", "tests/relay/test_rtl_tcp_relay.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+# B008: FastAPI's `Depends(...)` in a parameter default is the framework's
+# idiomatic dependency-injection pattern, not the mutable-default-argument
+# bug this rule targets.
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+exclude = ["app/backend/relay/rtl_tcp_relay.py"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
