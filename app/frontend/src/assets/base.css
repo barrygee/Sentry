@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: theme('colors.ground.page');
+    color: #e7e9ea;
+    font-family: theme('fontFamily.sans');
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible, managed focus everywhere — the amber ring is Sentry's primary
+     affordance on a black ground and is never suppressed (architecture §9.5). */
+  :focus-visible {
+    outline: 2px solid theme('colors.signal.amber');
+    outline-offset: 2px;
+    border-radius: theme('borderRadius.rack');
+  }
+
+  /* prefers-reduced-motion: reduce disables the flow tick and all
+     enter/leave transitions; state changes become instant swaps. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Tabular figures for every port, frequency, PID and byte count so digits
+     never shift width as they tick (architecture §9.5 typography). */
+  .font-mono-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
