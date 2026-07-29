@@ -1,0 +1,1759 @@
+{
+  "components": {
+    "schemas": {
+      "ClientCounts": {
+        "description": "Per-port connected-client counts from `SocketStatsSource`.\n\nEvery field is nullable and advisory: `None` on platforms without\n`/proc/net/tcp` (architecture decision \u2014 always nullable, never a hard\ndependency for status reporting).",
+        "properties": {
+          "control": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control"
+          },
+          "iq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iq"
+          }
+        },
+        "title": "ClientCounts",
+        "type": "object"
+      },
+      "DeviceCounts": {
+        "description": "Per-state device tallies surfaced in the health snapshot.",
+        "properties": {
+          "configured": {
+            "minimum": 0.0,
+            "title": "Configured",
+            "type": "integer"
+          },
+          "degraded": {
+            "minimum": 0.0,
+            "title": "Degraded",
+            "type": "integer"
+          },
+          "error": {
+            "minimum": 0.0,
+            "title": "Error",
+            "type": "integer"
+          },
+          "needs_identification": {
+            "minimum": 0.0,
+            "title": "Needs Identification",
+            "type": "integer"
+          },
+          "present": {
+            "minimum": 0.0,
+            "title": "Present",
+            "type": "integer"
+          },
+          "streaming": {
+            "minimum": 0.0,
+            "title": "Streaming",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "present",
+          "configured",
+          "streaming",
+          "degraded",
+          "error",
+          "needs_identification"
+        ],
+        "title": "DeviceCounts",
+        "type": "object"
+      },
+      "DevicePatch": {
+        "additionalProperties": false,
+        "description": "`PATCH /api/devices/{device_id}` request body \u2014 all fields optional, one required.\n\n`extra=\"forbid\"` rejects unknown fields outright rather than silently\nignoring operator typos (architecture \u00a712.12).",
+        "properties": {
+          "bias_tee": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Tee"
+          },
+          "center_hz": {
+            "anyOf": [
+              {
+                "maximum": 1766000000.0,
+                "minimum": 24000000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Center Hz"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "direct_sampling": {
+            "anyOf": [
+              {
+                "enum": [
+                  0,
+                  1,
+                  2
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direct Sampling"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "gain_auto": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain Auto"
+          },
+          "gain_db": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain Db"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "output_port": {
+            "anyOf": [
+              {
+                "maximum": 65533.0,
+                "minimum": 1024.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Port"
+          },
+          "ppm_correction": {
+            "anyOf": [
+              {
+                "maximum": 200.0,
+                "minimum": -200.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ppm Correction"
+          },
+          "sample_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Rate"
+          }
+        },
+        "title": "DevicePatch",
+        "type": "object"
+      },
+      "DeviceRecord": {
+        "description": "One device's configuration-centric record \u2014 `GET /api/devices` item and PATCH response.",
+        "properties": {
+          "bias_tee": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bias-T power, nullable",
+            "title": "Bias Tee"
+          },
+          "center_hz": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Center Hz"
+          },
+          "control_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Port"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "integer"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "direct_sampling": {
+            "anyOf": [
+              {
+                "enum": [
+                  0,
+                  1,
+                  2
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Direct-sampling mode, nullable",
+            "title": "Direct Sampling"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "gain_auto": {
+            "title": "Gain Auto",
+            "type": "boolean"
+          },
+          "gain_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain Db"
+          },
+          "identity_key": {
+            "title": "Identity Key",
+            "type": "string"
+          },
+          "identity_kind": {
+            "enum": [
+              "serial",
+              "usb"
+            ],
+            "title": "Identity Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "last_serial": {
+            "title": "Last Serial",
+            "type": "string"
+          },
+          "last_topology_path": {
+            "title": "Last Topology Path",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "needs_identification": {
+            "title": "Needs Identification",
+            "type": "boolean"
+          },
+          "output_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Port"
+          },
+          "ppm_correction": {
+            "title": "Ppm Correction",
+            "type": "integer"
+          },
+          "present": {
+            "title": "Present",
+            "type": "boolean"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "sample_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Rate"
+          },
+          "state": {
+            "enum": [
+              "detected",
+              "configured",
+              "starting",
+              "streaming",
+              "degraded",
+              "stopped",
+              "error"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "device_id",
+          "record_id",
+          "identity_kind",
+          "identity_key",
+          "name",
+          "description",
+          "enabled",
+          "gain_auto",
+          "ppm_correction",
+          "present",
+          "needs_identification",
+          "state",
+          "last_topology_path",
+          "last_serial",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DeviceRecord",
+        "type": "object"
+      },
+      "DeviceStatus": {
+        "description": "One device's realtime status \u2014 the `GET /api/status` and SSE payload shape.",
+        "properties": {
+          "clients": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClientCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "device_id": {
+            "description": "The public key: \"serial:<value>\" or \"usb:<path>\"",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "identity_key": {
+            "title": "Identity Key",
+            "type": "string"
+          },
+          "identity_kind": {
+            "enum": [
+              "serial",
+              "usb"
+            ],
+            "title": "Identity Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "needs_identification": {
+            "title": "Needs Identification",
+            "type": "boolean"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OutputInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null for an unconfigured device"
+          },
+          "present": {
+            "title": "Present",
+            "type": "boolean"
+          },
+          "processes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProcessInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The DB surrogate key; null for a detected device",
+            "title": "Record Id"
+          },
+          "state": {
+            "enum": [
+              "detected",
+              "configured",
+              "starting",
+              "streaming",
+              "degraded",
+              "stopped",
+              "error"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "state_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Machine code, non-null in error",
+            "title": "State Reason"
+          },
+          "state_since": {
+            "description": "Unix ms this state began",
+            "title": "State Since",
+            "type": "integer"
+          },
+          "tuner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TunerInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null until control_follower's first state event"
+          },
+          "usb": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsbInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the device is absent"
+          },
+          "usb_last_known": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsbLastKnownInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Populated instead of `usb` for an absent configured device"
+          }
+        },
+        "required": [
+          "device_id",
+          "record_id",
+          "identity_kind",
+          "identity_key",
+          "needs_identification",
+          "name",
+          "description",
+          "state",
+          "state_since",
+          "present",
+          "enabled"
+        ],
+        "title": "DeviceStatus",
+        "type": "object"
+      },
+      "DevicesListResponse": {
+        "description": "`GET /api/devices` body: every configured and every detected device.",
+        "properties": {
+          "constraints": {
+            "$ref": "#/components/schemas/PortConstraints"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceRecord"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "port_suggestion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port Suggestion"
+          }
+        },
+        "required": [
+          "devices",
+          "port_suggestion",
+          "constraints"
+        ],
+        "title": "DevicesListResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "`GET /api/health` body. Auth-exempt; 503 only when the database is unreachable.",
+        "properties": {
+          "database": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Database",
+            "type": "string"
+          },
+          "devices": {
+            "$ref": "#/components/schemas/DeviceCounts"
+          },
+          "hotplug": {
+            "$ref": "#/components/schemas/HotplugHealth"
+          },
+          "started_at": {
+            "description": "Unix ms the process started",
+            "title": "Started At",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "degraded",
+              "unhealthy"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "uptime_s": {
+            "minimum": 0.0,
+            "title": "Uptime S",
+            "type": "number"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version",
+          "started_at",
+          "uptime_s",
+          "database",
+          "hotplug",
+          "devices"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "HotplugHealth": {
+        "description": "Whether the primary hotplug mechanism (udev) or only the reconcile fallback is active.",
+        "properties": {
+          "healthy": {
+            "title": "Healthy",
+            "type": "boolean"
+          },
+          "last_event_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Event At"
+          },
+          "source": {
+            "enum": [
+              "udev",
+              "reconcile"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "healthy"
+        ],
+        "title": "HotplugHealth",
+        "type": "object"
+      },
+      "OutputInfo": {
+        "description": "The public IQ/control endpoint for a configured device.",
+        "properties": {
+          "control_port": {
+            "description": "P + 2, the NDJSON control port",
+            "maximum": 65535.0,
+            "minimum": 1026.0,
+            "title": "Control Port",
+            "type": "integer"
+          },
+          "host": {
+            "description": "The Pi's advertised LAN address",
+            "title": "Host",
+            "type": "string"
+          },
+          "iq_port": {
+            "description": "The relay's public IQ port P",
+            "maximum": 65533.0,
+            "minimum": 1024.0,
+            "title": "Iq Port",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host",
+          "iq_port",
+          "control_port"
+        ],
+        "title": "OutputInfo",
+        "type": "object"
+      },
+      "PortConstraints": {
+        "description": "Mirrors the port-allocator rule table so the UI can validate inline.\n\nAdvisory only \u2014 the server always re-validates on `PATCH` (architecture \u00a77.4).",
+        "properties": {
+          "in_use": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "In Use",
+            "type": "array"
+          },
+          "internal_range": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Internal Range",
+            "type": "array"
+          },
+          "port_max": {
+            "title": "Port Max",
+            "type": "integer"
+          },
+          "port_min": {
+            "title": "Port Min",
+            "type": "integer"
+          },
+          "reserved": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Reserved",
+            "type": "array"
+          }
+        },
+        "required": [
+          "port_min",
+          "port_max",
+          "reserved",
+          "internal_range",
+          "in_use"
+        ],
+        "title": "PortConstraints",
+        "type": "object"
+      },
+      "ProcessInfo": {
+        "description": "Supervisor-owned process/lifecycle telemetry for a device's running pair.",
+        "properties": {
+          "internal_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The loopback rtl_tcp port",
+            "title": "Internal Port"
+          },
+          "last_exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Exit Code"
+          },
+          "last_restart_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Restart At"
+          },
+          "relay_pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relay Pid"
+          },
+          "restarts": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Restarts",
+            "type": "integer"
+          },
+          "rtl_tcp_pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rtl Tcp Pid"
+          }
+        },
+        "title": "ProcessInfo",
+        "type": "object"
+      },
+      "SdrExportItem": {
+        "description": "One configured device, mapped onto Sentinel's `SdrRadio` / `RadioIn` field names.\n\nField-by-field mapping and rationale: architecture \u00a77.8.",
+        "properties": {
+          "agc": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sentry's gain_auto",
+            "title": "Agc"
+          },
+          "available": {
+            "description": "Display-only: grey out rather than hide when false",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "bandwidth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sentry's sample_rate",
+            "title": "Bandwidth"
+          },
+          "control_port": {
+            "description": "P + 2, sent for verification only",
+            "title": "Control Port",
+            "type": "integer"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "port": {
+            "description": "The relay's IQ port P",
+            "title": "Port",
+            "type": "integer"
+          },
+          "rf_gain": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sentry's gain_db; null when AGC",
+            "title": "Rf Gain"
+          },
+          "sentry_device_id": {
+            "description": "Idempotency key for Sentinel's import",
+            "title": "Sentry Device Id",
+            "type": "string"
+          },
+          "state": {
+            "description": "Display-only device state",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sentry_device_id",
+          "name",
+          "host",
+          "port",
+          "control_port",
+          "description",
+          "enabled",
+          "available",
+          "state"
+        ],
+        "title": "SdrExportItem",
+        "type": "object"
+      },
+      "SdrExportResponse": {
+        "description": "`GET /api/v1/sdrs` and `GET /api/sdrs` (permanent alias) body.",
+        "properties": {
+          "api_version": {
+            "default": 1,
+            "title": "Api Version",
+            "type": "integer"
+          },
+          "control_port_offset": {
+            "default": 2,
+            "description": "Sentinel already computes port + this offset",
+            "title": "Control Port Offset",
+            "type": "integer"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "integer"
+          },
+          "sdrs": {
+            "items": {
+              "$ref": "#/components/schemas/SdrExportItem"
+            },
+            "title": "Sdrs",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SdrExportSource"
+          }
+        },
+        "required": [
+          "generated_at",
+          "source",
+          "sdrs"
+        ],
+        "title": "SdrExportResponse",
+        "type": "object"
+      },
+      "SdrExportSource": {
+        "description": "Identifies the Sentry instance that produced this export.",
+        "properties": {
+          "host": {
+            "description": "Never 0.0.0.0 or a container-internal address",
+            "title": "Host",
+            "type": "string"
+          },
+          "http_port": {
+            "title": "Http Port",
+            "type": "integer"
+          },
+          "name": {
+            "const": "sentry",
+            "default": "sentry",
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "host",
+          "http_port"
+        ],
+        "title": "SdrExportSource",
+        "type": "object"
+      },
+      "SerialFlashAccepted": {
+        "description": "`202 Accepted` body; the outcome arrives later as an SSE `notice`.",
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "operation_id": {
+            "description": "Correlates this request with its SSE notice events",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "requires_replug": {
+            "default": true,
+            "description": "A physical replug is required before the new serial is visible",
+            "title": "Requires Replug",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "in_progress",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "operation_id",
+          "status"
+        ],
+        "title": "SerialFlashAccepted",
+        "type": "object"
+      },
+      "SerialFlashRequest": {
+        "additionalProperties": false,
+        "description": "Request body for flashing a unique serial to a dongle's EEPROM.",
+        "properties": {
+          "confirm": {
+            "const": true,
+            "description": "Must be exactly true; a destructive hardware write requires explicit intent",
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "serial": {
+            "pattern": "^[A-Za-z0-9_-]{1,32}$",
+            "title": "Serial",
+            "type": "string"
+          }
+        },
+        "required": [
+          "serial",
+          "confirm"
+        ],
+        "title": "SerialFlashRequest",
+        "type": "object"
+      },
+      "StatusResponse": {
+        "description": "`GET /api/status` and the SSE `snapshot` event body.",
+        "properties": {
+          "generated_at": {
+            "description": "Unix ms this snapshot was assembled",
+            "title": "Generated At",
+            "type": "integer"
+          },
+          "sdrs": {
+            "description": "Sorted by usb.topology_path; absent devices last",
+            "items": {
+              "$ref": "#/components/schemas/DeviceStatus"
+            },
+            "title": "Sdrs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "sdrs"
+        ],
+        "title": "StatusResponse",
+        "type": "object"
+      },
+      "TunerInfo": {
+        "description": "The live tuner state as last observed via `control_follower` (architecture \u00a77.2).",
+        "properties": {
+          "bias_tee": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bias-T power state, when the dongle supports it",
+            "title": "Bias Tee"
+          },
+          "center_hz": {
+            "title": "Center Hz",
+            "type": "integer"
+          },
+          "direct_sampling": {
+            "anyOf": [
+              {
+                "enum": [
+                  0,
+                  1,
+                  2
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Direct-sampling mode (0=off, 1=I-ADC, 2=Q-ADC), when in use",
+            "title": "Direct Sampling"
+          },
+          "gain_auto": {
+            "title": "Gain Auto",
+            "type": "boolean"
+          },
+          "gain_db": {
+            "title": "Gain Db",
+            "type": "number"
+          },
+          "locked": {
+            "description": "Whether another owner currently holds the tuning token",
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "observed_at": {
+            "description": "Unix ms this state was last observed on P+2",
+            "title": "Observed At",
+            "type": "integer"
+          },
+          "sample_rate": {
+            "title": "Sample Rate",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "center_hz",
+          "sample_rate",
+          "gain_db",
+          "gain_auto",
+          "locked",
+          "observed_at"
+        ],
+        "title": "TunerInfo",
+        "type": "object"
+      },
+      "UsbInfo": {
+        "description": "The live USB descriptor and topology for a present device (architecture \u00a77.2).",
+        "properties": {
+          "bus_number": {
+            "minimum": 0.0,
+            "title": "Bus Number",
+            "type": "integer"
+          },
+          "device_address": {
+            "description": "Kernel devnum; unstable, display only",
+            "title": "Device Address",
+            "type": "integer"
+          },
+          "driver": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bound kernel driver name, if any",
+            "title": "Driver"
+          },
+          "driver_conflict": {
+            "description": "True when the DVB kernel driver is bound instead of the userspace driver",
+            "title": "Driver Conflict",
+            "type": "boolean"
+          },
+          "hub_depth": {
+            "description": "len(port_chain) - 1",
+            "minimum": 0.0,
+            "title": "Hub Depth",
+            "type": "integer"
+          },
+          "manufacturer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manufacturer"
+          },
+          "port_chain": {
+            "description": "The port path as integers, e.g. (1, 4, 2)",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Port Chain",
+            "type": "array"
+          },
+          "product": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product"
+          },
+          "product_id": {
+            "description": "Lowercase hex, no \"0x\", e.g. \"2838\"",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The raw reported iSerial",
+            "title": "Serial"
+          },
+          "topology_path": {
+            "description": "Bus-port path, e.g. \"1-1.4.2\"",
+            "title": "Topology Path",
+            "type": "string"
+          },
+          "vendor_id": {
+            "description": "Lowercase hex, no \"0x\", e.g. \"0bda\"",
+            "title": "Vendor Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topology_path",
+          "bus_number",
+          "port_chain",
+          "hub_depth",
+          "device_address",
+          "vendor_id",
+          "product_id",
+          "driver_conflict"
+        ],
+        "title": "UsbInfo",
+        "type": "object"
+      },
+      "UsbLastKnownInfo": {
+        "description": "A reduced USB description for a configured device that is currently absent.\n\nPopulated from the persisted `last_*` columns so an absent device still\nrenders identifiably in the UI (architecture \u00a77.2).",
+        "properties": {
+          "manufacturer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manufacturer"
+          },
+          "product": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          },
+          "topology_path": {
+            "title": "Topology Path",
+            "type": "string"
+          },
+          "vendor_id": {
+            "title": "Vendor Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topology_path",
+          "vendor_id",
+          "product_id"
+        ],
+        "title": "UsbLastKnownInfo",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Multi-dongle RTL-SDR fleet manager for a Raspberry Pi.",
+    "title": "Sentry",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/devices": {
+      "get": {
+        "description": "Return every configured device plus every detected-but-unconfigured one.",
+        "operationId": "list_devices_api_devices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicesListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List configured and detected devices",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/api/devices/{device_id}": {
+      "delete": {
+        "description": "Remove a device's persisted configuration.\n\nConfig-removal only, and only for a device that is not currently present\n(settled contract, see module docstring): `404 unknown_device` for a\ndevice_id with no persisted row, `409 device_present` while it is plugged\nin, `204 No Content` otherwise.",
+        "operationId": "delete_device_api_devices__device_id__delete",
+        "parameters": [
+          {
+            "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+              "examples": [
+                "serial:ADSB-01"
+              ],
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove a device's persisted configuration",
+        "tags": [
+          "devices"
+        ]
+      },
+      "patch": {
+        "description": "Upsert one device's configuration; creates the row on first call for a detected device.\n\nValidation order mirrors architecture \u00a77.5's response list: the device\nmust be known and identified before any conflict is checked, the proposed\nport is validated through the full six-rule `PortAllocatorService`\n(returning its specific rejection code, not a generic one), then the name\nis checked for a case-insensitive collision, and only then is the mutation\napplied \u2014 `DeviceConflictError` from the repository's unique indexes is\nstill caught as the last line of defence against a concurrent-request\nrace (architecture \u00a76.1).",
+        "operationId": "patch_device_api_devices__device_id__patch",
+        "parameters": [
+          {
+            "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+              "examples": [
+                "serial:ADSB-01"
+              ],
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create or update a device's configuration",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/api/devices/{device_id}/serial": {
+      "post": {
+        "description": "Begin the guarded EEPROM serial-flash flow; the outcome arrives via SSE `notice`.\n\n`request.confirm`'s `Literal[True]` and `request.serial`'s allow-list\npattern are already enforced by Pydantic before this handler runs\n(architecture \u00a77.6 guards 1-2). This handler enforces guards 3-4 (serial\nuniqueness, device idleness) plus the per-device lock, then hands the\nactual guarded flash (charset re-check, per-device asyncio lock, list-argv\nexec) to `EepromService.flash_serial()` as a background task \u2014 the\nendpoint itself never performs the flash inline, matching the 202\ncontract.",
+        "operationId": "flash_serial_api_devices__device_id__serial_post",
+        "parameters": [
+          {
+            "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+              "examples": [
+                "serial:ADSB-01"
+              ],
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SerialFlashRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SerialFlashAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Flash a unique serial to the dongle's EEPROM",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/api/events": {
+      "get": {
+        "description": "Open an SSE stream of fleet events.\n\nThe response is `text/event-stream` and is not one flat JSON schema \u2014 the\nfrozen shape of each named event is documented in `schemas/device.py`,\n`schemas/events.py` and `schemas/health.py`. Client disconnect cancels the\nunderlying generator (Starlette's normal `StreamingResponse` behaviour),\nwhich the `finally` block above uses to release the bus subscription.",
+        "operationId": "get_events_api_events_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Realtime fleet events (Server-Sent Events)",
+        "tags": [
+          "events"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Return the current health snapshot.\n\n200 unless the database is unreachable, in which case 503 with the same\nbody shape \u2014 a flapping healthcheck on one degraded dongle must never\nrestart the container and take the healthy dongles down with it\n(architecture \u00a77.1). No auth dependency is declared on this router: the\nDocker healthcheck must reach it regardless of `SENTRY_AUTH_TOKEN`.",
+        "operationId": "get_health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health snapshot",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/sdrs": {
+      "get": {
+        "description": "Permanent convenience alias serving the current stable SDR export version.",
+        "operationId": "get_sdrs_alias_api_sdrs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_disabled",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Disabled",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "available_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Available Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdrExportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Permanent alias for the current stable /v1/sdrs",
+        "tags": [
+          "sdrs"
+        ]
+      }
+    },
+    "/api/status": {
+      "get": {
+        "description": "Return the realtime per-SDR view \u2014 identical payload to the SSE `snapshot` event.",
+        "operationId": "get_status_api_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Realtime per-SDR status",
+        "tags": [
+          "status"
+        ]
+      }
+    },
+    "/api/v1/sdrs": {
+      "get": {
+        "description": "Return every configured device mapped onto Sentinel's `SdrRadio` field names.",
+        "operationId": "get_sdrs_v1_api_v1_sdrs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_disabled",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Disabled",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "available_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Available Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdrExportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The Sentinel-consumed SDR export (versioned)",
+        "tags": [
+          "sdrs"
+        ]
+      }
+    }
+  }
+}
