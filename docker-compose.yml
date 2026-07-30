@@ -1,70 +1,80 @@
-version: '3.8'
+# Sentry — multi-dongle RTL-SDR fleet manager.
+#
+# ONE service replaces the legacy two-service stack. Sentry supervises a pair of
+# child processes (`rtl_tcp` + the vendored relay) per enabled dongle inside this
+# container, so per-dongle containers and the Docker socket are both gone
+# (ADR-0001, ADR-0002). The previous stack is retained as
+# `docker-compose.legacy.yml` for one release as a rollback path.
 
 services:
-  rtl-tcp:
+  sentry:
     build: .
-    container_name: rtl-tcp
+    container_name: sentry
     restart: unless-stopped
+
+    # Required for USB access to the dongles. This grants broad host device
+    # access; it is the same posture the legacy stack ran under, and the reason
+    # the image deliberately runs as root (see the Dockerfile's note).
     privileged: true
-    # Host networking + a LOOPBACK-only bind keeps the dongle off the LAN: only
-    # the relay (also host-networked) reaches 127.0.0.1:1235, and every LAN
-    # consumer goes through the relay on :1234. Host networking also sidesteps
-    # the bridge/NAT DNAT path that proved unreliable when publishing directly.
-    network_mode: host
-    # Pass the WHOLE USB bus as devices (not a volume bind-mount). A volume
-    # mount snapshots /dev/bus/usb at container start; when the SDR
-    # re-enumerates (device 3 -> 4, confirmed in dmesg) the node path
-    # changes, the bind-mounted view goes stale, libusb's handle breaks and
-    # rtl_tcp crash-loops with "Failed to submit transfer 0". The devices +
-    # cgroup-rule form tracks the bus so a re-enumerated node stays usable.
+
+    # Pass the WHOLE USB bus as devices, not a volume bind-mount. A volume mount
+    # snapshots /dev/bus/usb at container start; when a dongle re-enumerates
+    # (device 3 -> 4, confirmed in dmesg on this hardware) the node path changes,
+    # the bind-mounted view goes stale, libusb's handle breaks and rtl_tcp
+    # crash-loops with "Failed to submit transfer 0". The devices + cgroup-rule
+    # form tracks the bus, so a re-enumerated node stays usable. This matters
+    # more with several dongles, not less.
     devices:
       - /dev/bus/usb:/dev/bus/usb
     device_cgroup_rules:
-      - 'c 189:* rmw'          # 189 = USB char-major; whole bus, not one node
-    command: ["rtl_tcp", "-a", "127.0.0.1", "-p", "1235", "-n", "50"]
+      - 'c 189:* rmw' # 189 = USB char-major; the whole bus, not one node
+
+    # Host networking is required, not merely convenient: each dongle's IQ port
+    # (P) and NDJSON control port (P+2) are assigned by the operator at runtime,
+    # so the published set is dynamic and cannot be declared statically here.
+    # It also avoids the bridge/NAT DNAT path that proved unreliable for the
+    # legacy stack.
+    network_mode: host
+
+    volumes:
+      # Device names, port assignments and tuning defaults live in SQLite here.
+      # A named volume (not an anonymous one) so configuration survives
+      # `docker compose down` and container recreation — requirement 7 is
+      # persistence across reboots, and losing it on a rebuild would fail that.
+      - sentry-data:/data
+
+    environment:
+      # Full reference: .env.example / docs/architecture §3.4. Defaults live in
+      # app/backend/config.py; only the deployment-relevant ones are set here.
+      SENTRY_HTTP_HOST: '0.0.0.0'
+      SENTRY_HTTP_PORT: '8000'
+      SENTRY_DATABASE_URL: 'sqlite+aiosqlite:////data/sentry.db'
+      SENTRY_MAX_DEVICES: '8'
+      SENTRY_LOG_LEVEL: 'INFO'
+      # Auth is OFF unless a token is set — appropriate only on a trusted LAN.
+      # Uncomment and set a long random value to require a bearer token on every
+      # /api/** route except /api/health.
+      # SENTRY_AUTH_TOKEN: 'replace-with-a-long-random-value'
+      #
+      # Set only if Sentry sits behind NAT/a proxy and the Host header would
+      # otherwise advertise the wrong address to Sentinel in GET /api/v1/sdrs.
+      # SENTRY_ADVERTISED_HOST: '192.168.1.45'
+
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -x rtl_tcp >/dev/null || exit 1"]
+      # /api/health stays 200 while individual dongles are degraded and returns
+      # 503 only when the database is unreachable — a wedged dongle must never
+      # restart the container and take the healthy dongles down with it.
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).status < 500 else 1)",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
 
-  # Fan-out relay: the dongle's single permanent client, re-serving its IQ to
-  # any number of consumers (e.g. multiple Sentinels) on :1234. rtl_tcp serves
-  # one client with no keepalive, so a consumer that dies abruptly used to leave
-  # a dead connection holding the dongle forever; the relay holds the one slot
-  # and reaps dead clients itself, so that lock-up can't happen.
-  rtl-relay:
-    image: python:3.12-slim
-    container_name: rtl-relay
-    restart: unless-stopped
-    network_mode: host
-    depends_on:
-      - rtl-tcp
-    volumes:
-      - ./rtl_tcp_relay.py:/app/rtl_tcp_relay.py:ro
-      # Read-only Docker socket so the watchdog can restart rtl-tcp if the
-      # dongle wedges-but-stays-alive. NOTE: socket access is effectively root
-      # on the host — acceptable on a single-purpose Pi; drop this mount (and
-      # RELAY_RESTART_CONTAINER) to disable the watchdog.
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      RELAY_UPSTREAM_HOST: "127.0.0.1"
-      RELAY_UPSTREAM_PORT: "1235"
-      RELAY_LISTEN_HOST: "0.0.0.0"
-      RELAY_LISTEN_PORT: "1234"
-      # NDJSON tuning-ownership control channel (claim/release/set/get + state
-      # push). Sentinels coordinate a single tuning owner here; read-only
-      # followers track the owner's tuning live. Defaults to LISTEN_PORT + 2.
-      RELAY_CONTROL_PORT: "1236"
-      RELAY_RESTART_CONTAINER: "rtl-tcp"
-      RELAY_RESTART_AFTER_FAILURES: "3"
-      RELAY_RESTART_COOLDOWN_S: "60"
-    command: ["python", "-u", "/app/rtl_tcp_relay.py"]
-    healthcheck:
-      # The relay is multi-client, so a probe never starves a real consumer.
-      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/1234' || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+volumes:
+  sentry-data:

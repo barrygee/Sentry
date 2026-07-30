@@ -1,0 +1,44 @@
+# Keep the build context small and free of anything host-specific. The image
+# builds dependencies from the committed manifests, so host-installed
+# dependency trees must never be copied in — they are the wrong platform
+# (a developer machine is often not the Pi's arm64 Linux) and dwarf everything
+# else in the context.
+
+# Dependency trees — rebuilt inside the image from package-lock.json / uv.lock
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Build output — the image builds the SPA itself
+app/frontend/dist/
+app/frontend/coverage/
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Secrets — never in the build context, let alone an image layer
+.env
+
+# SQLite runtime data; production mounts a named volume at /data
+*.db
+*.db-wal
+*.db-shm
+
+# Repository metadata and docs the runtime does not need
+.git/
+.github/
+.gitignore
+docs/
+README.md
+CHANGELOG.md
+
+# The rollback stack and dev-only tooling
+docker-compose.yml
+docker-compose.legacy.yml
+tools/
+
+# Tests and fixtures (including the fixture sysfs trees)
+tests/
