@@ -27,15 +27,32 @@ class SocketPortProber:
     def is_bindable(self, host: str, port: int) -> bool:
         """Return whether `(host, port)` can be bound right now.
 
-        Uses `SO_REUSEADDR` so a socket of this process's own in `TIME_WAIT`
-        does not produce a false negative, matching the OS's own notion of
-        "available" as closely as a single-process probe can.
+        The address families are resolved from `host` rather than assumed.
+        Probing a fixed `(AF_INET, AF_INET6)` pair looks harmless but is not:
+        binding an IPv4 literal such as `0.0.0.0` on an `AF_INET6` socket is
+        rejected outright by glibc (`gaierror: Address family for hostname not
+        supported`), so on Linux *every* probe failed and every port was
+        reported as already bound. macOS silently maps the address and
+        succeeds, which is exactly why that only ever showed up on the Pi.
+
+        `AI_PASSIVE` matches how a server socket is actually bound, so the
+        probe tests what the relay will really do. Uses `SO_REUSEADDR` so a
+        socket of this process's own in `TIME_WAIT` does not produce a false
+        negative.
         """
-        for family in (socket.AF_INET, socket.AF_INET6):
+        try:
+            candidate_addresses = socket.getaddrinfo(
+                host, port, type=socket.SOCK_STREAM, flags=socket.AI_PASSIVE
+            )
+        except OSError:
+            return False
+        if not candidate_addresses:
+            return False
+        for family, socket_type, protocol, _canonical_name, socket_address in candidate_addresses:
             try:
-                with socket.socket(family, socket.SOCK_STREAM) as probe_socket:
+                with socket.socket(family, socket_type, protocol) as probe_socket:
                     probe_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    probe_socket.bind((host, port))
+                    probe_socket.bind(socket_address)
             except OSError:
                 return False
         return True
