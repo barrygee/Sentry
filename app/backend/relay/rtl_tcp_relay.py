@@ -118,7 +118,8 @@ WATCHDOG_COOLDOWN_S = float(os.environ.get("RELAY_RESTART_COOLDOWN_S", "60"))
 # Sentry additive diff (ADR-0002 / architecture §2.1): with the Docker socket
 # removed, a wedged dongle is recovered by exiting the whole relay process so
 # Sentry's supervisor (the pair's parent) can kill+respawn rtl_tcp and the relay
-# together. Disabled by default so the legacy Docker-socket compose is unaffected.
+# together. Disabled by default so the original Docker-socket behaviour is unaffected
+# for any external deployment driving this file directly.
 WATCHDOG_EXIT_ON_WEDGE = os.environ.get("RELAY_EXIT_ON_WEDGE", "") == "1"
 WATCHDOG_WEDGE_EXIT_CODE = int(os.environ.get("RELAY_WEDGE_EXIT_CODE", "75"))
 

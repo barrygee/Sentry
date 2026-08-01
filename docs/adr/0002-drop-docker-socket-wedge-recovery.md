@@ -41,9 +41,9 @@ When `RELAY_RESTART_CONTAINER` is empty and `RELAY_EXIT_ON_WEDGE` is set, a sust
 the relay log and `os._exit(75)` instead of calling Docker. The supervisor sees exit 75, raises a
 `notice`, and kills and respawns **both** processes in the pair.
 
-The Docker-socket code path is left in place, unchanged and still tested, so the legacy
-single-dongle `docker-compose.yml` continues to work for anyone mid-migration. Sentry simply
-never configures it.
+The Docker-socket code path is left in place, unchanged and still tested, so the relay file stays
+a faithful copy of the upstream original and remains usable by any external deployment that drives
+it directly. Sentry never configures it.
 
 ## Consequences
 

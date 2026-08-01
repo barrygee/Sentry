@@ -228,14 +228,6 @@ Configuration lives in the `sentry-data` named volume, so device names and port
 assignments survive `down`, rebuilds, and reboots. To wipe it deliberately:
 `docker compose down -v`.
 
-### Rolling back
-
-The previous single-dongle stack is retained for one release:
-
-```bash
-docker compose -f docker-compose.legacy.yml up -d --build
-```
-
 ---
 
 ## Running without Docker

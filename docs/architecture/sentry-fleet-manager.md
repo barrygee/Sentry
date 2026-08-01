@@ -1,8 +1,7 @@
 # Sentry — Multi-Dongle SDR Fleet Manager
 
 **Status:** Design — approved architecture, pending sign-off on the open questions in §13.
-**Supersedes:** the earlier single-dongle stack (`rtl-tcp` + `rtl-relay` compose services), retained
-in this repository as `docker-compose.legacy.yml`.
+**Supersedes:** the earlier single-dongle stack (`rtl-tcp` + `rtl-relay` compose services).
 **Audience:** the backend, database and frontend engineers building this in parallel.
 **Needs sign-off before build:** the API contract (§7), the design direction (§9.5), and the open questions (§13).
 
@@ -70,7 +69,9 @@ replaced too. `enabled` becomes `bool(container_name) or exit_on_wedge`.
 
 Sentry always sets `RELAY_EXIT_ON_WEDGE=1` and never sets `RELAY_RESTART_CONTAINER`.
 The three `WATCHDOG_*` Docker constants and `_restart_container` stay in place, untouched and
-still tested, so the legacy compose path is unbroken.
+still tested. Sentry never configures them; they are retained so the relay file stays a faithful
+copy of the upstream original and remains usable by any external deployment that drives it
+directly.
 
 `test_rtl_tcp_relay.py` moves to `tests/relay/test_rtl_tcp_relay.py` unmodified, plus new cases
 for the exit branch (§12).
@@ -1246,8 +1247,8 @@ These materially change scope or contract and need a decision rather than a gues
    Pi, but it is worth an explicit yes.
 
 8. **Removing the last of the old stack.** The current `docker-compose.yml` and `Dockerfile` are
-   replaced wholesale. *Should the old single-dongle compose be retained as
-   `docker-compose.legacy.yml` for rollback during the transition?* Recommend yes, for one release.
+   replaced wholesale. *Resolved:* the old single-dongle compose was retained briefly as a rollback
+   path, then removed — Sentry is a standalone project and no longer ships the stack it replaced.
 
 ---
 

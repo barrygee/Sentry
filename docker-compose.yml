@@ -3,8 +3,7 @@
 # ONE service replaces the legacy two-service stack. Sentry supervises a pair of
 # child processes (`rtl_tcp` + the vendored relay) per enabled dongle inside this
 # container, so per-dongle containers and the Docker socket are both gone
-# (ADR-0001, ADR-0002). The previous stack is retained as
-# `docker-compose.legacy.yml` for one release as a rollback path.
+# (ADR-0001, ADR-0002).
 
 services:
   sentry:

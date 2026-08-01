@@ -35,9 +35,8 @@ docs/
 README.md
 CHANGELOG.md
 
-# The rollback stack and dev-only tooling
+# Compose and dev-only tooling
 docker-compose.yml
-docker-compose.legacy.yml
 tools/
 
 # Tests and fixtures (including the fixture sysfs trees)
