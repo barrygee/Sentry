@@ -34,6 +34,10 @@ export interface FleetState {
    * whichever control invoked it (a topology node, a device card, a conflict banner) needs a
    * single shared place to open it from. */
   serialFlashDeviceId: string | null
+  /** The device `ForgetDeviceDialog` is currently open for, or `null` when it is closed. Lives
+   * here for the same reason as `serialFlashDeviceId` — the invoking control (a card inside
+   * `AbsentDeviceGroup`) and the teleported dialog need a single shared source of truth. */
+  forgetDeviceId: string | null
 }
 
 /** One entry in `serialConflictGroups`: a present device sharing a duplicate factory serial. */
@@ -61,6 +65,7 @@ export const useFleetStore = defineStore('fleet', {
     pendingPatchesByDeviceId: {},
     notices: [],
     serialFlashDeviceId: null,
+    forgetDeviceId: null,
   }),
 
   getters: {
@@ -104,6 +109,11 @@ export const useFleetStore = defineStore('fleet', {
     serialFlashDialogDevice(state): DeviceStatus | null {
       if (state.serialFlashDeviceId === null) return null
       return this.devicesById[state.serialFlashDeviceId] ?? null
+    },
+    /** The device `ForgetDeviceDialog` should render for, derived from `forgetDeviceId`. */
+    forgetDialogDevice(state): DeviceStatus | null {
+      if (state.forgetDeviceId === null) return null
+      return this.devicesById[state.forgetDeviceId] ?? null
     },
     /**
      * Groups present devices that report the same raw factory serial
@@ -255,6 +265,35 @@ export const useFleetStore = defineStore('fleet', {
       }
     },
 
+    /**
+     * Discards a device's persisted configuration ("forgetting" it). Only
+     * ever called for an absent, configured device — the server itself
+     * refuses (`409 device_present`) while the hardware is plugged in, which
+     * surfaces here as a thrown `ApiError` the caller (`ForgetDeviceDialog`)
+     * humanizes for the race where the dongle replugged mid-dialog.
+     */
+    async deleteDevice(deviceId: string): Promise<void> {
+      const device = this.devicesById[deviceId]
+      const label = device?.name || deviceId
+      try {
+        await apiClient.deleteDevice(deviceId)
+        this.applyDeviceRemoved(deviceId)
+        this.closeForgetDialog()
+        useLiveAnnouncer().announcePolite(`Forgot ${label}.`)
+      } catch (error) {
+        const code =
+          error instanceof ApiError ? (error.detail?.code ?? 'delete_failed') : 'delete_failed'
+        this.applyNotice({
+          level: 'error',
+          code,
+          message: humanizeDeleteErrorCode(code) ?? messageOf(error, 'Failed to forget device.'),
+          device_id: deviceId,
+          ts: Date.now(),
+        })
+        throw error
+      }
+    },
+
     setConstraints(constraints: PortConstraints): void {
       this.constraints = constraints
     },
@@ -266,6 +305,15 @@ export const useFleetStore = defineStore('fleet', {
 
     closeSerialFlashDialog(): void {
       this.serialFlashDeviceId = null
+    },
+
+    /** Opens `ForgetDeviceDialog` for `deviceId` — called only from an absent, configured device's card. */
+    openForgetDialog(deviceId: string): void {
+      this.forgetDeviceId = deviceId
+    },
+
+    closeForgetDialog(): void {
+      this.forgetDeviceId = null
     },
   },
 })
@@ -342,6 +390,23 @@ function humanizePatchErrorCode(code: string): string | null {
       return 'This device could not be resolved to a physical index. Replug it and try again.'
     case 'unknown_device':
       return 'This device is no longer known to Sentry.'
+    default:
+      return null
+  }
+}
+
+/**
+ * Maps a known `DELETE /api/devices/{id}` rejection code to an
+ * operator-facing sentence, returning `null` for a code with no
+ * special-cased text so the caller falls back to the server's own
+ * `detail.message`.
+ */
+function humanizeDeleteErrorCode(code: string): string | null {
+  switch (code) {
+    case 'device_present':
+      return 'This device came back online before it could be forgotten, so it is no longer absent.'
+    case 'unknown_device':
+      return 'This device is already gone.'
     default:
       return null
   }

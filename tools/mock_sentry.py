@@ -34,6 +34,7 @@ from app.backend.schemas.device import (
     StatusResponse,
     TunerInfo,
     UsbInfo,
+    UsbLastKnownInfo,
 )
 from app.backend.schemas.errors import error_detail
 from app.backend.schemas.events import DeviceRemovedEvent, NoticeItem
@@ -161,6 +162,129 @@ _CONFLICT_DEVICE_B = _CONFLICT_DEVICE_A.model_copy(
     }
 )
 
+# Reproduces the exact "three cards for two dongles" scenario a real Pi with a
+# flaky USB hub produces (see the forget/delete feature's design brief): a
+# topology-keyed identity means a re-enumerated dongle becomes a brand-new
+# absent record rather than reattaching to its old one. Two configured
+# devices are absent ("ghosts") and one detected device is present but never
+# configured — exercising `AbsentDeviceGroup`, `DeviceIdentitySummary`'s
+# make/model rendering, and the forget/delete flow this mock server's new
+# `DELETE /api/devices/{device_id}` route backs.
+#
+# `_RTLSDR_V4_USB`/`_PRESENT_RTLSDR_V4` also reproduce a real-hardware
+# regression: on a live Pi, RTL-SDR-V4 was plugged into a port (present,
+# configured) at the exact same moment NESDR-SMART's *last-known* path
+# (`_GHOST_NESDR_SMART`, below — a separate, absent, configured device)
+# pointed at that same port — the one it used to occupy before being
+# swapped out. Reproduced here as "1-1.3", both devices' shared path.
+# `buildTopologyTree` must place only the present device ("RTL-SDR-V4") in
+# the topology tree and leave the absent one ("NESDR-SMART") out of it
+# entirely, even though both devices still render as cards.
+_RTLSDR_V4_USB = UsbInfo(
+    topology_path="1-1.3",
+    bus_number=1,
+    port_chain=(1, 3),
+    hub_depth=1,
+    device_address=5,
+    vendor_id="0bda",
+    product_id="2838",
+    manufacturer="RTLSDRBlog",
+    product="Blog V4",
+    serial="00000001",
+    driver="rtl2832u",
+    driver_conflict=False,
+)
+
+_PRESENT_RTLSDR_V4 = DeviceStatus(
+    device_id="usb:1-2.1",
+    record_id=3,
+    identity_kind="usb",
+    identity_key="1-2.1",
+    needs_identification=False,
+    name="RTL-SDR-V4",
+    description="Roof, replugged after the hub swap",
+    state="configured",
+    state_since=STARTED_AT_MS,
+    state_reason=None,
+    present=True,
+    enabled=True,
+    usb=_RTLSDR_V4_USB,
+    usb_last_known=None,
+    output=OutputInfo(host="192.168.1.45", iq_port=1250, control_port=1252),
+    tuner=None,
+    processes=None,
+    clients=None,
+    last_seen_at=STARTED_AT_MS,
+)
+
+_PRESENT_UNCONFIGURED_USB = UsbInfo(
+    topology_path="1-2.2",
+    bus_number=1,
+    port_chain=(1, 2, 2),
+    hub_depth=1,
+    device_address=11,
+    vendor_id="0bda",
+    product_id="2838",
+    manufacturer="Nooelec",
+    product="NESDR SMArt v5",
+    serial=None,
+    driver="rtl2832u",
+    driver_conflict=False,
+)
+
+_PRESENT_UNCONFIGURED_DEVICE = DeviceStatus(
+    device_id="usb:1-2.2",
+    record_id=None,
+    identity_kind="usb",
+    identity_key="1-2.2",
+    needs_identification=False,
+    name="",
+    description="",
+    state="detected",
+    state_since=STARTED_AT_MS,
+    state_reason=None,
+    present=True,
+    enabled=False,
+    usb=_PRESENT_UNCONFIGURED_USB,
+    output=None,
+    tuner=None,
+    processes=None,
+    clients=None,
+    last_seen_at=STARTED_AT_MS,
+)
+
+_GHOST_NESDR_SMART = DeviceStatus(
+    device_id="usb:1-2.3",
+    record_id=4,
+    identity_kind="usb",
+    identity_key="1-2.3",
+    needs_identification=False,
+    name="NESDR-SMART",
+    # Its last-known path, "1-1.3", is the same path RTL-SDR-V4 currently
+    # occupies (`_PRESENT_RTLSDR_V4`, above) — the real-hardware collision
+    # `buildTopologyTree` must resolve by placing only the present device.
+    description="Was port 1-1.3, now occupied by a different dongle",
+    state="stopped",
+    state_since=STARTED_AT_MS,
+    state_reason=None,
+    present=False,
+    enabled=True,
+    usb=None,
+    usb_last_known=UsbLastKnownInfo(
+        topology_path="1-1.3",
+        vendor_id="0bda",
+        product_id="2838",
+        manufacturer="Nooelec",
+        product="NESDR SMArt v5",
+        serial=None,
+    ),
+    output=OutputInfo(host="192.168.1.45", iq_port=1254, control_port=1256),
+    tuner=None,
+    processes=None,
+    clients=None,
+    last_seen_at=STARTED_AT_MS - 1_200_000,
+)
+
 _HOTPLUG_USB = UsbInfo(
     topology_path="1-1.4.2",
     bus_number=1,
@@ -253,6 +377,9 @@ class MockFleetState:
             "serial:AIS-01": _STABLE_DEVICE,
             "usb:1-3.1": _CONFLICT_DEVICE_A,
             "usb:1-3.2": _CONFLICT_DEVICE_B,
+            "usb:1-2.1": _PRESENT_RTLSDR_V4,
+            "usb:1-2.2": _PRESENT_UNCONFIGURED_DEVICE,
+            "usb:1-2.3": _GHOST_NESDR_SMART,
         }
 
     def status_response(self) -> StatusResponse:
@@ -432,6 +559,32 @@ async def mock_patch_device(device_id: str, patch: DevicePatch) -> DeviceRecord:
             updated_fields = patch.model_dump(exclude_unset=True)
             return record.model_copy(update=updated_fields)
     return devices_response.devices[0]
+
+
+@app.delete("/api/devices/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def mock_delete_device(device_id: str) -> Response:
+    """Mock the forget flow: `404` unknown, `409 device_present` while plugged, else `204`."""
+    device = _fleet_state.devices.get(device_id)
+    if device is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_detail("unknown_device", f"No known device {device_id!r}."),
+        )
+    if device.present:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=error_detail(
+                "device_present", "Device is currently present; unplug it before forgetting it."
+            ),
+        )
+    del _fleet_state.devices[device_id]
+    _broadcast(
+        "device_removed",
+        json.loads(
+            DeviceRemovedEvent(device_id=device_id, record_id=device.record_id).model_dump_json()
+        ),
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post(

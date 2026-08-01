@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import type { DeviceStatus } from '@/api/client'
+import BaseButton from '@/components/base/BaseButton.vue'
 import BaseToggle from '@/components/base/BaseToggle.vue'
 import MonoValue from '@/components/base/MonoValue.vue'
 import DeviceNameField from '@/components/forms/DeviceNameField.vue'
@@ -10,6 +11,7 @@ import { useFleetStore } from '@/stores/fleet'
 import { DEVICE_STATE_META } from '@/utils/deviceState'
 
 import DeviceAbsentNotice from './DeviceAbsentNotice.vue'
+import DeviceIdentitySummary from './DeviceIdentitySummary.vue'
 import DeviceStatusBadge from './DeviceStatusBadge.vue'
 import JackPair from './JackPair.vue'
 import NeedsIdentificationNotice from './NeedsIdentificationNotice.vue'
@@ -23,7 +25,11 @@ import NeedsIdentificationNotice from './NeedsIdentificationNotice.vue'
  */
 const props = defineProps<{ device: DeviceStatus }>()
 
-const emit = defineEmits<{ 'request-serial-flash': [deviceId: string] }>()
+const emit = defineEmits<{
+  'request-serial-flash': [deviceId: string]
+  /** Only ever raised for an absent, configured device (`FleetView` renders the control accordingly). */
+  'request-forget-device': [deviceId: string]
+}>()
 
 const fleetStore = useFleetStore()
 
@@ -100,6 +106,23 @@ const needsBothFieldsToConfigure = computed(
     props.device.record_id === null &&
     (validatedNameDraft.value === null || validatedPortDraft.value === null),
 )
+
+// `usb` and `usb_last_known` are mutually exclusive (architecture §7.2): a
+// present device reports the former, an absent configured one the latter.
+// Falling back across both lets `DeviceIdentitySummary` stay ignorant of
+// which state the card is in.
+const identityManufacturer = computed(
+  () => props.device.usb?.manufacturer ?? props.device.usb_last_known?.manufacturer ?? null,
+)
+const identityProduct = computed(
+  () => props.device.usb?.product ?? props.device.usb_last_known?.product ?? null,
+)
+const identitySerial = computed(
+  () => props.device.usb?.serial ?? props.device.usb_last_known?.serial ?? null,
+)
+
+/** The forget/delete control only ever makes sense for a configured device that is currently absent — the server itself refuses to delete a live one. */
+const isForgettable = computed(() => !props.device.present && props.device.record_id !== null)
 </script>
 
 <template>
@@ -109,18 +132,34 @@ const needsBothFieldsToConfigure = computed(
     class="flex flex-col gap-3 border-b border-ground-hairline bg-ground-panel px-4 py-4 first:rounded-t-rack last:rounded-b-rack"
     :class="`border-l-[3px] ${stateMeta.borderColorClass}`"
   >
-    <header class="flex flex-wrap items-center justify-between gap-2">
-      <div class="flex items-center gap-2">
-        <h3 class="font-condensed text-base font-semibold uppercase tracking-legend">
-          {{ device.name || device.device_id }}
-        </h3>
-        <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
+    <header class="flex flex-col gap-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <h3 class="font-condensed text-base font-semibold uppercase tracking-legend">
+            {{ device.name || device.device_id }}
+          </h3>
+          <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
+        </div>
+        <div class="flex items-center gap-2">
+          <BaseButton
+            v-if="isForgettable"
+            variant="danger"
+            @click="emit('request-forget-device', device.device_id)"
+          >
+            Forget device
+          </BaseButton>
+          <BaseToggle
+            v-if="device.record_id !== null"
+            :model-value="device.enabled"
+            :label="`Enabled — ${device.name || device.device_id}`"
+            @update:model-value="commitEnabled"
+          />
+        </div>
       </div>
-      <BaseToggle
-        v-if="device.record_id !== null"
-        :model-value="device.enabled"
-        :label="`Enabled — ${device.name || device.device_id}`"
-        @update:model-value="commitEnabled"
+      <DeviceIdentitySummary
+        :manufacturer="identityManufacturer"
+        :product="identityProduct"
+        :serial="identitySerial"
       />
     </header>
 

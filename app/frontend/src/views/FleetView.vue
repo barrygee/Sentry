@@ -3,10 +3,12 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import { apiClient } from '@/api/client'
 import EmptyState from '@/components/base/EmptyState.vue'
+import AbsentDeviceGroup from '@/components/fleet/AbsentDeviceGroup.vue'
 import FleetHeader from '@/components/fleet/FleetHeader.vue'
 import FleetLayout from '@/components/fleet/FleetLayout.vue'
 import NoticeList from '@/components/fleet/NoticeList.vue'
 import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
+import ForgetDeviceDialog from '@/components/device/ForgetDeviceDialog.vue'
 import SerialConflictBanner from '@/components/serial/SerialConflictBanner.vue'
 import SerialFlashDialog from '@/components/serial/SerialFlashDialog.vue'
 import UsbTopologyTree from '@/components/topology/UsbTopologyTree.vue'
@@ -42,6 +44,14 @@ function openSerialFlashDialog(deviceId: string): void {
 
 function closeSerialFlashDialog(): void {
   fleetStore.closeSerialFlashDialog()
+}
+
+function openForgetDialog(deviceId: string): void {
+  fleetStore.openForgetDialog(deviceId)
+}
+
+function closeForgetDialog(): void {
+  fleetStore.closeForgetDialog()
 }
 
 onMounted(async () => {
@@ -144,19 +154,34 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
           title="No devices detected"
           detail="Connect an SDR to a USB port on this Pi."
         />
-        <div v-else class="flex flex-col rounded-rack border border-ground-hairline">
-          <SdrDeviceCard
-            v-for="device in fleetStore.devices"
-            :key="device.device_id"
-            :device="device"
-            @request-serial-flash="openSerialFlashDialog"
+        <template v-else>
+          <EmptyState
+            v-if="fleetStore.presentDevices.length === 0"
+            title="No devices currently plugged in"
+            detail="Every configured device below is absent — see the collapsed group beneath."
           />
-        </div>
+          <div v-else class="flex flex-col rounded-rack border border-ground-hairline">
+            <SdrDeviceCard
+              v-for="device in fleetStore.presentDevices"
+              :key="device.device_id"
+              :device="device"
+              @request-serial-flash="openSerialFlashDialog"
+              @request-forget-device="openForgetDialog"
+            />
+          </div>
+          <AbsentDeviceGroup
+            v-if="fleetStore.absentConfiguredDevices.length > 0"
+            :devices="fleetStore.absentConfiguredDevices"
+            @request-serial-flash="openSerialFlashDialog"
+            @request-forget-device="openForgetDialog"
+          />
+        </template>
       </template>
     </FleetLayout>
     <SerialFlashDialog
       :device="fleetStore.serialFlashDialogDevice"
       @close="closeSerialFlashDialog"
     />
+    <ForgetDeviceDialog :device="fleetStore.forgetDialogDevice" @close="closeForgetDialog" />
   </div>
 </template>
