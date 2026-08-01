@@ -48,6 +48,8 @@ class FakeManagedProcess:
         """True once `terminate()` has been called at least once."""
         self.killed = False
         """True once `kill()` has been called at least once."""
+        self.resumed = False
+        """True once `resume()` has been called at least once."""
         self.stdout = b""
         """Set by a test before/around `complete()` to script `communicate()`'s stdout."""
         self.stderr = b""
@@ -81,6 +83,10 @@ class FakeManagedProcess:
     def kill(self) -> None:
         """Record that a forceful stop was requested; does not itself complete the process."""
         self.killed = True
+
+    def resume(self) -> None:
+        """Record that a resume (`SIGCONT`) was requested; does not itself complete the process."""
+        self.resumed = True
 
     def complete(self, returncode: int) -> None:
         """Simulate the process exiting with `returncode`, releasing any `wait()`ers.

@@ -42,6 +42,21 @@ class ManagedProcess(Protocol):
         """Send a forceful stop signal (SIGKILL), for use after a grace period."""
         ...
 
+    def resume(self) -> None:
+        """Send `SIGCONT` (or process-group equivalent), a no-op on an already-running process.
+
+        A process stopped by `SIGSTOP` (e.g. `pkill -STOP`, or a genuinely
+        wedged driver left in stopped state) never handles `SIGTERM` — the
+        signal stays pending until the process is continued, which never
+        happens on its own. Callers send this before `terminate()` so a
+        stopped-but-otherwise-healthy process gets a chance to actually
+        receive and act on the polite signal that follows; they must never
+        rely on this alone, since a genuinely hung process may ignore
+        `SIGTERM` even once continued, and only `kill()` is guaranteed to
+        remove it.
+        """
+        ...
+
     async def communicate(self) -> tuple[bytes, bytes]:
         """Return `(stdout, stderr)` captured so far, once the process has exited.
 

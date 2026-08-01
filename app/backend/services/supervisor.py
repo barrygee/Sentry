@@ -80,6 +80,29 @@ WEDGE_EXIT_CODE = 75
 """The relay's `RELAY_WEDGE_EXIT_CODE` (architecture §2.1) — treated as an ordinary
 crash-and-restart, but raises a `notice` specifically calling out the wedge recovery."""
 
+KILL_CONFIRM_TIMEOUT_S = 5.0
+"""Bound on waiting for a process to be reaped after `SIGKILL`. `SIGKILL` cannot be
+blocked, ignored, or left pending by a stopped process, so under any normal Linux
+scheduler this returns in milliseconds; the bound exists only so a pathological
+uninterruptible-sleep (D-state) process cannot hang the supervisor forever, and is
+logged loudly if it is ever hit."""
+
+IMMEDIATE_EXIT_PROBE_S = 1.0
+"""How long to wait, immediately after spawning `rtl_tcp`, before assuming it started
+successfully rather than having already exited.
+
+Real-hardware finding: a USB claim failure (`usb_claim_interface error -6`, "Failed to
+open rtlsdr device") makes `rtl_tcp` exit within well under a second, having streamed
+nothing — a fatal, immediately-distinguishable condition, not the same thing as a
+dongle that streamed and then went silent (which is what wedge detection is for). A
+process that survives this window is presumed running; one that does not is reported
+as `device_busy`, not funnelled into wedge-and-respawn."""
+
+_STDERR_TAIL_MAX_BYTES = 500
+"""Cap on how much of a failed `rtl_tcp`'s captured stderr is echoed into a `notice`
+message — enough for `usb_claim_interface error -6`'s one or two lines, not enough for
+a runaway operator-facing message."""
+
 IndexResolutionFailure = Literal[
     "index_unresolved",
     "ambiguous_index",
@@ -230,6 +253,10 @@ class SupervisorService:
         `reconcile()` via `_spawn_retry_ready` before it will attempt
         `_spawn_pair` again for that device."""
         self._device_locks: dict[str, asyncio.Lock] = {}
+        self._background_tasks: set[asyncio.Task[object]] = set()
+        """Keeps a strong reference to fire-and-forget tasks (currently only the
+        rtl_tcp output-drain task, see `_drain_output_in_background`) so asyncio
+        cannot garbage-collect them mid-flight; each removes itself on completion."""
 
     def _lock_for(self, device_id: str) -> asyncio.Lock:
         """Return `device_id`'s spawn/stop/reconcile lock, creating it on first use."""
@@ -470,13 +497,37 @@ class SupervisorService:
             rtl_tcp_argv += ["-g", str(desired.gain_db)]
 
         try:
+            # `capture_output=True` so a fatal, near-instant exit (USB claim
+            # failure) can carry its stderr into the operator-facing notice
+            # (`_capture_stderr_tail`) — the pipe is kept drained for the
+            # rest of the process's life by `_drain_output_in_background`
+            # once it survives the immediate-exit probe below, so this can
+            # never dead-letter and block a long-running `rtl_tcp`.
             rtl_tcp_process = await self._process_spawner.spawn(
-                rtl_tcp_argv, self._rtl_tcp_env(), name=f"{device_id}-rtl_tcp"
+                rtl_tcp_argv, self._rtl_tcp_env(), name=f"{device_id}-rtl_tcp", capture_output=True
             )
         except OSError as error:
             self._release_internal_port(device_id)
             await self._record_spawn_failure(device_id, "spawn_failed", str(error))
             return
+
+        immediate_exit_code = await self._probe_immediate_exit(rtl_tcp_process)
+        if immediate_exit_code is not None:
+            # Fatal, immediately-distinguishable condition (hardware finding):
+            # `rtl_tcp` started and exited within well under a second, having
+            # streamed nothing — almost always `usb_claim_interface error -6`
+            # because something else already holds the dongle. Distinct from
+            # a wedge (a dongle that streamed and then went silent): this
+            # never streamed at all, so it must never be retried as a wedge.
+            stderr_tail = await self._capture_stderr_tail(rtl_tcp_process)
+            self._release_internal_port(device_id)
+            await self._record_spawn_failure(
+                device_id,
+                "device_busy",
+                self._device_busy_message(immediate_exit_code, stderr_tail),
+            )
+            return
+        self._drain_output_in_background(rtl_tcp_process)
 
         # Exactly these six env vars, and no others (architecture §12.7) —
         # everything else about the relay (protocol, defaults, tuning) is
@@ -494,7 +545,13 @@ class SupervisorService:
                 [sys.executable, self._relay_path], relay_env, name=f"{device_id}-relay"
             )
         except OSError as error:
-            rtl_tcp_process.terminate()
+            # Confirm rtl_tcp is actually gone before giving up this attempt —
+            # otherwise it would keep the USB interface claimed straight
+            # through the very next spawn attempt (the same failure mode as
+            # the wedge-recovery bug this module's docstring documents).
+            await self._stop_process(
+                rtl_tcp_process, grace_period_s=5.0, escalate_immediately=False
+            )
             self._release_internal_port(device_id)
             await self._record_spawn_failure(device_id, "spawn_failed", str(error))
             return
@@ -538,6 +595,76 @@ class SupervisorService:
         narrow as the relay's own six-variable invariant (module docstring).
         """
         return {"PATH": os.environ.get("PATH", _FALLBACK_SPAWN_PATH)}
+
+    async def _probe_immediate_exit(self, process: ManagedProcess) -> int | None:
+        """Return `process`'s exit code if it exits within `IMMEDIATE_EXIT_PROBE_S`.
+
+        `None` means the process outlived the probe window and is presumed to
+        have started successfully — the common case, and the only one where
+        the caller should proceed to spawn the relay against it.
+        """
+        try:
+            return await asyncio.wait_for(process.wait(), timeout=IMMEDIATE_EXIT_PROBE_S)
+        except TimeoutError:
+            return None
+
+    async def _capture_stderr_tail(self, process: ManagedProcess) -> str:
+        """Best-effort short tail of `process`'s captured stderr, for an operator-facing reason.
+
+        Only ever called after `_probe_immediate_exit` has already confirmed
+        the process exited, so `communicate()` returns immediately with
+        whatever little output a near-instant failure produced — never blocks
+        waiting on a process that is still running.
+        """
+        try:
+            _stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=1.0)
+        except (TimeoutError, OSError):
+            return ""
+        return stderr[-_STDERR_TAIL_MAX_BYTES:].decode("utf-8", errors="replace").strip()
+
+    def _device_busy_message(self, exit_code: int, stderr_tail: str) -> str:
+        """Build the operator-facing `device_busy` reason for an immediate, streamless exit."""
+        message = (
+            f"rtl_tcp exited immediately (code {exit_code}) without ever streaming — the "
+            "device is busy: another process or the kernel's DVB driver has already claimed "
+            "it. Check for a stale rtl_tcp/rtl_sdr process still holding the dongle, another "
+            "container using it, or the DVB kernel driver having rebound it (blacklist "
+            "dvb_usb_rtl28xxu and reboot)."
+        )
+        if stderr_tail:
+            message += f" rtl_tcp stderr: {stderr_tail!r}"
+        return message
+
+    def _drain_output_in_background(self, process: ManagedProcess) -> None:
+        """Keep `process`'s captured stdout/stderr pipes drained for the rest of its life.
+
+        `capture_output=True` was needed so `_capture_stderr_tail` could see a
+        claim failure's stderr, but an OS pipe nobody reads fills (~64KB) and
+        then blocks the writer — which for a process meant to run for days
+        would eventually stall `rtl_tcp` itself and silently kill streaming.
+        This task's only job is to keep reading (and discarding, once it
+        finally resolves) so that can never happen; it completes on its own
+        once the process actually exits. Accepted trade-off: `communicate()`
+        buffers everything read in memory until then, so a pathologically
+        chatty `rtl_tcp` could grow that buffer over a very long uptime —
+        preferable to the alternative of not draining at all, which risks a
+        blocked, live-but-stuck `rtl_tcp` (real `rtl_tcp` is quiet on stderr
+        once past startup).
+        """
+        drain_task: asyncio.Task[object] = asyncio.create_task(
+            process.communicate(), name="rtl-tcp-output-drain"
+        )
+        self._background_tasks.add(drain_task)
+
+        def _forget(finished_task: asyncio.Task[object]) -> None:
+            self._background_tasks.discard(finished_task)
+            # Nothing can act on a failure of a discard-everything drain task;
+            # retrieve the exception (if any) purely to stop asyncio logging
+            # "Task exception was never retrieved" for it.
+            with contextlib.suppress(BaseException):
+                finished_task.exception()
+
+        drain_task.add_done_callback(_forget)
 
     async def _settle_to_streaming(self, device_id: str) -> None:
         """Promote a `starting` pair to `streaming` once it survives the settle window."""
@@ -591,12 +718,26 @@ class SupervisorService:
             return
         if running_pair.settle_task is not None:
             running_pair.settle_task.cancel()
-        with contextlib.suppress(Exception):
-            running_pair.rtl_tcp_process.terminate()
-        with contextlib.suppress(Exception):
-            running_pair.relay_process.terminate()
         self._release_internal_port(device_id)
         self._pending_restart.add(device_id)
+
+        # Confirm-before-respawn (real-hardware bug fix): one of the two
+        # processes just exited (that is why we're here), but the *other*
+        # may still be alive — and if it was the one that wedged, it may be
+        # genuinely hung or `SIGSTOP`ped, in which case it will never honour
+        # a polite `SIGTERM`/grace-period wait. Escalating straight to
+        # `SIGKILL` and confirming the reap here, before this device is ever
+        # eligible for respawn, is what actually frees the USB interface —
+        # previously this only sent `SIGTERM` with no wait and no
+        # confirmation at all, so a respawned `rtl_tcp` raced (and lost
+        # against) a still-alive, still-USB-claiming predecessor
+        # (`usb_claim_interface error -6`).
+        await self._stop_process(
+            running_pair.rtl_tcp_process, grace_period_s=0.0, escalate_immediately=True
+        )
+        await self._stop_process(
+            running_pair.relay_process, grace_period_s=0.0, escalate_immediately=True
+        )
 
         try:
             if exit_code == WEDGE_EXIT_CODE:
@@ -691,24 +832,77 @@ class SupervisorService:
         if running_pair is not None:
             if running_pair.settle_task is not None:
                 running_pair.settle_task.cancel()
-            running_pair.rtl_tcp_process.terminate()
-            running_pair.relay_process.terminate()
-            try:
-                await asyncio.wait_for(
-                    asyncio.gather(
-                        running_pair.rtl_tcp_process.wait(), running_pair.relay_process.wait()
-                    ),
-                    timeout=grace_period_s,
-                )
-            except TimeoutError:
-                running_pair.rtl_tcp_process.kill()
-                running_pair.relay_process.kill()
+            # Both processes are stopped — and their exit *confirmed* —
+            # before this method returns and the registry is told `stopped`.
+            # A device must never be reported stopped while its process is
+            # still alive and holding the hardware (e.g. `EepromService`
+            # relies on exactly that guarantee before it will open the
+            # device itself).
+            await asyncio.gather(
+                self._stop_process(
+                    running_pair.rtl_tcp_process,
+                    grace_period_s=grace_period_s,
+                    escalate_immediately=False,
+                ),
+                self._stop_process(
+                    running_pair.relay_process,
+                    grace_period_s=grace_period_s,
+                    escalate_immediately=False,
+                ),
+            )
 
         self._release_internal_port(device_id)
         self._restart_bookkeeping.pop(device_id, None)
         self._spawn_failure_bookkeeping.pop(device_id, None)
         self._device_registry.update_process_info(device_id, None)
         await self._device_registry.transition(device_id, "stopped", reason)
+
+    async def _stop_process(
+        self, process: ManagedProcess, *, grace_period_s: float, escalate_immediately: bool
+    ) -> None:
+        """Stop `process`, confirming it has actually exited before returning.
+
+        Real-hardware finding: a `SIGSTOP`ped `rtl_tcp` never handles
+        `SIGTERM` — the signal stays pending until the process is continued,
+        which never happens on its own — so a stop path that only sends
+        `SIGTERM` and waits out a grace period can never reap a stopped/hung
+        process. It then keeps the USB interface claimed, and every
+        respawned `rtl_tcp` fails `usb_claim_interface error -6`. `SIGCONT`
+        (best-effort — lets a genuinely stopped-but-healthy process actually
+        receive the `SIGTERM` that follows) and `SIGKILL` (which a stopped
+        process cannot ignore or leave pending) are what actually reclaims
+        the hardware; this method never returns having merely *sent* a
+        signal without confirming the process is gone.
+
+        `escalate_immediately=True` (the crash/wedge-restart path) skips the
+        grace period entirely and goes straight to `SIGKILL` — a process
+        whose sibling just crashed or wedged is not a process worth waiting
+        a polite grace period for, and every second spent waiting is a
+        second the USB interface stays claimed and a respawn cannot succeed.
+        """
+        if process.returncode is not None:
+            return  # already exited (typically: the sibling process that triggered this call)
+
+        process.resume()  # SIGCONT
+        process.terminate()  # SIGTERM
+
+        if not escalate_immediately:
+            try:
+                await asyncio.wait_for(process.wait(), timeout=grace_period_s)
+                return
+            except TimeoutError:
+                pass
+
+        process.kill()  # SIGKILL — cannot be blocked, ignored, or left pending by a stopped process
+        try:
+            await asyncio.wait_for(process.wait(), timeout=KILL_CONFIRM_TIMEOUT_S)
+        except TimeoutError:
+            _logger.error(
+                "process pid=%s did not exit within %.0fs of SIGKILL; it may still hold "
+                "hardware/ports it claimed",
+                process.pid,
+                KILL_CONFIRM_TIMEOUT_S,
+            )
 
     def _departure_reason(self, device_id: str) -> str:
         """Return why `device_id` left the desired set: `disabled` or `device_absent`.

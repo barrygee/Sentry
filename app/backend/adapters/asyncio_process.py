@@ -53,6 +53,10 @@ class AsyncioManagedProcess:
         """Send `SIGKILL` to the whole process group started with this process."""
         self._signal_group(signal.SIGKILL)
 
+    def resume(self) -> None:
+        """Send `SIGCONT` to the whole process group started with this process."""
+        self._signal_group(signal.SIGCONT)
+
     def _signal_group(self, sig: signal.Signals) -> None:
         """Deliver `sig` to the process group, falling back to the lone PID.
 
