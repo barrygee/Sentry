@@ -106,22 +106,20 @@ UPSTREAM_BACKOFF_MAX_S = 10.0
 
 # Watchdog. rtl_tcp can survive a USB re-enumeration as a live process that
 # accepts connections but never streams (the classic "wedged but not exited"
-# state), which restart:unless-stopped can't catch because the process never
-# dies. When set, the relay restarts this container via the Docker API after a
-# run of no-data cycles, with a cooldown so it can never restart-loop. Empty =
-# watchdog disabled (the relay just keeps reconnecting).
-WATCHDOG_CONTAINER = os.environ.get("RELAY_RESTART_CONTAINER", "")
-WATCHDOG_DOCKER_SOCK = os.environ.get("RELAY_DOCKER_SOCK", "/var/run/docker.sock")
-WATCHDOG_RESTART_AFTER_FAILURES = int(os.environ.get("RELAY_RESTART_AFTER_FAILURES", "3"))
-WATCHDOG_COOLDOWN_S = float(os.environ.get("RELAY_RESTART_COOLDOWN_S", "60"))
-
-# Sentry additive diff (ADR-0002 / architecture §2.1): with the Docker socket
-# removed, a wedged dongle is recovered by exiting the whole relay process so
-# Sentry's supervisor (the pair's parent) can kill+respawn rtl_tcp and the relay
-# together. Disabled by default so the original Docker-socket behaviour is unaffected
-# for any external deployment driving this file directly.
+# state), which no process-liveness restart policy can catch, because the
+# process never dies. After a run of no-data cycles the relay exits so its
+# parent — Sentry's supervisor, which owns both halves of the pair — can kill
+# and respawn rtl_tcp and the relay together (ADR-0002). A cooldown keeps a
+# persistently sick dongle from turning into a tight respawn loop.
+#
+# Recovery used to work by asking the Docker Engine to restart a sibling
+# container over a mounted docker.sock, which required granting the relay
+# root-equivalent control of the host. That is gone: the supervisor is the
+# pair's parent, so it can do the same job with a signal.
 WATCHDOG_EXIT_ON_WEDGE = os.environ.get("RELAY_EXIT_ON_WEDGE", "") == "1"
 WATCHDOG_WEDGE_EXIT_CODE = int(os.environ.get("RELAY_WEDGE_EXIT_CODE", "75"))
+WATCHDOG_RESTART_AFTER_FAILURES = int(os.environ.get("RELAY_RESTART_AFTER_FAILURES", "3"))
+WATCHDOG_COOLDOWN_S = float(os.environ.get("RELAY_RESTART_COOLDOWN_S", "60"))
 
 
 class RelayState:
@@ -394,31 +392,29 @@ async def handle_control_client(
 
 
 class UpstreamWatchdog:
-    """Restarts the dongle container when the upstream is wedged-but-alive.
+    """Exits the relay when the upstream is wedged-but-alive, so its parent can recover it.
 
     A streaming dongle resets the unhealthy counter; cycles that connect but
     deliver no data increment it. Once enough consecutive no-data cycles pile up
-    (and the cooldown since the last restart has elapsed), the watchdog asks the
-    Docker Engine to restart the rtl_tcp container — recovering the USB-wedge
-    state that a process-liveness restart policy cannot. Disabled (a no-op) when
-    no container name is configured.
+    (and the cooldown since the last recovery has elapsed), the relay exits with
+    ``wedge_exit_code``. Sentry's supervisor owns both halves of the pair, sees
+    that code, and kills and respawns rtl_tcp alongside the relay — recovering
+    the USB-wedge state that a process-liveness restart policy cannot, because
+    the wedged process never dies.
+
+    Disabled (a no-op that only counts) when ``exit_on_wedge`` is unset, so the
+    relay can still be run standalone by something that supervises it another way.
     """
 
     def __init__(
         self,
-        container_name: str,
-        docker_sock_path: str,
         restart_after_failures: int,
         cooldown_s: float,
         exit_on_wedge: bool = False,
         wedge_exit_code: int = 75,
     ) -> None:
-        self.container_name = container_name
-        self.docker_sock_path = docker_sock_path
         self.restart_after_failures = restart_after_failures
         self.cooldown_s = cooldown_s
-        # Sentry additive diff (ADR-0002): process-exit recovery, used only when
-        # no Docker container is configured to restart.
         self.exit_on_wedge = exit_on_wedge
         self.wedge_exit_code = wedge_exit_code
         self.consecutive_unhealthy = 0
@@ -426,20 +422,14 @@ class UpstreamWatchdog:
 
     @property
     def enabled(self) -> bool:
-        return bool(self.container_name) or self.exit_on_wedge
+        return self.exit_on_wedge
 
     def note_healthy(self) -> None:
         """Record that the upstream delivered data — clears the failure run."""
         self.consecutive_unhealthy = 0
 
     async def note_unhealthy(self) -> None:
-        """Record a no-data upstream cycle; recover the wedge past threshold.
-
-        Three branches: a configured Docker container is restarted (legacy
-        path, untouched); otherwise, if ``exit_on_wedge`` is set, the whole
-        relay process exits so its parent (Sentry's supervisor) respawns the
-        pair; otherwise the watchdog is disabled and this is a no-op.
-        """
+        """Record a no-data upstream cycle; exit for recovery once past threshold."""
         self.consecutive_unhealthy += 1
         if not self.enabled:
             return
@@ -447,53 +437,16 @@ class UpstreamWatchdog:
             return
         if time.monotonic() - self.last_restart_monotonic < self.cooldown_s:
             return
-        if self.container_name:
-            await self._restart_container()
-            self.last_restart_monotonic = time.monotonic()
-            self.consecutive_unhealthy = 0
-            return
-        if self.exit_on_wedge:
-            logger.warning(
-                "Upstream wedged (%d no-data cycles) — exiting with code %d for the "
-                "supervisor to respawn this pair",
-                self.consecutive_unhealthy, self.wedge_exit_code,
-            )
-            os._exit(self.wedge_exit_code)
-
-    async def _restart_container(self) -> None:
-        """POST /containers/<name>/restart to the Docker Engine over its socket."""
         logger.warning(
-            "Upstream wedged (%d no-data cycles) — restarting container '%s'",
-            self.consecutive_unhealthy, self.container_name,
+            "Upstream wedged (%d no-data cycles) — exiting with code %d for the "
+            "supervisor to respawn this pair",
+            self.consecutive_unhealthy,
+            self.wedge_exit_code,
         )
-        try:
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_unix_connection(self.docker_sock_path), timeout=5.0
-            )
-        except (OSError, asyncio.TimeoutError) as error:
-            logger.error("Watchdog cannot reach Docker at %s: %s", self.docker_sock_path, error)
-            return
-        try:
-            request = (
-                f"POST /containers/{self.container_name}/restart?t=5 HTTP/1.1\r\n"
-                "Host: docker\r\n"
-                "Content-Length: 0\r\n"
-                "Connection: close\r\n"
-                "\r\n"
-            )
-            writer.write(request.encode("ascii"))
-            await writer.drain()
-            status_line = await asyncio.wait_for(reader.readline(), timeout=20.0)
-            await reader.read()  # drain remainder so the socket closes cleanly
-            status = status_line.decode("ascii", "replace").strip()
-            if " 204" in status or " 200" in status:
-                logger.info("Watchdog restarted '%s' (%s)", self.container_name, status)
-            else:
-                logger.error("Watchdog restart of '%s' failed: %s", self.container_name, status)
-        except (OSError, asyncio.TimeoutError) as error:
-            logger.error("Watchdog restart request failed: %s", error)
-        finally:
-            writer.close()
+        # Deliberately os._exit: this is a recovery path, not a clean shutdown.
+        # stderr is line-buffered and logging flushes each record, so the line
+        # above survives even though interpreter teardown is skipped.
+        os._exit(self.wedge_exit_code)
 
 
 async def pump_upstream(state: RelayState, watchdog: UpstreamWatchdog) -> None:
@@ -515,7 +468,10 @@ async def pump_upstream(state: RelayState, watchdog: UpstreamWatchdog) -> None:
         except (OSError, asyncio.TimeoutError) as error:
             logger.warning(
                 "Upstream rtl_tcp unreachable at %s:%d (%s) — retrying in %.0fs",
-                UPSTREAM_HOST, UPSTREAM_PORT, error, backoff_s,
+                UPSTREAM_HOST,
+                UPSTREAM_PORT,
+                error,
+                backoff_s,
             )
             await asyncio.sleep(backoff_s)
             backoff_s = min(UPSTREAM_BACKOFF_MAX_S, backoff_s * 2)
@@ -631,9 +587,7 @@ async def handle_client(
         client_writer.close()
         return
 
-    client_queue: asyncio.Queue[bytes | None] = asyncio.Queue(
-        maxsize=CLIENT_QUEUE_MAX_CHUNKS
-    )
+    client_queue: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=CLIENT_QUEUE_MAX_CHUNKS)
     state.client_queues.add(client_queue)
     command_task = asyncio.create_task(
         forward_commands(state, client_reader, peer), name=f"relay-cmd-{peer}"
@@ -644,9 +598,7 @@ async def handle_client(
             if iq_chunk is None:  # reserved shutdown sentinel
                 break
             client_writer.write(iq_chunk)
-            await asyncio.wait_for(
-                client_writer.drain(), timeout=CLIENT_DRAIN_TIMEOUT_S
-            )
+            await asyncio.wait_for(client_writer.drain(), timeout=CLIENT_DRAIN_TIMEOUT_S)
     except asyncio.TimeoutError:
         logger.info("Dropping stalled/dead client %s (drain timed out)", peer)
     except (OSError, ConnectionError):
@@ -662,26 +614,19 @@ async def main() -> None:
     """Start the downstream server and the upstream pump, and run forever."""
     state = RelayState()
     watchdog = UpstreamWatchdog(
-        container_name=WATCHDOG_CONTAINER,
-        docker_sock_path=WATCHDOG_DOCKER_SOCK,
         restart_after_failures=WATCHDOG_RESTART_AFTER_FAILURES,
         cooldown_s=WATCHDOG_COOLDOWN_S,
         exit_on_wedge=WATCHDOG_EXIT_ON_WEDGE,
         wedge_exit_code=WATCHDOG_WEDGE_EXIT_CODE,
     )
     if watchdog.enabled:
-        recovery = (
-            f"restart container '{watchdog.container_name}'"
-            if watchdog.container_name
-            else f"exit {watchdog.wedge_exit_code}"
-        )
         logger.info(
-            "Watchdog enabled: %s after %d no-data cycles (cooldown %.0fs)",
-            recovery, watchdog.restart_after_failures, watchdog.cooldown_s,
+            "Watchdog enabled: exit %d after %d no-data cycles (cooldown %.0fs)",
+            watchdog.wedge_exit_code,
+            watchdog.restart_after_failures,
+            watchdog.cooldown_s,
         )
-    upstream_task = asyncio.create_task(
-        pump_upstream(state, watchdog), name="relay-upstream"
-    )
+    upstream_task = asyncio.create_task(pump_upstream(state, watchdog), name="relay-upstream")
 
     server = await asyncio.start_server(
         lambda reader, writer: handle_client(state, reader, writer),
@@ -695,7 +640,12 @@ async def main() -> None:
     )
     logger.info(
         "Relay listening on %s:%d (control %s:%d), fanning out %s:%d",
-        LISTEN_HOST, LISTEN_PORT, LISTEN_HOST, CONTROL_PORT, UPSTREAM_HOST, UPSTREAM_PORT,
+        LISTEN_HOST,
+        LISTEN_PORT,
+        LISTEN_HOST,
+        CONTROL_PORT,
+        UPSTREAM_HOST,
+        UPSTREAM_PORT,
     )
     async with server, control_server:
         try:

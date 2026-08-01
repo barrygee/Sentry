@@ -51,27 +51,26 @@ supervises them; it does not import it, subclass it, or fork its logic.
 
 ### 2.1 The single permitted relay change: wedge exit code
 
-The Docker socket mount is being deleted (ADR-0002), so `UpstreamWatchdog._restart_container`
-loses its recovery mechanism. Replace the Docker call with a process exit, additively so the
-old compose still works:
+The Docker socket mount is deleted (ADR-0002), so `UpstreamWatchdog` recovers a wedge by exiting
+the relay process instead of calling the Docker Engine:
 
 ```
-RELAY_EXIT_ON_WEDGE   = "1" | ""   (default "")   # new
-RELAY_WEDGE_EXIT_CODE = int        (default 75)   # new
+RELAY_EXIT_ON_WEDGE   = "1" | ""   (default "")
+RELAY_WEDGE_EXIT_CODE = int        (default 75)
 ```
 
-`UpstreamWatchdog.note_unhealthy()` gains a third branch: if `RELAY_RESTART_CONTAINER` is empty
-**and** `RELAY_EXIT_ON_WEDGE` is set, then once `consecutive_unhealthy >= restart_after_failures`
-and the cooldown has elapsed, log and `os._exit(RELAY_WEDGE_EXIT_CODE)`. Sentry's supervisor is
-the parent, sees exit code 75, and kills+respawns the whole `rtl_tcp`+relay pair — which is
-strictly *more* recovery than the old container restart, because the wedged `rtl_tcp` is
-replaced too. `enabled` becomes `bool(container_name) or exit_on_wedge`.
+Once `consecutive_unhealthy >= restart_after_failures` and the cooldown has elapsed,
+`note_unhealthy()` logs and calls `os._exit(RELAY_WEDGE_EXIT_CODE)`. Sentry's supervisor is the
+parent, sees exit code 75, and kills+respawns the whole `rtl_tcp`+relay pair — strictly *more*
+recovery than the container restart it replaced, because the wedged `rtl_tcp` is replaced too.
 
-Sentry always sets `RELAY_EXIT_ON_WEDGE=1` and never sets `RELAY_RESTART_CONTAINER`.
-The three `WATCHDOG_*` Docker constants and `_restart_container` stay in place, untouched and
-still tested. Sentry never configures them; they are retained so the relay file stays a faithful
-copy of the upstream original and remains usable by any external deployment that drives it
-directly.
+Sentry always sets `RELAY_EXIT_ON_WEDGE=1`. With it unset the watchdog only counts and never
+acts, so the relay can still be run standalone under a supervisor that recovers it another way.
+
+> **Amended after the initial build.** The Docker-restart branch was first kept alongside this
+> one so the retained legacy compose stayed working. That compose has since been removed, leaving
+> the branch with no consumer, so `_restart_container`, `RELAY_RESTART_CONTAINER` and
+> `RELAY_DOCKER_SOCK` were deleted too. `enabled` is now simply `exit_on_wedge`.
 
 `test_rtl_tcp_relay.py` moves to `tests/relay/test_rtl_tcp_relay.py` unmodified, plus new cases
 for the exit branch (§12).

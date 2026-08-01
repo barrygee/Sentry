@@ -37,13 +37,15 @@ RELAY_EXIT_ON_WEDGE   = "1" | ""  (default "")
 RELAY_WEDGE_EXIT_CODE = int       (default 75)
 ```
 
-When `RELAY_RESTART_CONTAINER` is empty and `RELAY_EXIT_ON_WEDGE` is set, a sustained wedge makes
-the relay log and `os._exit(75)` instead of calling Docker. The supervisor sees exit 75, raises a
-`notice`, and kills and respawns **both** processes in the pair.
+When `RELAY_EXIT_ON_WEDGE` is set, a sustained wedge makes the relay log and `os._exit(75)`
+instead of calling Docker. The supervisor sees exit 75, raises a `notice`, and kills and respawns
+**both** processes in the pair.
 
-The Docker-socket code path is left in place, unchanged and still tested, so the relay file stays
-a faithful copy of the upstream original and remains usable by any external deployment that drives
-it directly. Sentry never configures it.
+> **Amended.** The Docker-restart branch was initially left in place so the retained legacy
+> single-dongle compose kept working. That compose has since been removed from the repository,
+> which left the branch with no consumer at all — so `_restart_container` and its
+> `RELAY_RESTART_CONTAINER` / `RELAY_DOCKER_SOCK` settings were deleted as well. Process exit is
+> now the watchdog's only recovery mechanism.
 
 ## Consequences
 
