@@ -30,8 +30,8 @@ USB bus ──hotplug──►    │  discovery → identity → registry → s
 Plug the dongles in first, then:
 
 ```bash
-git clone https://github.com/barrygee/rtl-sdr-controller.git sentry
-cd sentry
+git clone https://github.com/barrygee/Sentry.git
+cd Sentry
 docker compose up -d --build
 ```
 

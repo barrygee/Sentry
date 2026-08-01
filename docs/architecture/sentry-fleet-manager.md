@@ -1,8 +1,8 @@
 # Sentry — Multi-Dongle SDR Fleet Manager
 
 **Status:** Design — approved architecture, pending sign-off on the open questions in §13.
-**Branch:** `feat/multi-dongle-fleet-manager`
-**Supersedes:** the single-dongle `rtl-sdr-controller` stack (`rtl-tcp` + `rtl-relay` compose services).
+**Supersedes:** the earlier single-dongle stack (`rtl-tcp` + `rtl-relay` compose services), retained
+in this repository as `docker-compose.legacy.yml`.
 **Audience:** the backend, database and frontend engineers building this in parallel.
 **Needs sign-off before build:** the API contract (§7), the design direction (§9.5), and the open questions (§13).
 
@@ -1056,7 +1056,7 @@ Phase 0), so they can interleave commits safely.
   tini), `docker-compose.yml` **without the Docker socket**, healthcheck on `/api/health`, named
   volume for `/data` *(any engineer)*
 - **3D** README rewrite covering Docker and non-Docker commands for dev, build, tests and Alembic
-  migrations, plus the migration guide from `rtl-sdr-controller` *(onboarding-writer)*
+  migrations, plus the migration guide from the legacy single-dongle stack *(onboarding-writer)*
 
 ### Phase 4 — sequential, at commit/push time
 
