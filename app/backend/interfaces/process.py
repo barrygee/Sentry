@@ -42,6 +42,20 @@ class ManagedProcess(Protocol):
         """Send a forceful stop signal (SIGKILL), for use after a grace period."""
         ...
 
+    async def communicate(self) -> tuple[bytes, bytes]:
+        """Return `(stdout, stderr)` captured so far, once the process has exited.
+
+        Only meaningful when the process was spawned with `capture_output=True`
+        (`ProcessSpawner.spawn`) — otherwise both are always empty. Must be
+        awaited only after `wait()` has completed (or concurrently with it);
+        used by `EepromService` to surface `rtl_eeprom`'s stderr in the `notice`
+        it publishes on failure, never by the long-lived `rtl_tcp`/relay pairs
+        `SupervisorService` supervises (which are never captured, so an
+        unread pipe can never fill and deadlock a process meant to run for
+        hours).
+        """
+        ...
+
 
 @runtime_checkable
 class ProcessSpawner(Protocol):
@@ -52,11 +66,16 @@ class ProcessSpawner(Protocol):
         argv: Sequence[str],
         env: Mapping[str, str],
         name: str,
+        capture_output: bool = False,
     ) -> ManagedProcess:
         """Start `argv` with the given environment and return its handle.
 
         `argv` is always a fully-formed list — implementations must never
         build or accept a shell string (architecture §7.6, §12.7, §12.10).
-        `name` is a human-readable label for logging only.
+        `name` is a human-readable label for logging only. `capture_output`
+        pipes stdout/stderr so `ManagedProcess.communicate()` can return them
+        after exit — only ever set for short-lived, one-shot commands
+        (`rtl_eeprom`), never for a supervised long-running pair, to avoid
+        an unread pipe filling and stalling a process meant to run for hours.
         """
         ...

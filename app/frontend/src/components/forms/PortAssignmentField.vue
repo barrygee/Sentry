@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, useId } from 'vue'
 
 import type { PortConstraints } from '@/api/client'
 import BaseField from '@/components/base/BaseField.vue'
@@ -51,12 +51,15 @@ const textValue = computed<string>({
 })
 
 const clientError = ref<string | null>(null)
+const fieldRef = ref<InstanceType<typeof BaseField> | null>(null)
+const pendingPreviewId = `${useId()}-pending-preview`
 
 const isDraftPending = computed(() => modelValue.value !== props.committedIqPort)
 
 function validateAndCommit(): void {
   if (modelValue.value === null) {
     clientError.value = 'Port is required.'
+    void nextTick(() => fieldRef.value?.focus())
     return
   }
   if (props.constraints) {
@@ -67,6 +70,7 @@ function validateAndCommit(): void {
     )
     if (validationError) {
       clientError.value = validationError
+      void nextTick(() => fieldRef.value?.focus())
       return
     }
   }
@@ -78,16 +82,18 @@ function validateAndCommit(): void {
 <template>
   <div class="flex flex-col gap-2">
     <BaseField
+      ref="fieldRef"
       v-model="textValue"
       label="Output port (P)"
       type="number"
       input-mode="numeric"
       :hint="portSuggestion ? `Suggested: ${portSuggestion}` : 'The relay listens on P and P+2'"
-      :error="clientError ?? serverError"
-      :disabled="disabled"
+      :error="clientError ?? props.serverError"
+      :disabled="props.disabled"
+      :described-by="isDraftPending ? pendingPreviewId : null"
       @blur="validateAndCommit"
     />
-    <div v-if="isDraftPending" class="flex items-center gap-2">
+    <div v-if="isDraftPending" :id="pendingPreviewId" class="flex items-center gap-2">
       <span class="font-condensed text-[10px] uppercase tracking-legend text-signal-amber"
         >Pending</span
       >

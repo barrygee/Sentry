@@ -33,6 +33,16 @@ def _count_devices(statuses: tuple[DeviceStatus, ...]) -> DeviceCounts:
     )
 
 
+_HEALTH_CACHE_TTL_S = 4.0
+"""Just under the SSE heartbeat cadence (`HEALTH_HEARTBEAT_INTERVAL_S` in
+`routers/events.py`, 5s) so every open SSE connection's own heartbeat still
+sees a snapshot at least once per cycle, while a burst of many concurrent
+connections (each independently calling `get_health()` on its own 5s timer,
+plus `GET /api/health` itself) shares one DB ping instead of issuing one per
+connection every 5 seconds — the amplification path a fleet with many open
+tabs would otherwise hit."""
+
+
 class HealthService:
     """Combines registry state, hotplug health and a DB ping into one health snapshot."""
 
@@ -47,15 +57,25 @@ class HealthService:
         self._hotplug = hotplug
         self._started_at_ms = started_at_ms
         self._version = version
+        self._cached_response: HealthResponse | None = None
+        self._cached_at_monotonic: float | None = None
 
     async def get_health(self) -> HealthResponse:
-        """Build the current health snapshot.
+        """Build the current health snapshot, reusing one within `_HEALTH_CACHE_TTL_S`.
 
         `status` is `"unhealthy"` (mapped by the router to HTTP 503) only
         when the database ping fails — a flapping healthcheck on one
         degraded dongle must never restart the container and take the
         healthy dongles down with it (architecture §7.1).
         """
+        now_monotonic = time.monotonic()
+        if (
+            self._cached_response is not None
+            and self._cached_at_monotonic is not None
+            and now_monotonic - self._cached_at_monotonic < _HEALTH_CACHE_TTL_S
+        ):
+            return self._cached_response
+
         database_reachable = await self._device_registry.ping_database()
         device_counts = _count_devices(self._device_registry.list_statuses())
         hotplug_healthy = self._hotplug.is_primary_source_healthy()
@@ -68,7 +88,7 @@ class HealthService:
         else:
             status = "degraded"
 
-        return HealthResponse(
+        response = HealthResponse(
             status=status,
             version=self._version,
             started_at=self._started_at_ms,
@@ -81,3 +101,6 @@ class HealthService:
             ),
             devices=device_counts,
         )
+        self._cached_response = response
+        self._cached_at_monotonic = now_monotonic
+        return response

@@ -6,7 +6,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import BaseDialog from '@/components/base/BaseDialog.vue'
 import BaseField from '@/components/base/BaseField.vue'
 import { useFleetStore } from '@/stores/fleet'
-import { isDeviceIdle, type DeviceState } from '@/utils/deviceState'
+import { isDeviceIdle } from '@/utils/deviceState'
 import { validateSerialClientSide } from '@/utils/serialValidation'
 
 /**
@@ -41,12 +41,11 @@ const requiresReplug = ref(false)
 let requestStartedAtMs = 0
 
 const headingId = useId()
+const consequenceId = `${headingId}-consequence`
 
 const isOpen = computed(() => props.device !== null)
 const deviceLabel = computed(() => props.device?.name || props.device?.device_id || '')
-const isDeviceIdleNow = computed(() =>
-  props.device ? isDeviceIdle(props.device.state as DeviceState) : false,
-)
+const isDeviceIdleNow = computed(() => (props.device ? isDeviceIdle(props.device.state) : false))
 const isBusy = computed(() => phase.value === 'submitting' || phase.value === 'awaiting-outcome')
 const canSubmit = computed(
   () =>
@@ -122,6 +121,33 @@ function requestClose(): void {
   emit('close')
 }
 
+// `phase` used to gate four separate `v-else-if` branches, each mounting a
+// fresh `role="status"`/`role="alert"` element with its text already
+// populated — a screen reader that hasn't yet registered a live region on
+// the node it is told changed will frequently announce nothing at all, for
+// the single highest-stakes action in the product. These two computeds feed
+// a pair of *persistent* regions instead (present for this phase group's
+// whole lifetime; only their text content and visibility class change).
+const statusMessage = computed(() => {
+  if (phase.value === 'awaiting-outcome') {
+    return `Writing EEPROM — do not unplug ${deviceLabel.value}…`
+  }
+  if (phase.value === 'succeeded') {
+    const base = outcomeMessage.value ?? 'Serial flashed successfully.'
+    return requiresReplug.value ? `${base} Replug the device to see the new serial.` : base
+  }
+  return ''
+})
+const statusRegionVisible = computed(
+  () => phase.value === 'awaiting-outcome' || phase.value === 'succeeded',
+)
+const statusRegionClasses = computed(() =>
+  phase.value === 'succeeded'
+    ? 'rounded-rack border border-signal-lime/60 bg-signal-lime/10 px-3 py-2 text-xs text-signal-lime'
+    : 'text-sm text-signal-slate',
+)
+const alertMessage = computed(() => (phase.value === 'failed' ? (outcomeMessage.value ?? '') : ''))
+
 /** Maps a thrown `ApiError`'s machine code to an operator-facing sentence — never surfaces a raw code. */
 function humanizeFlashError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -154,7 +180,10 @@ function humanizeFlashError(error: unknown): string {
     @close="requestClose"
   >
     <template v-if="device">
-      <header class="flex flex-col gap-1">
+      <!-- A `<div>`, not `<header>`: this dialog is teleported to `<body>`,
+           outside any sectioning root, so `<header>` here would register as
+           a second page-level "banner" landmark alongside `FleetHeader`'s. -->
+      <div class="flex flex-col gap-1">
         <h2
           :id="headingId"
           class="font-condensed text-base font-semibold uppercase tracking-legend text-signal-amber"
@@ -166,7 +195,7 @@ function humanizeFlashError(error: unknown): string {
           <code class="font-mono">rtl_eeprom</code>. This is the most destructive action Sentry can
           take on hardware — an interrupted write can corrupt the device's USB descriptor.
         </p>
-      </header>
+      </div>
 
       <p
         v-if="!isDeviceIdleNow"
@@ -190,7 +219,7 @@ function humanizeFlashError(error: unknown): string {
         <div
           class="flex flex-col gap-2 rounded-rack border border-signal-amber/60 bg-signal-amber/10 px-3 py-2 text-xs text-signal-amber"
         >
-          <p>
+          <p :id="consequenceId">
             This will stop <strong>{{ deviceLabel }}</strong
             >'s pair (if running), then write
             <strong class="font-mono">{{ serialDraft || '—' }}</strong> to its EEPROM. A physical
@@ -202,6 +231,7 @@ function humanizeFlashError(error: unknown): string {
               type="checkbox"
               class="mt-0.5 h-4 w-4 shrink-0"
               :disabled="!isDeviceIdleNow || isBusy"
+              :aria-describedby="consequenceId"
             />
             <span>I understand this writes to hardware and cannot be undone.</span>
           </label>
@@ -209,40 +239,48 @@ function humanizeFlashError(error: unknown): string {
 
         <div class="flex flex-wrap justify-end gap-2">
           <BaseButton variant="ghost" :disabled="isBusy" @click="requestClose">Cancel</BaseButton>
-          <BaseButton variant="danger" :disabled="!canSubmit" @click="submit">
+          <BaseButton
+            variant="danger"
+            :disabled="!canSubmit"
+            :aria-describedby="consequenceId"
+            @click="submit"
+          >
             {{ phase === 'submitting' ? 'Starting…' : 'Flash serial' }}
           </BaseButton>
         </div>
       </template>
 
-      <p v-else-if="phase === 'awaiting-outcome'" role="status" class="text-sm text-signal-slate">
-        Writing EEPROM — do not unplug {{ deviceLabel }}…
+      <!-- Persistent live regions, one per phase group, present for the whole
+           lifetime of an open dialog rather than freshly mounted per phase —
+           only their text content and visibility class change, so a screen
+           reader that registered the node before this phase began reliably
+           hears the update (architecture §9.4). -->
+      <p
+        role="status"
+        aria-atomic="true"
+        :class="statusRegionVisible ? statusRegionClasses : 'sr-only'"
+      >
+        {{ statusMessage }}
+      </p>
+      <p
+        role="alert"
+        aria-atomic="true"
+        :class="
+          phase === 'failed'
+            ? 'rounded-rack border border-signal-red bg-signal-red/10 px-3 py-2 text-xs text-signal-red'
+            : 'sr-only'
+        "
+      >
+        {{ alertMessage }}
       </p>
 
-      <div v-else-if="phase === 'succeeded'" class="flex flex-col gap-3">
-        <p
-          role="status"
-          class="rounded-rack border border-signal-lime/60 bg-signal-lime/10 px-3 py-2 text-xs text-signal-lime"
-        >
-          {{ outcomeMessage ?? 'Serial flashed successfully.' }}
-          <template v-if="requiresReplug"> Replug the device to see the new serial.</template>
-        </p>
-        <div class="flex justify-end">
-          <BaseButton variant="primary" @click="requestClose">Close</BaseButton>
-        </div>
+      <div v-if="phase === 'succeeded'" class="flex justify-end">
+        <BaseButton variant="primary" @click="requestClose">Close</BaseButton>
       </div>
 
-      <div v-else-if="phase === 'failed'" class="flex flex-col gap-3">
-        <p
-          role="alert"
-          class="rounded-rack border border-signal-red bg-signal-red/10 px-3 py-2 text-xs text-signal-red"
-        >
-          {{ outcomeMessage }}
-        </p>
-        <div class="flex flex-wrap justify-end gap-2">
-          <BaseButton variant="ghost" @click="requestClose">Close</BaseButton>
-          <BaseButton variant="primary" @click="retry">Try again</BaseButton>
-        </div>
+      <div v-if="phase === 'failed'" class="flex flex-wrap justify-end gap-2">
+        <BaseButton variant="ghost" @click="requestClose">Close</BaseButton>
+        <BaseButton variant="primary" @click="retry">Try again</BaseButton>
       </div>
     </template>
   </BaseDialog>

@@ -24,6 +24,7 @@ import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
@@ -169,6 +170,11 @@ def _build_container(settings: Settings) -> AppContainer:
 
     process_spawner = AsyncioProcessSpawner()
     rtlsdr_library = _build_rtlsdr_library()
+    # Built before `SupervisorService` (which now takes it directly, rather
+    # than the two being wired together nowhere) so live per-dongle tuning
+    # actually reaches a running pair and `DeviceStatus.tuner` is populated —
+    # previously constructed but never started anywhere in this file.
+    control_follower = ControlFollowerService(device_registry, clock)
     supervisor = SupervisorService(
         process_spawner=process_spawner,
         rtlsdr_library=rtlsdr_library,
@@ -179,14 +185,15 @@ def _build_container(settings: Settings) -> AppContainer:
         relay_path=settings.relay_path,
         internal_port_base=settings.internal_port_base,
         max_devices=settings.max_devices,
+        control_follower=control_follower,
     )
-    control_follower = ControlFollowerService(device_registry, clock)
     eeprom_service = EepromService(
         process_spawner=process_spawner,
         rtlsdr_library=rtlsdr_library,
         supervisor=supervisor,
         device_registry=device_registry,
         rtl_eeprom_path=settings.rtl_eeprom_path,
+        event_bus=event_bus,
     )
     port_allocator = PortAllocatorService(
         port_prober=SocketPortProber(),
@@ -230,6 +237,15 @@ async def _run_hotplug_forever(container: AppContainer) -> None:
         _logger.exception("hotplug service crashed")
 
 
+RECONCILE_DEBOUNCE_S = 0.25
+"""Coalesces a burst of `device_changed`/`device_removed` events into one
+`reconcile()` call (finding: reconcile amplification). `reconcile()` always
+reads the registry's *live* desired set rather than anything carried by the
+triggering event, so a debounced call is never stale — merely less frequent —
+which is what keeps an operator alternating a device between two valid ports
+from holding the fleet in continuous stop/respawn churn."""
+
+
 async def _run_supervisor_reconcile_loop(container: AppContainer) -> None:
     """Background task: re-run the supervisor's reconcile whenever the registry changes.
 
@@ -246,17 +262,39 @@ async def _run_supervisor_reconcile_loop(container: AppContainer) -> None:
     dependency direction), so that is the sole responsibility left here:
     whenever the registry publishes a public `device_changed` /
     `device_removed` event, bring the running process set back in line with
-    its desired set.
+    its desired set — debounced by `RECONCILE_DEBOUNCE_S` so a burst of
+    events (e.g. every dongle re-arming after a container restart) triggers
+    one `reconcile()` rather than one per event.
     """
     subscription = container.event_bus.subscribe()
+    pending_reconcile: asyncio.Task[None] | None = None
     try:
         async for message in subscription:
-            if message.event in ("device_changed", "device_removed"):
-                await container.supervisor.reconcile()
+            if message.event not in ("device_changed", "device_removed"):
+                continue
+            if pending_reconcile is not None and not pending_reconcile.done():
+                continue
+            pending_reconcile = asyncio.create_task(
+                _debounced_reconcile(container), name="supervisor-reconcile-debounced"
+            )
     except asyncio.CancelledError:
+        if pending_reconcile is not None:
+            pending_reconcile.cancel()
         raise
     except Exception:
         _logger.exception("supervisor reconcile loop crashed")
+
+
+async def _debounced_reconcile(container: AppContainer) -> None:
+    """Wait out `RECONCILE_DEBOUNCE_S`, then run exactly one `reconcile()` pass."""
+    try:
+        await container.clock.sleep(RECONCILE_DEBOUNCE_S)
+    except asyncio.CancelledError:
+        return
+    try:
+        await container.supervisor.reconcile()
+    except Exception:
+        _logger.exception("supervisor reconcile crashed")
 
 
 @contextlib.asynccontextmanager
@@ -310,6 +348,43 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await container.engine.dispose()
 
 
+class ReferrerPolicyMiddleware:
+    """Sets `Referrer-Policy: no-referrer` on every response, as raw ASGI.
+
+    Belt-and-braces alongside the access-log redaction in
+    `logging_config.py`: the SSE `?access_token=` URL should also never be
+    handed to a third party via the `Referer` header a browser would
+    otherwise send when navigating away from (or embedding a resource from)
+    a page whose URL carries it.
+
+    Deliberately **not** `@app.middleware("http")` (Starlette's
+    `BaseHTTPMiddleware`) — that wrapper buffers/re-drives the response
+    through its own `call_next` machinery and is well known to break
+    long-lived `StreamingResponse`s (confirmed here: wrapping `GET
+    /api/events` in it made the SSE connection never flush its first bytes
+    at all). A raw ASGI middleware that only touches the `http.response.start`
+    message's headers passes every other message (`http.response.body`, of
+    which an SSE response emits many, one per event) straight through
+    untouched.
+    """
+
+    def __init__(self, app: Any) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+
+        async def _send_with_header(message: dict[str, Any]) -> None:
+            if message["type"] == "http.response.start":
+                headers = message.setdefault("headers", [])
+                headers.append((b"referrer-policy", b"no-referrer"))
+            await send(message)
+
+        await self._app(scope, receive, _send_with_header)
+
+
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application instance.
 
@@ -324,6 +399,8 @@ def create_app() -> FastAPI:
         version=SENTRY_VERSION,
         lifespan=_lifespan,
     )
+    application.add_middleware(ReferrerPolicyMiddleware)
+
     # CORS is closed by default (architecture §7.9): the SPA is same-origin in
     # production, and only an explicit SENTRY_CORS_ORIGINS list opens it for a
     # separately-hosted dev frontend. Never "*".

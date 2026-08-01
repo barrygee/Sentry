@@ -9,10 +9,12 @@ defineEmits<{ 'request-serial-flash': [] }>()
 
 <template>
   <div
-    role="status"
     class="flex flex-col gap-2 rounded-rack border border-signal-amber/60 bg-signal-amber/10 px-3 py-2 text-xs text-signal-amber"
   >
-    <p>
+    <!-- `role="status"` wraps only the announcement text — the button that
+         follows is interactive chrome, not part of what should be read out
+         when this notice first appears (architecture §9.4). -->
+    <p role="status">
       Needs identification — this dongle's factory serial isn't unique enough to remember it across
       reboots.
     </p>

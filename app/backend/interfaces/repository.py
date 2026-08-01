@@ -45,11 +45,3 @@ class DeviceRepository(Protocol):
     async def delete(self, record_id: int) -> None:
         """Remove a persisted row by its surrogate key. Idempotent if already absent."""
         ...
-
-    async def list_reserved_port_pairs(self) -> Sequence[tuple[int, int]]:
-        """Return every `(output_port, output_port + 2)` pair currently reserved.
-
-        Includes disabled and absent devices — their reservations still block
-        a new assignment (architecture §8 rule 2).
-        """
-        ...

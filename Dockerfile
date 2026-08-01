@@ -106,5 +106,9 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).status < 500 else 1)"
 
+# `run_server.py` binds uvicorn from `SENTRY_HTTP_HOST`/`SENTRY_HTTP_PORT`
+# (Settings) rather than a hardcoded `--host`/`--port`, which previously made
+# both variables dead configuration, and wires uvicorn's access-log
+# formatter to redact the SSE `?access_token=` query string.
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["uvicorn", "app.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "app.backend.run_server"]

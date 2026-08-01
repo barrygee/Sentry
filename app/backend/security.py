@@ -35,7 +35,7 @@ async def require_bearer_token(
         return
     header_value = request.headers.get("authorization", "")
     expected_header = f"Bearer {settings.auth_token}"
-    if not secrets.compare_digest(header_value, expected_header):
+    if not _constant_time_str_equal(header_value, expected_header):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "unauthorized", "message": "Authentication required."},
@@ -58,7 +58,7 @@ async def require_sse_bearer_token(
     if settings.auth_token is None:
         return
     header_value = request.headers.get("authorization", "")
-    if secrets.compare_digest(header_value, f"Bearer {settings.auth_token}"):
+    if _constant_time_str_equal(header_value, f"Bearer {settings.auth_token}"):
         return
     if token_matches(settings, request.query_params.get("access_token")):
         return
@@ -82,4 +82,23 @@ def token_matches(settings: Settings, candidate: str | None) -> bool:
         return True
     if candidate is None:
         return False
-    return secrets.compare_digest(candidate, settings.auth_token)
+    return _constant_time_str_equal(candidate, settings.auth_token)
+
+
+def _constant_time_str_equal(candidate: str, expected: str) -> bool:
+    """Constant-time-compare two `str`s of arbitrary content, never raising.
+
+    `secrets.compare_digest` only accepts two `str` when *both* are
+    ASCII-only — anything else raises `TypeError`, and every header here
+    ultimately comes from a client-controlled `Authorization`/`Host` value
+    that Starlette decodes as `latin-1` (never guaranteed ASCII). A non-ASCII
+    `Authorization` header previously reached `compare_digest(str, str)`
+    directly and crashed the request with an unhandled 500 instead of a
+    clean 401 — an easy, no-effort denial-of-service against every gated
+    route. Encoding both sides to UTF-8 bytes first sidesteps the ASCII
+    restriction entirely: `str.encode("utf-8")` never raises for any `str`
+    (there are no lone surrogates to worry about, since neither a `latin-1`-
+    decoded header nor an operator-configured token can contain one), and
+    `compare_digest` accepts `bytes` of any content.
+    """
+    return secrets.compare_digest(candidate.encode("utf-8"), expected.encode("utf-8"))

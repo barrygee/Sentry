@@ -43,6 +43,16 @@ services:
       # persistence across reboots, and losing it on a rebuild would fail that.
       - sentry-data:/data
 
+    # Gives `SENTRY_AUTH_TOKEN` (and any other secret) a git-ignored home:
+    # a real deployment sets it in a project-root `.env` (see `.env.example`)
+    # rather than committing it into this file's `environment:` block below,
+    # which stays for the non-secret, deployment-relevant defaults.
+    # `required: false` so a fresh checkout without a `.env` yet (auth simply
+    # stays off, the documented default) still runs `docker compose up`.
+    env_file:
+      - path: .env
+        required: false
+
     environment:
       # Full reference: .env.example / docs/architecture §3.4. Defaults live in
       # app/backend/config.py; only the deployment-relevant ones are set here.

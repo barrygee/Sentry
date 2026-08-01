@@ -40,6 +40,11 @@ class AsyncioManagedProcess:
         """Block until the process exits and return its exit code."""
         return await self._process.wait()
 
+    async def communicate(self) -> tuple[bytes, bytes]:
+        """Return `(stdout, stderr)`, both empty if this process was not spawned with capture."""
+        stdout, stderr = await self._process.communicate()
+        return stdout or b"", stderr or b""
+
     def terminate(self) -> None:
         """Send `SIGTERM` to the whole process group started with this process."""
         self._signal_group(signal.SIGTERM)
@@ -75,16 +80,22 @@ class AsyncioProcessSpawner:
         argv: Sequence[str],
         env: Mapping[str, str],
         name: str,
+        capture_output: bool = False,
     ) -> AsyncioManagedProcess:
         """Start `argv` as a new process group with exactly the given `env`.
 
         `name` is accepted for Protocol compatibility and used only in the
         (absent, by design) logging this thin adapter does not itself emit —
-        callers that want spawn logging log around this call.
+        callers that want spawn logging log around this call. `capture_output`
+        pipes stdout/stderr for `communicate()`; left inherited (the default)
+        for every long-running supervised process.
         """
+        pipe = asyncio.subprocess.PIPE if capture_output else None
         process = await asyncio.create_subprocess_exec(
             *argv,
             env=dict(env),
             start_new_session=True,
+            stdout=pipe,
+            stderr=pipe,
         )
         return AsyncioManagedProcess(process)

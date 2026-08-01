@@ -80,10 +80,27 @@ class Settings(BaseSettings):
     )
 
     def reserved_port_numbers(self) -> frozenset[int]:
-        """Parse `reserved_ports` into a set of integers, ignoring blank entries."""
-        return frozenset(
-            int(value.strip()) for value in self.reserved_ports.split(",") if value.strip()
-        )
+        """Parse `reserved_ports` into a set of integers, ignoring blank entries.
+
+        Raises `ValueError` with the offending entry named, rather than
+        letting a bare `int()` typo crash startup with an unattributed
+        `ValueError: invalid literal for int() with base 10: '...'` that
+        gives the operator no clue which of possibly several comma-separated
+        entries in `SENTRY_RESERVED_PORTS` was malformed.
+        """
+        port_numbers: set[int] = set()
+        for raw_entry in self.reserved_ports.split(","):
+            entry = raw_entry.strip()
+            if not entry:
+                continue
+            try:
+                port_numbers.add(int(entry))
+            except ValueError as error:
+                raise ValueError(
+                    f"SENTRY_RESERVED_PORTS entry {entry!r} is not a valid port number "
+                    f"(full value: {self.reserved_ports!r})"
+                ) from error
+        return frozenset(port_numbers)
 
     def cors_origin_list(self) -> list[str]:
         """Parse `cors_origins` into a list of origins, ignoring blank entries."""

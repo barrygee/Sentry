@@ -27,6 +27,9 @@ class RecordedSpawn:
     name: str
     """The human-readable label passed."""
 
+    capture_output: bool
+    """Whether stdout/stderr capture was requested."""
+
 
 class FakeManagedProcess:
     """A `ManagedProcess` double whose completion is driven by the test.
@@ -45,6 +48,10 @@ class FakeManagedProcess:
         """True once `terminate()` has been called at least once."""
         self.killed = False
         """True once `kill()` has been called at least once."""
+        self.stdout = b""
+        """Set by a test before/around `complete()` to script `communicate()`'s stdout."""
+        self.stderr = b""
+        """Set by a test before/around `complete()` to script `communicate()`'s stderr."""
 
     @property
     def pid(self) -> int:
@@ -61,6 +68,11 @@ class FakeManagedProcess:
         await self._done.wait()
         assert self._returncode is not None
         return self._returncode
+
+    async def communicate(self) -> tuple[bytes, bytes]:
+        """Return whatever `.stdout`/`.stderr` a test scripted, once the process is done."""
+        await self._done.wait()
+        return self.stdout, self.stderr
 
     def terminate(self) -> None:
         """Record that a graceful stop was requested; does not itself complete the process."""
@@ -112,12 +124,15 @@ class FakeProcessSpawner:
         argv: Sequence[str],
         env: Mapping[str, str],
         name: str,
+        capture_output: bool = False,
     ) -> FakeManagedProcess:
         """Record the call and return a new `FakeManagedProcess`, or raise if scripted."""
         if self._raise_on_next_spawn is not None:
             error, self._raise_on_next_spawn = self._raise_on_next_spawn, None
             raise error
-        self.spawns.append(RecordedSpawn(argv=tuple(argv), env=dict(env), name=name))
+        self.spawns.append(
+            RecordedSpawn(argv=tuple(argv), env=dict(env), name=name, capture_output=capture_output)
+        )
         process = FakeManagedProcess(pid=next(self._pid_counter))
         self.processes.append(process)
         return process

@@ -27,8 +27,22 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
+#
+# `disable_existing_loggers=False` is deliberate and load-bearing:
+# `logging.config.fileConfig`'s default (`True`) disables every logger not
+# named in `alembic.ini`'s `[loggers]` section, which every startup silently
+# executed against `uvicorn`/`uvicorn.access`/`uvicorn.error` — migrations
+# run on every boot (architecture §6.2), and this file's `fileConfig` call
+# happens *after* `run_server.py` has already configured those loggers with
+# `logging_config.RedactingAccessFormatter`. With the default, that
+# configuration (including the SSE token's query-string redaction) was wiped
+# out moments after being set up, on every single startup — reproduced by
+# booting the real app and observing the access log go completely silent
+# right after these two Alembic INFO lines. `False` leaves every
+# already-configured logger alone; Alembic's own loggers are still
+# configured from `alembic.ini`'s `[loggers]` section as normal.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # `Base.metadata` from `backend/models.py` is the single source of truth for
 # autogenerate and for the schema this migration environment targets.

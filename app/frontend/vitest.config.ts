@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 
 import { defineConfig, mergeConfig } from 'vitest/config'
 
-import viteConfig from './vite.config'
+import viteConfig from './vite.config.js'
 
 // Test harness only — per the project testing-timing rule, no test files are
 // written during feature build. This wires the runner (jsdom + vue-test-utils

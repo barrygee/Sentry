@@ -1,6 +1,8 @@
-import { onScopeDispose, ref, type Ref } from 'vue'
+import { isRef, onScopeDispose, ref, watch, type Ref } from 'vue'
 
-export type ConnectionState = 'connecting' | 'live' | 'reconnecting' | 'offline'
+import type { ConnectionState } from '@/types/fleet'
+
+export type { ConnectionState }
 
 export interface ServerSentEventsOptions {
   /** No event of any kind (the server sends `health` every 5s) within this window forces a reopen. */
@@ -140,6 +142,16 @@ export function useServerSentEvents(
   stallIntervalId = setInterval(checkForStall, Math.min(stallTimeoutMs, 5_000))
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', handleVisibilityChange)
+  }
+  // Reopen with the new URL whenever a reactive `url` changes — e.g. an
+  // operator supplying `SENTRY_AUTH_TOKEN` after a 401 (architecture §7.9)
+  // reconnects with `?access_token=` rather than staying wedged offline.
+  if (isRef(url)) {
+    watch(url, () => {
+      if (!manuallyClosed) {
+        reopen()
+      }
+    })
   }
 
   onScopeDispose(() => {

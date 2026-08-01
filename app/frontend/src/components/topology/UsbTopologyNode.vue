@@ -2,7 +2,6 @@
 import { computed, inject, nextTick, ref, watch } from 'vue'
 
 import StatusDot from '@/components/base/StatusDot.vue'
-import type { DeviceState } from '@/components/base/StatusDot.vue'
 import type { TopologyNode } from '@/types/fleet'
 
 import PortLug from './PortLug.vue'
@@ -10,10 +9,14 @@ import { TOPOLOGY_TREE_CONTEXT_KEY } from './topologyTreeContext'
 
 const props = defineProps<{ node: TopologyNode }>()
 
-const treeContext = inject(TOPOLOGY_TREE_CONTEXT_KEY)
-if (!treeContext) {
+const injectedTreeContext = inject(TOPOLOGY_TREE_CONTEXT_KEY)
+if (!injectedTreeContext) {
   throw new Error('UsbTopologyNode must be rendered inside UsbTopologyTree')
 }
+// Bound to a fresh const after the guard so the non-null narrowing survives into
+// hoisted function declarations below, which TypeScript cannot assume run after
+// the check (arrow-function computeds narrow fine; `onClick` does not).
+const treeContext = injectedTreeContext
 
 const meta = computed(() => treeContext.flatNodesById.value.get(props.node.path) ?? null)
 const isFocused = computed(() => treeContext.focusedId.value === props.node.path)
@@ -62,8 +65,11 @@ function onClick(): void {
 <template>
   <!-- The rule's static checker can't evaluate a bound :tabindex expression, but roving
        tabindex (architecture §9.4) genuinely requires one: exactly one treeitem has
-       tabindex 0 at a time, computed by useTreeNavigation.tabIndexFor. -->
-  <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -->
+       tabindex 0 at a time, computed by useTreeNavigation.tabIndexFor. Separately, this
+       lint rule wants `aria-selected` on every treeitem, but this tree has no selection
+       model distinct from focus (ARIA APG tree pattern) — adding it would make every
+       arrow-key move announce as "selected", describing state the app doesn't have. -->
+  <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus, vuejs-accessibility/role-has-required-aria-props -->
   <li
     :id="`topology-node-${node.path}`"
     ref="itemElement"
@@ -71,7 +77,6 @@ function onClick(): void {
     :aria-level="meta?.level ?? 1"
     :aria-setsize="meta?.setSize ?? 1"
     :aria-posinset="meta?.posInSet ?? 1"
-    :aria-selected="isFocused"
     :aria-expanded="isExpanded"
     :aria-controls="cardId"
     :aria-label="accessibleName"
@@ -88,7 +93,7 @@ function onClick(): void {
       <span aria-hidden="true" class="h-px w-3 bg-signal-cyan/50" />
       <PortLug v-if="lastPortSegment !== null" :port-number="lastPortSegment" />
       <template v-if="node.device">
-        <StatusDot :state="node.device.state as DeviceState" />
+        <StatusDot :state="node.device.state" />
         <span class="truncate font-mono text-xs">{{
           node.device.name || node.device.device_id
         }}</span>

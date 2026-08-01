@@ -5,6 +5,7 @@ import { apiClient } from '@/api/client'
 import EmptyState from '@/components/base/EmptyState.vue'
 import FleetHeader from '@/components/fleet/FleetHeader.vue'
 import FleetLayout from '@/components/fleet/FleetLayout.vue'
+import NoticeList from '@/components/fleet/NoticeList.vue'
 import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
 import SerialConflictBanner from '@/components/serial/SerialConflictBanner.vue'
 import SerialFlashDialog from '@/components/serial/SerialFlashDialog.vue'
@@ -60,10 +61,13 @@ function focusDeviceCard(deviceId: string): void {
   })
 }
 
-function announceFocusRecovered(nodeId: string | null): void {
-  if (nodeId === null) {
-    announcePolite('Device removed. Focus moved to the topology tree.')
-  }
+// `UsbTopologyTree` resolves the exact sentence itself (it's the only place
+// that knows the destination node's label, or that focus went to the
+// empty-state panel instead of a tree node) — announced every time,
+// matching that a real focus move always happened, rather than only when
+// the tree emptied.
+function announceFocusRecovered(message: string): void {
+  announcePolite(message)
 }
 
 // Announce plug/unplug and state transitions (architecture §9.4) by
@@ -111,6 +115,7 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
       :streaming-count="fleetStore.streamingCount"
       :device-count="fleetStore.devices.length"
     />
+    <NoticeList />
     <ul
       v-if="visibleConflictGroups.length"
       class="flex flex-col gap-2 px-4 pt-4 sm:px-6"

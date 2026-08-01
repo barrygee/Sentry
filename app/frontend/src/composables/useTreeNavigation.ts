@@ -86,12 +86,22 @@ export function useTreeNavigation(
       })
     }
     walk(roots.value, 1, null)
-    if (focusedId.value === null && result.length > 0) {
-      const [firstNode] = result
-      focusedId.value = firstNode ? firstNode.id : null
-    }
     return result
   })
+
+  // Seed the initial roving tab stop once nodes exist. Kept out of the
+  // `flatNodes` getter itself — a computed that writes to a ref it doesn't
+  // depend on is impure and risks "Maximum recursive updates exceeded"; a
+  // `watch` is the correct place for this kind of side effect.
+  watch(
+    flatNodes,
+    (nodes) => {
+      if (focusedId.value === null && nodes.length > 0) {
+        focusedId.value = nodes[0]?.id ?? null
+      }
+    },
+    { immediate: true },
+  )
 
   function tabIndexFor(nodeId: string): 0 | -1 {
     const activeId = focusedId.value ?? flatNodes.value[0]?.id ?? null
@@ -191,7 +201,15 @@ export function useTreeNavigation(
         options.onActivate?.(nodeId)
         break
       default:
-        if (event.key.length === 1 && /\S/.test(event.key)) {
+        // A held modifier changes the key's meaning entirely (Ctrl+F, browser
+        // shortcuts, etc.) — never treat it as a type-ahead character.
+        if (
+          event.key.length === 1 &&
+          /\S/.test(event.key) &&
+          !event.ctrlKey &&
+          !event.altKey &&
+          !event.metaKey
+        ) {
           runTypeahead(event.key)
         }
     }
@@ -216,9 +234,28 @@ export function useTreeNavigation(
     if (!removedNode) {
       return
     }
+
+    // Prefer a surviving sibling at the same level (the common case: one
+    // device unplugged, its neighbours under the same hub remain).
     const survivingSibling = nextFlatNodes.find((node) => node.parentId === removedNode.parentId)
-    const survivingParent = nextFlatNodes.find((node) => node.id === removedNode.parentId)
-    const fallback = survivingSibling?.id ?? survivingParent?.id ?? nextFlatNodes[0]?.id ?? null
+
+    // Otherwise walk up the *pre-removal* ancestor chain to the nearest
+    // ancestor that is still present. Covers a hub unplugged along with all
+    // of its children — the immediate parent is gone too, so naively
+    // falling back to `nextFlatNodes[0]` could land focus on an unrelated
+    // USB branch instead of the nearest surviving structure.
+    const previousNodesById = new Map((previousFlatNodes ?? []).map((node) => [node.id, node]))
+    let survivingAncestorId: string | null = null
+    let candidateAncestorId: string | null = removedNode.parentId
+    while (candidateAncestorId !== null && survivingAncestorId === null) {
+      if (nextFlatNodes.some((node) => node.id === candidateAncestorId)) {
+        survivingAncestorId = candidateAncestorId
+      } else {
+        candidateAncestorId = previousNodesById.get(candidateAncestorId)?.parentId ?? null
+      }
+    }
+
+    const fallback = survivingSibling?.id ?? survivingAncestorId ?? nextFlatNodes[0]?.id ?? null
     focusedId.value = fallback
     options.onFocusRecovered?.(fallback)
   })

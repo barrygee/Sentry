@@ -192,15 +192,5 @@ class DeviceRepository:
                 await session.delete(model)
                 await session.commit()
 
-    async def list_reserved_port_pairs(self) -> Sequence[tuple[int, int]]:
-        """Return every `(output_port, output_port + 2)` pair currently reserved.
-
-        Includes disabled and absent devices — their reservations still block
-        a new assignment (architecture §8 rule 2).
-        """
-        async with self._session_factory() as session:
-            result = await session.execute(select(SdrDeviceModel.output_port))
-            return [(port, port + 2) for port in result.scalars().all()]
-
 
 __all__ = ["DeviceConflictError", "DeviceRepository"]

@@ -69,20 +69,6 @@ export default {
       letterSpacing: {
         legend: '0.08em',
       },
-      keyframes: {
-        'flow-tick': {
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(100%)' },
-        },
-        'row-enter': {
-          '0%': { opacity: '0', transform: 'translateY(-4px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-      },
-      animation: {
-        'flow-tick': 'flow-tick 2.4s linear infinite',
-        'row-enter': 'row-enter 160ms ease-out',
-      },
     },
   },
   plugins: [],

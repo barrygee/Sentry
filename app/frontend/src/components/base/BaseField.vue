@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, ref, useId } from 'vue'
 
 /**
  * The single labelled-text-input primitive: a real `<label for>`, an
@@ -7,6 +7,11 @@ import { computed, useId } from 'vue'
  * whenever an error is present. `DeviceNameField`, `PortAssignmentField`
  * and any future form field compose this rather than re-implementing
  * label/error wiring (architecture §9.4 forms rule).
+ *
+ * Exposes `focus()` so a caller whose blur-triggered validation just failed
+ * can return focus to the input — otherwise a commit-on-blur error leaves
+ * focus wherever the operator tabbed to next, and a screen-reader user never
+ * hears which field it was about.
  */
 const modelValue = defineModel<string>({ required: true })
 
@@ -18,6 +23,8 @@ const props = withDefaults(
     type?: 'text' | 'number'
     inputMode?: 'text' | 'numeric'
     disabled?: boolean
+    /** Extra id(s) to merge into `aria-describedby`, for content the caller renders outside this component. */
+    describedBy?: string | null
   }>(),
   {
     error: null,
@@ -25,6 +32,7 @@ const props = withDefaults(
     type: 'text',
     inputMode: 'text',
     disabled: false,
+    describedBy: null,
   },
 )
 
@@ -33,12 +41,17 @@ const emit = defineEmits<{ blur: [] }>()
 const fieldId = useId()
 const errorId = `${fieldId}-error`
 const hintId = `${fieldId}-hint`
+const inputElement = ref<HTMLInputElement | null>(null)
 
-const describedBy = computed(() => {
-  const ids = [props.hint ? hintId : null, props.error ? errorId : null].filter(
+const resolvedDescribedBy = computed(() => {
+  const ids = [props.hint ? hintId : null, props.error ? errorId : null, props.describedBy].filter(
     (id): id is string => id !== null,
   )
   return ids.length > 0 ? ids.join(' ') : undefined
+})
+
+defineExpose({
+  focus: () => inputElement.value?.focus(),
 })
 </script>
 
@@ -52,12 +65,13 @@ const describedBy = computed(() => {
     </label>
     <input
       :id="fieldId"
+      ref="inputElement"
       v-model="modelValue"
       :type="type"
       :inputmode="inputMode"
       :disabled="disabled"
       :aria-invalid="error ? 'true' : undefined"
-      :aria-describedby="describedBy"
+      :aria-describedby="resolvedDescribedBy"
       class="min-h-[44px] rounded-rack border border-ground-hairline bg-ground-raised px-3 font-mono text-sm font-mono-tabular text-[#e7e9ea] outline-none focus-visible:border-signal-amber disabled:opacity-40"
       @blur="emit('blur')"
     />

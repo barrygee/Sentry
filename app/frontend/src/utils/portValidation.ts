@@ -15,8 +15,12 @@ export function validatePortClientSide(
     return 'Port must be a whole number.'
   }
   const controlPort = port + 2
-  if (port < constraints.port_min || controlPort > constraints.port_max) {
-    return `Port must leave room for ${port}-${controlPort} within ${constraints.port_min}-${constraints.port_max}.`
+  // `port_max` (architecture §8 rule 1) is already the highest value `P`
+  // itself may take — the server's own check is `P + 2 > 65535`, i.e.
+  // `P > 65533` — so comparing `controlPort` against it here would silently
+  // subtract 2 twice and reject the top two otherwise-valid ports.
+  if (port < constraints.port_min || port > constraints.port_max) {
+    return `Port must be between ${constraints.port_min} and ${constraints.port_max}, leaving room for its control port ${controlPort}.`
   }
   const [internalRangeStart, internalRangeEnd] = constraints.internal_range
   if (

@@ -17,6 +17,19 @@ below are never valid SSE wire events — the `/api/events` router must filter
 `subscribe()`'s output down to the public names in architecture §7.3 before
 forwarding anything to a browser, and must translate `RESYNC_EVENT_NAME` into
 a freshly-built `snapshot` rather than relaying it literally.
+
+**Internal channel is a separate, unbounded path — not `subscribe()`.**
+`publish()` routes any `internal.`-prefixed message to `subscribe_internal()`
+only, never into the same bounded, drop-oldest, coalesced mailboxes browser
+SSE connections use. `DeviceRegistry` is the sole consumer of
+`internal.device_arrived`/`internal.device_departed`, and it must never
+silently lose one — a dropped arrival/departure permanently desyncs
+`present` and, downstream, `SupervisorService`'s desired set, with no
+resync mechanism to recover it (unlike a browser tab, which can always be
+handed a fresh `snapshot`). Sharing the public, best-effort channel used to
+mean the registry's own subscription could both drop a hotplug message on
+overflow *and* never learn about `RESYNC_EVENT_NAME` to recover from it —
+using a dedicated, unbounded queue removes the possibility of either.
 """
 
 from __future__ import annotations
@@ -38,6 +51,11 @@ overflowed. Internal-only (see module docstring); the router must respond by
 building and sending a fresh real `snapshot`, never by relaying this event
 name onto the wire.
 """
+
+_INTERNAL_EVENT_PREFIX = "internal."
+"""`publish()` routes any message whose `event` starts with this prefix to
+`subscribe_internal()`'s dedicated channel instead of the public, bounded
+subscriber mailboxes — see the module docstring."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +121,23 @@ class EventBus:
         self._coalesce_window_s = coalesce_window_s
         self._subscribers: set[_Subscriber] = set()
         self._pending_device_changed_tasks: dict[str, asyncio.Task[None]] = {}
+        self._internal_subscribers: set[asyncio.Queue[SseMessage]] = set()
+
+    async def subscribe_internal(self) -> AsyncIterator[SseMessage]:
+        """Yield every `internal.`-prefixed message published, on a dedicated unbounded queue.
+
+        For `DeviceRegistry`'s hotplug consumer only (see module docstring)
+        — unbounded because there is exactly one long-lived internal
+        consumer, always draining, never a slow browser tab, so nothing here
+        needs the public channel's bounded/drop-oldest/resync machinery.
+        """
+        queue: asyncio.Queue[SseMessage] = asyncio.Queue()
+        self._internal_subscribers.add(queue)
+        try:
+            while True:
+                yield await queue.get()
+        finally:
+            self._internal_subscribers.discard(queue)
 
     async def subscribe(self) -> AsyncIterator[SseMessage]:
         """Yield every message published after subscription, until the caller stops iterating.
@@ -132,7 +167,15 @@ class EventBus:
         coalesce window are merged into one (only the later one is ever
         delivered); messages for different devices, or of a different event
         type, are never coalesced together and are delivered immediately.
+        An `internal.`-prefixed message is routed exclusively to
+        `subscribe_internal()`'s dedicated channel (module docstring) — it
+        never reaches a public subscriber's mailbox at all, since every
+        public consumer (`routers/events.py`) discards it anyway.
         """
+        if message.event.startswith(_INTERNAL_EVENT_PREFIX):
+            self._deliver_to_internal_subscribers(message)
+            return
+
         if message.event != "device_changed":
             self._deliver_to_subscribers(message)
             return
@@ -162,8 +205,25 @@ class EventBus:
         except asyncio.CancelledError:
             return
         finally:
-            self._pending_device_changed_tasks.pop(device_id, None)
+            # Only remove this device's dict entry if it still points at
+            # *this* task. `publish()` calls `existing_task.cancel()` then
+            # immediately stores a new task in the same dict slot — if this
+            # `finally` popped unconditionally, a task that lost the
+            # cancel-vs-overwrite race would still run to completion (it
+            # already passed the `except CancelledError: return` above) and
+            # delete the *new*, superseding task's entry out from under it,
+            # silently breaking coalescing under load for every publish
+            # after that. Comparing identity against `asyncio.current_task()`
+            # makes the pop a no-op whenever this task has already been
+            # superseded, which is exactly when it must not touch the dict.
+            if self._pending_device_changed_tasks.get(device_id) is asyncio.current_task():
+                self._pending_device_changed_tasks.pop(device_id, None)
         self._deliver_to_subscribers(message)
+
+    def _deliver_to_internal_subscribers(self, message: SseMessage) -> None:
+        """Enqueue `message` for every internal subscriber's unbounded queue. Never drops."""
+        for queue in self._internal_subscribers:
+            queue.put_nowait(message)
 
     def _deliver_to_subscribers(self, message: SseMessage) -> None:
         """Enqueue `message` for every current subscriber, applying drop-oldest on overflow."""
@@ -171,12 +231,25 @@ class EventBus:
             self._enqueue_for_subscriber(subscriber, message)
 
     def _enqueue_for_subscriber(self, subscriber: _Subscriber, message: SseMessage) -> None:
-        """Put `message` on one subscriber's queue, dropping its oldest entry if full."""
+        """Put `message` on one subscriber's queue; on overflow, drop everything queued so far.
+
+        The previous behaviour dropped only the single oldest entry and set
+        `needs_resync` — but with a 256-slot queue that leaves up to ~255
+        already-stale messages still queued *behind* the fresh `snapshot`
+        `subscribe()` sends first on `needs_resync`. Since the store on the
+        frontend merges each event unconditionally rather than discarding
+        anything older than the snapshot, those replayed-stale messages then
+        overwrite the just-delivered correct state, and the client stays
+        wrong until that specific device next changes. Draining the whole
+        queue here means the fresh `snapshot` is genuinely the next thing
+        this subscriber receives, with nothing older left to replay over it.
+        """
         try:
             subscriber.queue.put_nowait(message)
         except asyncio.QueueFull:
-            with contextlib.suppress(asyncio.QueueEmpty):
-                subscriber.queue.get_nowait()
+            while not subscriber.queue.empty():
+                with contextlib.suppress(asyncio.QueueEmpty):
+                    subscriber.queue.get_nowait()
             with contextlib.suppress(asyncio.QueueFull):
                 subscriber.queue.put_nowait(message)
             subscriber.needs_resync = True

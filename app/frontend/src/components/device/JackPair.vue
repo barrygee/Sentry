@@ -36,8 +36,7 @@ withDefaults(
         IQ
       </dt>
       <dd class="text-sm">
-        <MonoValue :value="iqPort ?? '—'" />
-        <span class="sr-only">IQ port</span>
+        <span class="sr-only">IQ port </span><MonoValue :value="iqPort ?? '—'" />
       </dd>
     </div>
     <div
@@ -51,8 +50,7 @@ withDefaults(
         CTRL
       </dt>
       <dd class="text-sm">
-        <MonoValue :value="controlPort ?? '—'" />
-        <span class="sr-only">control port</span>
+        <span class="sr-only">control port </span><MonoValue :value="controlPort ?? '—'" />
       </dd>
     </div>
   </dl>

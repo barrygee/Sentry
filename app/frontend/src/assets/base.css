@@ -33,8 +33,8 @@
     border-radius: theme('borderRadius.rack');
   }
 
-  /* prefers-reduced-motion: reduce disables the flow tick and all
-     enter/leave transitions; state changes become instant swaps. */
+  /* prefers-reduced-motion: reduce disables every animation and
+     enter/leave transition; state changes become instant swaps. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

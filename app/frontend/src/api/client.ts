@@ -1,6 +1,10 @@
+import { useAuthToken } from '@/composables/useAuthToken'
+
 import type { components } from './types'
 
 export type DeviceStatus = components['schemas']['DeviceStatus']
+/** The generated device-state union — the single source of truth every component/store imports rather than redeclaring. */
+export type DeviceState = DeviceStatus['state']
 export type DevicePatch = components['schemas']['DevicePatch']
 export type DeviceRecord = components['schemas']['DeviceRecord']
 export type StatusResponse = components['schemas']['StatusResponse']
@@ -30,13 +34,22 @@ export class ApiError extends Error {
 }
 
 async function request<ResponseBody>(path: string, init?: RequestInit): Promise<ResponseBody> {
+  const { token, requirePrompt } = useAuthToken()
   const response = await fetch(`/api${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}),
       ...init?.headers,
     },
   })
+
+  if (response.status === 401) {
+    // Surfaces `AuthTokenPrompt` (architecture §7.9) — this fetch still
+    // fails and throws below, but the operator now has an in-app way to
+    // supply the token rather than a silently-dead console.
+    requirePrompt()
+  }
 
   if (!response.ok) {
     let detail: ApiErrorDetail | null = null

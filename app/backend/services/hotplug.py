@@ -125,7 +125,15 @@ class HotplugService:
         except asyncio.CancelledError:
             return
         finally:
-            self._pending_debounce_tasks.pop(topology_path, None)
+            # Only clear this path's dict entry if it still points at *this*
+            # task — mirrors the identical fix in `event_bus.py`'s coalescer
+            # (see that module's comment). `run()` cancels the previous task
+            # for a path and immediately stores the new one in the same
+            # slot; popping unconditionally here would let a task that lost
+            # that race delete the superseding task's entry, silently
+            # breaking debouncing under a bursty hotplug stream.
+            if self._pending_debounce_tasks.get(topology_path) is asyncio.current_task():
+                self._pending_debounce_tasks.pop(topology_path, None)
 
         if action == "add":
             self._dispatch_arrival(topology_path)

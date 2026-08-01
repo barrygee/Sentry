@@ -7,7 +7,7 @@ import MonoValue from '@/components/base/MonoValue.vue'
 import DeviceNameField from '@/components/forms/DeviceNameField.vue'
 import PortAssignmentField from '@/components/forms/PortAssignmentField.vue'
 import { useFleetStore } from '@/stores/fleet'
-import { DEVICE_STATE_META, type DeviceState } from '@/utils/deviceState'
+import { DEVICE_STATE_META } from '@/utils/deviceState'
 
 import DeviceAbsentNotice from './DeviceAbsentNotice.vue'
 import DeviceStatusBadge from './DeviceStatusBadge.vue'
@@ -27,7 +27,7 @@ const emit = defineEmits<{ 'request-serial-flash': [deviceId: string] }>()
 
 const fleetStore = useFleetStore()
 
-const stateMeta = computed(() => DEVICE_STATE_META[props.device.state as DeviceState])
+const stateMeta = computed(() => DEVICE_STATE_META[props.device.state])
 
 const nameDraft = ref(props.device.name)
 const portDraft = ref<number | null>(props.device.output?.iq_port ?? null)
@@ -49,12 +49,42 @@ watch(
   },
 )
 
+// A device with no persisted record (`record_id === null`) has no row for
+// the server to apply a partial PATCH to, so `{name}` alone and
+// `{output_port}` alone are each individually rejected — there is no
+// "unconfigured but named" or "unconfigured but ported" state on the
+// server. The two fields must be validated locally and sent together in one
+// combined PATCH the first time; once a record exists, independent field
+// commits are correct (and cheaper) again.
+const validatedNameDraft = ref<string | null>(null)
+const validatedPortDraft = ref<number | null>(null)
+
 function commitName(name: string): void {
+  if (props.device.record_id === null) {
+    validatedNameDraft.value = name
+    attemptFirstConfigurationCommit()
+    return
+  }
   void fleetStore.patchDevice(props.device.device_id, { name })
 }
 
 function commitPort(port: number): void {
+  if (props.device.record_id === null) {
+    validatedPortDraft.value = port
+    attemptFirstConfigurationCommit()
+    return
+  }
   void fleetStore.patchDevice(props.device.device_id, { output_port: port })
+}
+
+function attemptFirstConfigurationCommit(): void {
+  if (validatedNameDraft.value === null || validatedPortDraft.value === null) {
+    return
+  }
+  void fleetStore.patchDevice(props.device.device_id, {
+    name: validatedNameDraft.value,
+    output_port: validatedPortDraft.value,
+  })
 }
 
 function commitEnabled(enabled: boolean): void {
@@ -64,6 +94,11 @@ function commitEnabled(enabled: boolean): void {
 const isEditable = computed(() => !props.device.needs_identification)
 const ownReservedPorts = computed(() =>
   props.device.output ? [props.device.output.iq_port, props.device.output.control_port] : [],
+)
+const needsBothFieldsToConfigure = computed(
+  () =>
+    props.device.record_id === null &&
+    (validatedNameDraft.value === null || validatedPortDraft.value === null),
 )
 </script>
 
@@ -79,7 +114,7 @@ const ownReservedPorts = computed(() =>
         <h3 class="font-condensed text-base font-semibold uppercase tracking-legend">
           {{ device.name || device.device_id }}
         </h3>
-        <DeviceStatusBadge :state="device.state as DeviceState" :reason="device.state_reason" />
+        <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
       </div>
       <BaseToggle
         v-if="device.record_id !== null"
@@ -124,15 +159,21 @@ const ownReservedPorts = computed(() =>
       </dl>
     </div>
 
-    <div v-if="isEditable" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <DeviceNameField v-model="nameDraft" @commit="commitName" />
-      <PortAssignmentField
-        v-model="portDraft"
-        :constraints="fleetStore.constraints"
-        :own-reserved-ports="ownReservedPorts"
-        :committed-iq-port="device.output?.iq_port ?? null"
-        @commit="commitPort"
-      />
+    <div v-if="isEditable" class="flex flex-col gap-2">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <DeviceNameField v-model="nameDraft" @commit="commitName" />
+        <PortAssignmentField
+          v-model="portDraft"
+          :constraints="fleetStore.constraints"
+          :own-reserved-ports="ownReservedPorts"
+          :committed-iq-port="device.output?.iq_port ?? null"
+          @commit="commitPort"
+        />
+      </div>
+      <p v-if="needsBothFieldsToConfigure" class="text-xs text-signal-slate">
+        Configuring a new device needs both a valid name and a valid output port — nothing is saved
+        until both fields have been entered.
+      </p>
     </div>
   </article>
 </template>

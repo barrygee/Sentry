@@ -15,9 +15,9 @@ defineProps<{
     class="flex flex-wrap items-center justify-between gap-3 border-b border-ground-hairline bg-ground-page px-4 py-3 sm:px-6"
   >
     <div class="flex items-baseline gap-3">
-      <p class="font-condensed text-lg font-semibold uppercase tracking-legend text-signal-amber">
+      <h1 class="font-condensed text-lg font-semibold uppercase tracking-legend text-signal-amber">
         Sentry
-      </p>
+      </h1>
       <p class="hidden font-condensed text-xs uppercase tracking-legend text-signal-slate sm:block">
         SDR Fleet Manager
       </p>

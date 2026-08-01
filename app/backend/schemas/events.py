@@ -28,10 +28,14 @@ class NoticeItem(BaseModel):
 
 
 class DeviceRemovedEvent(BaseModel):
-    """SSE `device_removed`: an *unconfigured* device was unplugged.
+    """SSE `device_removed`: a device's row/identity was removed from the registry.
 
-    Configured devices never produce this event — they transition to
-    `state: "stopped"`, `present: false` via `device_changed` instead.
+    The common case is an *unconfigured* (never-persisted) device being
+    unplugged — a configured, still-present device instead transitions to
+    `state: "stopped"`, `present: false` via `device_changed`. But
+    `DeviceRegistry.delete()` also emits this event for a configured device
+    whose row was deleted while it was already absent, so this event is not
+    exclusively the unconfigured-device case.
     """
 
     model_config = ConfigDict(frozen=True)

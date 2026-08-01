@@ -12,6 +12,16 @@ export interface LiveAnnouncerHandle {
 }
 
 const DEFAULT_COALESCE_MS = 500
+/**
+ * A forced flush ceiling: without this, a sustained burst of events arriving
+ * faster than `coalesceMs` apart keeps rescheduling the debounce timer
+ * indefinitely, so *nothing* is announced for the whole burst — the worst
+ * possible outcome for a live region. `announcePolite` shrinks its own delay
+ * as this deadline approaches so a flush always happens by then.
+ */
+const DEFAULT_MAX_WAIT_MS = 1_800
+/** Cap on how many distinct updates `coalesceMessages` reads out individually before summarising the rest. */
+const MAX_COALESCED_ITEMS = 5
 
 let sharedHandle: LiveAnnouncerHandle | null = null
 
@@ -24,8 +34,11 @@ let sharedHandle: LiveAnnouncerHandle | null = null
  * own — `App.vue` renders the regions once; any component may call
  * `announcePolite`/`announceAssertive` by calling this composable again.
  */
-export function useLiveAnnouncer(coalesceMs = DEFAULT_COALESCE_MS): LiveAnnouncerHandle {
-  sharedHandle ??= createLiveAnnouncer(coalesceMs)
+export function useLiveAnnouncer(
+  coalesceMs = DEFAULT_COALESCE_MS,
+  maxWaitMs = DEFAULT_MAX_WAIT_MS,
+): LiveAnnouncerHandle {
+  sharedHandle ??= createLiveAnnouncer(coalesceMs, maxWaitMs)
   return sharedHandle
 }
 
@@ -34,15 +47,17 @@ export function resetLiveAnnouncerForTesting(): void {
   sharedHandle = null
 }
 
-function createLiveAnnouncer(coalesceMs: number): LiveAnnouncerHandle {
+function createLiveAnnouncer(coalesceMs: number, maxWaitMs: number): LiveAnnouncerHandle {
   const politeMessage = ref('')
   const assertiveMessage = ref('')
 
   let pendingMessages: string[] = []
   let flushTimeoutId: ReturnType<typeof setTimeout> | null = null
+  let firstPendingAtMs: number | null = null
 
   function flushPolite(): void {
     flushTimeoutId = null
+    firstPendingAtMs = null
     if (pendingMessages.length === 0) {
       return
     }
@@ -55,11 +70,16 @@ function createLiveAnnouncer(coalesceMs: number): LiveAnnouncerHandle {
   }
 
   function announcePolite(message: string): void {
+    if (pendingMessages.length === 0) {
+      firstPendingAtMs = Date.now()
+    }
     pendingMessages.push(message)
     if (flushTimeoutId !== null) {
       clearTimeout(flushTimeoutId)
     }
-    flushTimeoutId = setTimeout(flushPolite, coalesceMs)
+    const elapsedMs = firstPendingAtMs === null ? 0 : Date.now() - firstPendingAtMs
+    const msUntilForcedFlush = Math.max(maxWaitMs - elapsedMs, 0)
+    flushTimeoutId = setTimeout(flushPolite, Math.min(coalesceMs, msUntilForcedFlush))
   }
 
   function announceAssertive(message: string): void {
@@ -75,5 +95,10 @@ function createLiveAnnouncer(coalesceMs: number): LiveAnnouncerHandle {
 }
 
 function coalesceMessages(messages: readonly string[]): string {
-  return `${messages.length} device updates: ${messages.join('; ')}`
+  if (messages.length <= MAX_COALESCED_ITEMS) {
+    return `${messages.length} device updates: ${messages.join('; ')}`
+  }
+  const shown = messages.slice(0, MAX_COALESCED_ITEMS)
+  const remaining = messages.length - MAX_COALESCED_ITEMS
+  return `${messages.length} device updates: ${shown.join('; ')}; and ${remaining} more.`
 }

@@ -3,6 +3,11 @@
   "include": ["vite.config.ts", "vitest.config.ts"],
   "compilerOptions": {
     "composite": true,
+    // `vue-tsc --build` type-checks referenced projects and would otherwise emit
+    // vite.config.js / *.d.ts next to the sources. This project is only ever
+    // type-checked, never compiled — Vite handles its own config at runtime.
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "strict": true,
     "types": ["node"]
   }

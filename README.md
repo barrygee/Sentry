@@ -25,6 +25,54 @@ USB bus ──hotplug──►    │  discovery → identity → registry → s
 
 ---
 
+## Quick start
+
+Plug the dongles in first, then:
+
+```bash
+git clone https://github.com/barrygee/rtl-sdr-controller.git sentry
+cd sentry
+docker compose up -d --build
+```
+
+Open **`http://<PI_IP>:8000`**, give each dongle a name and an output port, and
+enable it.
+
+> **First time on this Pi?** The DVB kernel driver will claim the dongles before
+> Sentry can. Do the [host setup](#host-setup-on-the-pi-before-docker) once —
+> blacklist the modules, raise the USB memory limit, reboot — then come back
+> here. Skipping it looks like "no devices detected".
+
+### Without compose
+
+The options below are not optional — each one is load-bearing, and the container
+will not work if you drop them:
+
+```bash
+docker build -t sentry .
+
+docker run -d --name sentry --restart unless-stopped \
+  --privileged \
+  --device /dev/bus/usb:/dev/bus/usb \
+  --device-cgroup-rule 'c 189:* rmw' \
+  --network host \
+  -v sentry-data:/data \
+  sentry
+```
+
+| Option | Why it is required |
+| ------ | ------------------ |
+| `--privileged` | USB device access for dongles that re-enumerate at runtime. |
+| `--device /dev/bus/usb:/dev/bus/usb` | Passes the whole USB bus. A bind-mount would snapshot the tree and go stale the moment a dongle re-enumerates. |
+| `--device-cgroup-rule 'c 189:* rmw'` | Grants the whole USB char-major, not one node, so a re-enumerated dongle stays usable. |
+| `--network host` | Each dongle's ports are assigned by you at runtime, so they cannot be published statically with `-p`. |
+| `-v sentry-data:/data` | Device names and port assignments live here. Without it, all configuration is lost on container recreation. |
+
+To require a token on the API, add `-e SENTRY_AUTH_TOKEN=<long-random-value>`
+(see [Security](#security)).
+
+---
+
 ## Why this exists
 
 `rtl_tcp` serves exactly **one** TCP client and sets no keepalive on it, so a

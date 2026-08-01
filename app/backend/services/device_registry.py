@@ -56,7 +56,16 @@ from app.backend.services.identity import DeviceIdentity
 # device back to `configured` (architecture §10 rows: stopped -> starting is
 # gated on enabled+present, which SupervisorService.reconcile() re-evaluates
 # off `configured`; error -> configured is the explicit replug-clears-error row).
-_STATES_READY_FOR_RECONCILE: frozenset[DeviceState] = frozenset({"configured", "stopped", "error"})
+# `starting` is included so a device left stuck there — e.g. one that departed
+# or was disabled mid-restart-backoff, before `SupervisorService` next settles
+# it to `stopped` (see that module's `_handle_pair_exit`) — is not permanently
+# unrecoverable to a later replug; without it a stuck `starting` entry would
+# never re-arm (finding: SSE resync/registry review, "starting" omission).
+_STATES_READY_FOR_RECONCILE: frozenset[DeviceState] = frozenset(
+    {"configured", "stopped", "error", "starting"}
+)
+
+_VALID_IDENTITY_KINDS: frozenset[str] = frozenset({"serial", "usb"})
 
 
 class DeviceNotFoundError(Exception):
@@ -65,6 +74,23 @@ class DeviceNotFoundError(Exception):
 
 class DeviceUnidentifiedError(Exception):
     """Raised by `apply_patch` for a tier-3 (`needs_identification`) device (architecture §7.5)."""
+
+
+class IncompleteConfigurationError(Exception):
+    """Raised by `apply_patch` when a device's *first* PATCH omits a required field.
+
+    A device's row does not exist yet, so there is no persisted `name`/
+    `output_port` to fall back to — coercing the missing value to `""`/`0`
+    would silently persist a bogus row (and, since `output_port=0` fails
+    `OutputInfo`'s `ge=1024` validator, would then crash every future
+    `GET /api/status` and SSE snapshot). The router maps this to `422
+    incomplete_configuration` naming exactly what is missing, rather than the
+    misleading `409 port_conflict` a coerced `0`/`""` used to produce.
+    """
+
+    def __init__(self, missing_fields: tuple[str, ...]) -> None:
+        super().__init__(f"first configuration is missing required fields: {missing_fields}")
+        self.missing_fields = missing_fields
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,8 +188,9 @@ class DeviceRegistry:
     async def close(self) -> None:
         """Stop the background hotplug-consumer task started by `load()`.
 
-        Not currently called by the composition root (flagged in the Phase
-        2A handoff) — safe to call multiple times or before `load()`.
+        Called by the composition root's lifespan shutdown (`main.py`) after
+        every supervised process has been stopped; safe to call multiple
+        times or before `load()` regardless.
         """
         if self._hotplug_subscriber_task is not None:
             self._hotplug_subscriber_task.cancel()
@@ -172,8 +199,17 @@ class DeviceRegistry:
             self._hotplug_subscriber_task = None
 
     async def _consume_hotplug_events(self) -> None:
-        """Forward settled hotplug arrivals/departures from the event bus onto this registry."""
-        async for message in self._event_bus.subscribe():
+        """Forward settled hotplug arrivals/departures from the event bus onto this registry.
+
+        Uses `EventBus.subscribe_internal()` — a dedicated, unbounded
+        channel — rather than the public `subscribe()` every browser SSE
+        connection also shares. A dropped arrival/departure here would
+        silently and permanently desync `present` (and, downstream, the
+        supervisor's desired set) with no recovery mechanism, unlike a
+        browser tab that can always be handed a fresh `snapshot`; see
+        `event_bus.py`'s module docstring for the full rationale.
+        """
+        async for message in self._event_bus.subscribe_internal():
             if message.event == HOTPLUG_DEVICE_ARRIVED_EVENT and isinstance(
                 message.data, HotplugArrival
             ):
@@ -362,7 +398,13 @@ class DeviceRegistry:
         configure a tier-3 (`needs_identification`) device.
         """
         identity_kind, separator, identity_key = device_id.partition(":")
-        if not separator or not identity_key:
+        if not separator or not identity_key or identity_kind not in _VALID_IDENTITY_KINDS:
+            # Validated here, at the edge of a client-supplied path parameter,
+            # rather than trusted straight into the `Literal["serial", "usb"]`
+            # cast below — an unchecked cast is a lie to the type checker, not
+            # a guarantee, and a bogus prefix would otherwise reach the
+            # database and fail the `ck_sdr_devices_identity_kind` CHECK with
+            # a confusing 500 instead of an honest 404.
             raise DeviceNotFoundError(device_id)
 
         entry = self._devices.get(device_id)
@@ -376,6 +418,25 @@ class DeviceRegistry:
             self._devices[device_id] = entry
         elif entry.needs_identification:
             raise DeviceUnidentifiedError(device_id)
+
+        was_first_configuration = entry.record_id is None
+        if was_first_configuration:
+            # A brand-new row has no persisted `name`/`output_port` to fall
+            # back to. Silently coercing an omitted field to `""`/`0` (the
+            # previous behaviour) persisted a bogus row that a CHECK
+            # constraint then rejected with a misleading `409 port_conflict`
+            # — or, without that constraint, would have crashed every future
+            # status read (`OutputInfo.iq_port` requires `>= 1024`). Refuse
+            # explicitly instead: the UI is expected to send one combined
+            # PATCH for a device's first configuration; a partial one gets an
+            # honest, actionable error naming what is missing.
+            missing_fields = tuple(
+                field_name
+                for field_name in ("name", "output_port")
+                if patch.get(field_name) is None
+            )
+            if missing_fields:
+                raise IncompleteConfigurationError(missing_fields)
 
         # `patch` arrives as `dict[str, object]` (the router's job is to hand
         # over an already-`DevicePatch`-validated mapping), so every value
@@ -391,7 +452,11 @@ class DeviceRegistry:
             identity_key=identity_key,
             name=str(patch.get("name", entry.name)),
             description=str(patch.get("description", entry.description)),
-            output_port=int(cast(int, output_port_value) or 0),
+            # `was_first_configuration` guarantees `output_port_value` is a
+            # real int by this point (never None) — the guard above already
+            # rejected a first PATCH omitting it, so there is no `or 0`
+            # fallback left to silently fabricate a value.
+            output_port=int(cast(int, output_port_value)),
             enabled=bool(patch.get("enabled", entry.enabled)),
             center_hz=cast("int | None", patch.get("center_hz", entry.center_hz)),
             sample_rate=cast("int | None", patch.get("sample_rate", entry.sample_rate)),
@@ -413,7 +478,6 @@ class DeviceRegistry:
         )
         updated_row = await self._device_repository.upsert(row_to_write)
 
-        was_first_configuration = entry.record_id is None
         entry.record_id = updated_row.id
         entry.name = updated_row.name
         entry.description = updated_row.description
@@ -435,7 +499,17 @@ class DeviceRegistry:
         return self._to_device_record(entry)
 
     async def delete(self, device_id: str) -> None:
-        """Remove a device's persisted configuration, stopping its pair first if running."""
+        """Remove a device's persisted configuration.
+
+        Does **not** itself stop any running pair — this registry has no
+        reference to `SupervisorService` by design (architecture §4.3's
+        dependency direction runs the other way). `routers/devices.py`'s
+        `DELETE` handler refuses this call entirely while the device is
+        `present` (`409 device_present`), so in practice a live pair is never
+        torn down by surprise from here; the `if entry.present:` branch below
+        exists only for a hypothetical non-HTTP caller and is unreachable via
+        the API today.
+        """
         entry = self._devices.get(device_id)
         if entry is None or entry.record_id is None:
             return
@@ -457,6 +531,77 @@ class DeviceRegistry:
                     data=DeviceRemovedEvent(device_id=device_id, record_id=record_id),
                 )
             )
+
+    async def migrate_identity_after_flash(
+        self, device_id: str, new_serial: str, pending_replug_window_s: float
+    ) -> DeviceRecord | None:
+        """Move a persisted device's identity to `serial:<new_serial>` after an EEPROM flash.
+
+        `EepromService.flash_serial` calls this once `rtl_eeprom -s` reports
+        success (ADR-0003): the dongle now reports a different serial, so its
+        row's `(identity_kind, identity_key)` — and therefore its public
+        `device_id` — must move with it, or the flash would silently orphan
+        the old row and strand the operator's name/port/tuning configuration.
+        The migrated entry is marked `pending_replug_until` (architecture
+        §7.6) so its absence is not alarmed on until the operator has had a
+        chance to physically replug it and the new serial is enumerated.
+
+        Returns `None` if `device_id` has no persisted configuration to
+        migrate (nothing to do) — a flash is only ever accepted for a known
+        device (`routers/devices.py`), so this is a defensive check, not an
+        expected path.
+        """
+        entry = self._devices.get(device_id)
+        if entry is None or entry.record_id is None:
+            return None
+
+        assert entry.output_port is not None  # guaranteed once record_id is set
+        now = self._clock.now_ms()
+        new_device_id = f"serial:{new_serial}"
+        row_to_write = PersistedDeviceRow(
+            id=entry.record_id,
+            identity_kind="serial",
+            identity_key=new_serial,
+            name=entry.name,
+            description=entry.description,
+            output_port=entry.output_port,
+            enabled=entry.enabled,
+            center_hz=entry.center_hz,
+            sample_rate=entry.sample_rate,
+            gain_db=entry.gain_db,
+            gain_auto=entry.gain_auto,
+            ppm_correction=entry.ppm_correction,
+            bias_tee=entry.bias_tee,
+            direct_sampling=entry.direct_sampling,
+            last_topology_path=entry.last_topology_path,
+            last_vendor_id=entry.last_vendor_id,
+            last_product_id=entry.last_product_id,
+            last_manufacturer=entry.last_manufacturer,
+            last_product=entry.last_product,
+            last_serial=new_serial,
+            last_seen_at=entry.last_seen_at,
+            pending_replug_until=now + int(pending_replug_window_s * 1000),
+            created_at=entry.created_at,
+            updated_at=now,
+        )
+        updated_row = await self._device_repository.upsert(row_to_write)
+
+        del self._devices[device_id]
+        entry.device_id = new_device_id
+        entry.identity_kind = "serial"
+        entry.identity_key = new_serial
+        entry.last_serial = new_serial
+        entry.pending_replug_until = updated_row.pending_replug_until
+        entry.updated_at = updated_row.updated_at
+        # The flash requires the pair to already be stopped and the dongle is
+        # about to be replugged for the new serial to take effect — settle it
+        # here rather than leaving whatever state it was in before the flash.
+        entry.present = False
+        entry.usb_snapshot = None
+        self._set_state(entry, "stopped", "pending_replug")
+        self._devices[new_device_id] = entry
+        self._publish_device_changed(entry)
+        return self._to_device_record(entry)
 
     async def transition(self, device_id: str, new_state: DeviceState, reason: str | None) -> None:
         """Move one device to `new_state`, stamp `state_since`, and emit `device_changed`.
@@ -698,5 +843,6 @@ __all__ = [
     "DeviceNotFoundError",
     "DeviceRegistry",
     "DeviceUnidentifiedError",
+    "IncompleteConfigurationError",
     "RunnableDevice",
 ]

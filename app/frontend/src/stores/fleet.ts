@@ -8,6 +8,7 @@ import {
   type PortConstraints,
   type SerialFlashAccepted,
 } from '@/api/client'
+import { useLiveAnnouncer } from '@/composables/useLiveAnnouncer'
 import type {
   ConnectionState,
   HealthSnapshot,
@@ -211,6 +212,10 @@ export const useFleetStore = defineStore('fleet', {
       }
       try {
         await apiClient.patchDevice(deviceId, patch)
+        // Success is otherwise silent — without this a screen-reader user
+        // can't distinguish a saved edit from one that failed upstream of
+        // client-side validation (architecture §9.4 forms rule).
+        useLiveAnnouncer().announcePolite(describePatchForAnnouncement(patch))
       } catch (error) {
         if (previous) {
           this.devicesById = { ...this.devicesById, [deviceId]: previous }
@@ -218,10 +223,12 @@ export const useFleetStore = defineStore('fleet', {
         const rest = { ...this.pendingPatchesByDeviceId }
         delete rest[deviceId]
         this.pendingPatchesByDeviceId = rest
+        const code =
+          error instanceof ApiError ? (error.detail?.code ?? 'patch_failed') : 'patch_failed'
         this.applyNotice({
           level: 'error',
-          code: error instanceof ApiError ? (error.detail?.code ?? 'patch_failed') : 'patch_failed',
-          message: error instanceof Error ? error.message : 'Failed to update device.',
+          code,
+          message: humanizePatchErrorCode(code) ?? messageOf(error, 'Failed to update device.'),
           device_id: deviceId,
           ts: Date.now(),
         })
@@ -293,4 +300,54 @@ function applyOptimisticPatch(device: DeviceStatus, patch: DevicePatch): DeviceS
     name: patch.name ?? device.name,
     enabled: patch.enabled ?? device.enabled,
   }
+}
+
+/** A short, operator-facing sentence describing a committed patch, for the polite live region. */
+function describePatchForAnnouncement(patch: DevicePatch): string {
+  const parts: string[] = []
+  if (patch.name !== undefined && patch.name !== null) {
+    parts.push(`name set to "${patch.name}"`)
+  }
+  if (patch.output_port !== undefined && patch.output_port !== null) {
+    parts.push(`output port set to ${patch.output_port}`)
+  }
+  if (patch.enabled !== undefined && patch.enabled !== null) {
+    parts.push(patch.enabled ? 'enabled' : 'disabled')
+  }
+  return parts.length > 0 ? `Saved — ${parts.join(', ')}.` : 'Device saved.'
+}
+
+/**
+ * Maps a known `PATCH /api/devices/{id}` rejection code to an operator-facing
+ * sentence, returning `null` for a code with no special-cased text so the
+ * caller falls back to the server's own `detail.message`.
+ */
+function humanizePatchErrorCode(code: string): string | null {
+  switch (code) {
+    case 'incomplete_configuration':
+      return 'Configuring a device for the first time requires both a name and an output port in the same request.'
+    case 'port_conflict':
+      return 'That output port is already assigned to another device.'
+    case 'port_reserved_http':
+    case 'port_reserved_internal':
+    case 'port_reserved_operator':
+      return 'That output port is reserved and cannot be assigned to a device.'
+    case 'port_in_use':
+      return 'That output port is already bound on this host.'
+    case 'port_out_of_range':
+      return 'That output port is outside the allowed range.'
+    case 'name_conflict':
+      return 'That name is already used by another device.'
+    case 'device_unidentified':
+      return 'This device could not be resolved to a physical index. Replug it and try again.'
+    case 'unknown_device':
+      return 'This device is no longer known to Sentry.'
+    default:
+      return null
+  }
+}
+
+/** Extracts a human message from a caught value, falling back to `fallbackMessage`. */
+function messageOf(error: unknown, fallbackMessage: string): string {
+  return error instanceof Error ? error.message : fallbackMessage
 }

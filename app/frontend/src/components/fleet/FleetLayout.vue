@@ -44,7 +44,7 @@ function toggleTopology(): void {
     </section>
 
     <section aria-labelledby="devices-heading" class="flex flex-col">
-      <h2 id="devices-heading" class="sr-only">Devices</h2>
+      <h2 id="devices-heading" tabindex="-1" class="sr-only outline-none">Devices</h2>
       <slot name="devices" />
     </section>
   </div>

@@ -1,6 +1,7 @@
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 
 import type { DeviceStatus, HealthResponse, StatusResponse } from '@/api/client'
+import { useAuthToken } from '@/composables/useAuthToken'
 import { useFleetStore } from '@/stores/fleet'
 import type { DeviceRemovedEvent, NoticeEvent } from '@/types/fleet'
 
@@ -12,8 +13,16 @@ import { useServerSentEvents, type ServerSentEventsHandle } from './useServerSen
  * from the store, never from this composable's return value directly,
  * except to display connection state (`ConnectionPill`).
  */
-export function useFleetStream(streamUrl = '/api/events'): ServerSentEventsHandle {
+export function useFleetStream(streamPath = '/api/events'): ServerSentEventsHandle {
   const fleetStore = useFleetStore()
+  const { token } = useAuthToken()
+
+  // `EventSource` cannot set an `Authorization` header, so an operator token
+  // is appended as `?access_token=` (architecture §7.9) — the same fallback
+  // `require_sse_bearer_token` accepts server-side.
+  const streamUrl = computed(() =>
+    token.value ? `${streamPath}?access_token=${encodeURIComponent(token.value)}` : streamPath,
+  )
 
   const handle = useServerSentEvents(
     streamUrl,

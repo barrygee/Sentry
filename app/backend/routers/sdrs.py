@@ -6,6 +6,8 @@ additive-only within a major version and never changed to suit the UI.
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from app.backend.config import Settings
@@ -26,6 +28,13 @@ router = APIRouter(tags=["sdrs"], dependencies=[Depends(require_bearer_token)])
 
 API_VERSION_HEADER = "X-Sentry-Sdr-Api-Version"
 
+_VALID_HOSTNAME_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9\-.]{0,251}[A-Za-z0-9])?$")
+"""A conservative allow-list for a bare hostname or IPv4 literal: letters,
+digits, `-` and `.`, and never starting/ending with `-`/`.`. Deliberately
+excludes `[`/`]`/`:` (IPv6 literals) and anything else `Host` could in
+principle carry — an operator relying on an IPv6 `SENTRY_ADVERTISED_HOST` is
+unaffected, since that setting is never passed through this check at all."""
+
 
 def _resolve_host(request: Request, settings: Settings) -> str:
     """Resolve the LAN host to publish (architecture §7.7).
@@ -35,12 +44,26 @@ def _resolve_host(request: Request, settings: Settings) -> str:
     and never a container-internal address — Sentinel dials this value from
     another machine, so an unparseable/absent `Host` header falls back to
     `localhost` rather than a value Sentinel could never reach.
+
+    **Why the header is validated, not just parsed.** `Host` is entirely
+    client-controlled; without `SENTRY_ADVERTISED_HOST` set, a request
+    carrying a forged `Host` would previously be reflected verbatim into
+    every consumer's `sdrs[].host`, pointing Sentinel at whatever address an
+    attacker chose. Restricting the fallback to something that already looks
+    like a plain hostname/IPv4 literal (`_VALID_HOSTNAME_PATTERN`) does not
+    fully close that hole — operators who need it closed entirely should set
+    `SENTRY_ADVERTISED_HOST` — but it does stop the header from carrying
+    anything Sentinel could not plausibly have been told to dial anyway
+    (e.g. a scheme, credentials, control characters, or an implausibly long
+    value), falling back to `localhost` for anything that fails the check.
     """
     if settings.advertised_host:
         return settings.advertised_host
     host_header = request.headers.get("host", "")
     hostname = host_header.rsplit(":", 1)[0].strip()
-    return hostname or "localhost"
+    if hostname and _VALID_HOSTNAME_PATTERN.match(hostname):
+        return hostname
+    return "localhost"
 
 
 def _map_to_export_item(record: DeviceRecord) -> SdrExportItem:

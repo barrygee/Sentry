@@ -1,5 +1,6 @@
-export type DeviceState =
-  'detected' | 'configured' | 'starting' | 'streaming' | 'degraded' | 'stopped' | 'error'
+import type { DeviceState } from '@/api/client'
+
+export type { DeviceState }
 
 export interface DeviceStateMeta {
   label: string
@@ -8,11 +9,6 @@ export interface DeviceStateMeta {
   borderColorClass: string
 }
 
-/**
- * The single source of truth for a device state's colour, glyph and label
- * (architecture §9.5 semantics table) — `StatusDot` and `SdrDeviceCard`'s
- * state stripe both read from here so the two can never drift apart.
- */
 /** States in which a device holds no live process pair — the only states the guarded EEPROM serial flash (architecture §7.6 guard 4) may run from. */
 export const IDLE_DEVICE_STATES: readonly DeviceState[] = ['detected', 'configured', 'stopped']
 
@@ -21,6 +17,13 @@ export function isDeviceIdle(state: DeviceState): boolean {
   return IDLE_DEVICE_STATES.includes(state)
 }
 
+/**
+ * The single source of truth for a device state's colour, glyph and label
+ * (architecture §9.5 semantics table) — `StatusDot` and `SdrDeviceCard`'s
+ * state stripe both read from here so the two can never drift apart. Colour
+ * alone never carries the meaning: every entry also has a distinct glyph and
+ * label text.
+ */
 export const DEVICE_STATE_META: Record<DeviceState, DeviceStateMeta> = {
   streaming: {
     label: 'Streaming',
