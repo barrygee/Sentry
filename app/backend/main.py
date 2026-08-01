@@ -78,6 +78,10 @@ class _NullRtlSdrLibrary:
     so `CtypesRtlSdrLibrary` is used there.
     """
 
+    def is_available(self) -> bool:
+        """Always `False` — no real `librtlsdr` was ever loaded."""
+        return False
+
     def device_count(self) -> int:
         """Always zero — no library is loaded to enumerate anything."""
         return 0
@@ -265,36 +269,67 @@ async def _run_supervisor_reconcile_loop(container: AppContainer) -> None:
     its desired set — debounced by `RECONCILE_DEBOUNCE_S` so a burst of
     events (e.g. every dongle re-arming after a container restart) triggers
     one `reconcile()` rather than one per event.
+
+    **Guaranteed trailing reconcile (bug fix).** The previous implementation
+    created one debounce task per "idle" event and, while that task was
+    pending (asleep *or* already inside `reconcile()`), silently dropped
+    every further event with no record that anything had been missed. A
+    `device_changed` published while an in-flight `reconcile()` was still
+    running past its debounce sleep — plausible with several devices to
+    spawn/stop — was therefore simply lost, with no later event to ever
+    re-trigger it: exactly the silent-no-op shape of a present, enabled,
+    configured device that never leaves `configured` (hardware-debugging
+    finding). This version instead sets a single `asyncio.Event` on every
+    qualifying message and runs a single dedicated worker
+    (`_reconcile_worker`) that clears the event *before* debouncing and
+    reconciling, then loops back to check it again — so a `device_changed`
+    that arrives at any point during the debounce sleep *or* during
+    `reconcile()` itself is re-observed as "set" on the worker's next
+    iteration and produces one more reconcile pass, never zero.
     """
+    reconcile_requested = asyncio.Event()
+    worker_task = asyncio.create_task(
+        _reconcile_worker(container, reconcile_requested), name="supervisor-reconcile-worker"
+    )
     subscription = container.event_bus.subscribe()
-    pending_reconcile: asyncio.Task[None] | None = None
     try:
         async for message in subscription:
             if message.event not in ("device_changed", "device_removed"):
                 continue
-            if pending_reconcile is not None and not pending_reconcile.done():
-                continue
-            pending_reconcile = asyncio.create_task(
-                _debounced_reconcile(container), name="supervisor-reconcile-debounced"
-            )
+            reconcile_requested.set()
     except asyncio.CancelledError:
-        if pending_reconcile is not None:
-            pending_reconcile.cancel()
         raise
     except Exception:
         _logger.exception("supervisor reconcile loop crashed")
+    finally:
+        worker_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await worker_task
 
 
-async def _debounced_reconcile(container: AppContainer) -> None:
-    """Wait out `RECONCILE_DEBOUNCE_S`, then run exactly one `reconcile()` pass."""
-    try:
-        await container.clock.sleep(RECONCILE_DEBOUNCE_S)
-    except asyncio.CancelledError:
-        return
-    try:
-        await container.supervisor.reconcile()
-    except Exception:
-        _logger.exception("supervisor reconcile crashed")
+async def _reconcile_worker(container: AppContainer, reconcile_requested: asyncio.Event) -> None:
+    """Wait for a requested reconcile, debounce, run it, and repeat while more were requested.
+
+    Clearing `reconcile_requested` *before* debouncing/reconciling (rather
+    than after) is what makes this loss-proof: any `set()` call landing
+    anywhere between that `clear()` and the next `await
+    reconcile_requested.wait()` is still observed, guaranteeing the run after
+    the current one always happens instead of a requested reconcile being
+    dropped on the floor.
+    """
+    while True:
+        await reconcile_requested.wait()
+        reconcile_requested.clear()
+        try:
+            await container.clock.sleep(RECONCILE_DEBOUNCE_S)
+        except asyncio.CancelledError:
+            return
+        try:
+            await container.supervisor.reconcile()
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            _logger.exception("supervisor reconcile crashed")
 
 
 @contextlib.asynccontextmanager

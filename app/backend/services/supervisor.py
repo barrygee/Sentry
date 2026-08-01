@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import os
 import sys
 from dataclasses import dataclass, field
@@ -49,6 +50,8 @@ from app.backend.schemas.events import NoticeItem
 from app.backend.services.control_follower import ControlFollowerService
 from app.backend.services.device_registry import DeviceRegistry, RunnableDevice
 from app.backend.services.event_bus import EventBus, SseMessage
+
+_logger = logging.getLogger(__name__)
 
 CONTROL_FOLLOWER_HOST = "127.0.0.1"
 """The relay's control port is bound on every interface (`0.0.0.0`), but the
@@ -77,11 +80,35 @@ WEDGE_EXIT_CODE = 75
 """The relay's `RELAY_WEDGE_EXIT_CODE` (architecture §2.1) — treated as an ordinary
 crash-and-restart, but raises a `notice` specifically calling out the wedge recovery."""
 
-IndexResolutionFailure = Literal["index_unresolved", "ambiguous_index", "driver_conflict"]
+IndexResolutionFailure = Literal[
+    "index_unresolved",
+    "ambiguous_index",
+    "driver_conflict",
+    "librtlsdr_unavailable",
+    "unresponsive_device",
+]
+"""`librtlsdr_unavailable` and `unresponsive_device` are hardware-debugging
+additions (real-world Pi finding — see `resolve_spawn_index`'s docstring):
+
+- `librtlsdr_unavailable` — no real `librtlsdr` was ever loaded on this host
+  (`RtlSdrLibrary.is_available() is False`), so `device_count()` is
+  meaningless. Previously indistinguishable from `driver_conflict`, which
+  told the operator to blacklist the DVB kernel driver — useless advice on a
+  machine that never had librtlsdr installed to begin with.
+- `unresponsive_device` — librtlsdr enumerates the device (it is present on
+  the bus and its descriptor was cached at enumeration) but every attempt to
+  read its USB strings comes back wholly empty, or fails outright: the
+  device is not answering `libusb_open()`/control transfers at all. This is
+  the exact signature of the faulty Nooelec dongle from the hardware
+  incident (`error -71`/EPROTO, "not running at top speed" i.e. full-speed
+  enumeration) — a `driver_conflict`- or `index_unresolved`-shaped message
+  would have sent the operator chasing kernel driver blacklists instead of
+  the actual USB power/cable/hub problem.
+"""
 
 
 class IndexResolutionError(Exception):
-    """Raised by `resolve_spawn_index` for any of the three documented failure modes."""
+    """Raised by `resolve_spawn_index` for any of the five documented failure modes."""
 
     def __init__(self, reason: IndexResolutionFailure, message: str) -> None:
         super().__init__(message)
@@ -133,6 +160,29 @@ class _RestartBookkeeping:
     last_exit_code: int | None = None
 
 
+@dataclass(slots=True)
+class _SpawnFailureBookkeeping:
+    """Per-device backoff/dedup state for a spawn that never got as far as a running pair.
+
+    Distinct from `_RestartBookkeeping` (which tracks an already-spawned pair
+    crashing) — this covers `resolve_spawn_index`/`_spawn_pair` failing
+    *before* any process exists, e.g. a dongle that enumerates but never
+    answers (`unresponsive_device`). Without this, `reconcile()` retried such
+    a device on every registry-change event with no backoff at all — on the
+    hardware incident this produced the same `index_unresolved` notice three
+    times in seconds, interleaved with unrelated wedge/respawn notices, and
+    buried the one actionable signal in noise (hardware-debugging finding).
+    """
+
+    backoff_s: float = BACKOFF_START_S
+    next_retry_at: float = 0.0
+    """Monotonic-clock deadline before which `reconcile()` will not retry this device."""
+    last_notice_key: tuple[str, str] | None = None
+    """`(reason, message)` of the last notice actually published for this device — a repeat
+    of the exact same failure is recorded (state stays `error`) but not re-published, so the
+    operator sees the problem once, not a scrolling wall of identical notices."""
+
+
 class SupervisorService:
     """Spawns, watches, restarts and stops every dongle's process pair."""
 
@@ -174,6 +224,11 @@ class SupervisorService:
         must never spawn a second pair for one of these — that double-spawn,
         racing the scripted restart, is exactly how one crash used to produce
         three untracked pairs."""
+        self._spawn_failure_bookkeeping: dict[str, _SpawnFailureBookkeeping] = {}
+        """Backoff/dedup state for devices whose spawn keeps failing before a
+        pair ever exists (see `_SpawnFailureBookkeeping`) — checked by
+        `reconcile()` via `_spawn_retry_ready` before it will attempt
+        `_spawn_pair` again for that device."""
         self._device_locks: dict[str, asyncio.Lock] = {}
 
     def _lock_for(self, device_id: str) -> asyncio.Lock:
@@ -220,30 +275,83 @@ class SupervisorService:
                     # architecture §7.5: output_port/ppm_correction changes restart the pair.
                     await self._stop_pair(device_id, grace_period_s=5.0, reason="reconfiguring")
                     running_pair = None
-                if running_pair is None and device_id not in self._pending_restart:
+                if (
+                    running_pair is None
+                    and device_id not in self._pending_restart
+                    and self._spawn_retry_ready(device_id)
+                ):
                     await self._spawn_pair(device_id, desired)
 
     async def resolve_spawn_index(self, serial: str) -> int:
         """Resolve the librtlsdr `-d <index>` for `serial`, right now, never cached.
 
         Raises `IndexResolutionError` (never returns a best-guess index) for
-        each of the three documented failure modes (architecture §5.3):
-        `driver_conflict` (zero devices enumerated at all), `index_unresolved`
-        (no index reports this serial), `ambiguous_index` (more than one does).
+        one of the five documented failure modes (architecture §5.3, extended
+        by the hardware-debugging finding documented on `IndexResolutionFailure`):
+        `librtlsdr_unavailable` (no library loaded at all), `driver_conflict`
+        (library loaded but zero devices enumerated), `unresponsive_device`
+        (one or more indices enumerate but answer with empty USB strings —
+        present on the bus, not actually talking), `index_unresolved` (every
+        readable index reports some *other* serial), `ambiguous_index` (more
+        than one index reports this exact serial).
+
+        `serial` is always the last value sysfs itself reported for this
+        device (`RunnableDevice.serial`, sourced from `DeviceStatus.usb`/
+        `usb_last_known`) — so a non-empty `serial` alongside an
+        `unresponsive_device` finding is already the strongest correlation
+        available here: sysfs saw a serial for this device at enumeration
+        time, but librtlsdr cannot read one from the bus right now.
         """
+        if not self._rtlsdr_library.is_available():
+            raise IndexResolutionError(
+                "librtlsdr_unavailable",
+                "librtlsdr is not installed/loadable on this host, so no RTL-SDR index can be "
+                "resolved; install librtlsdr0 (Debian/Raspbian: `apt install librtlsdr0`) — "
+                "expected on a developer workstation, not on the production Pi image",
+            )
+
         device_count = self._rtlsdr_library.device_count()
         if device_count == 0:
             raise IndexResolutionError(
                 "driver_conflict",
-                "librtlsdr enumerates zero devices; the DVB kernel driver may still be "
-                "bound (blacklist dvb_usb_rtl28xxu and reboot) or librtlsdr is unavailable",
+                "librtlsdr is loaded but enumerates zero devices; check that a dongle is "
+                "actually connected and powered, and that the DVB kernel driver has not "
+                "re-bound it (blacklist dvb_usb_rtl28xxu and reboot)",
             )
 
-        matching_indices = [
-            index
-            for index in range(device_count)
-            if self._rtlsdr_library.usb_strings(index).serial == serial
-        ]
+        matching_indices: list[int] = []
+        unresponsive_indices: list[int] = []
+        for index in range(device_count):
+            try:
+                usb_strings = self._rtlsdr_library.usb_strings(index)
+            except IndexError:
+                # librtlsdr itself reports the read failed for this index —
+                # exactly as unresponsive as a successful call returning
+                # wholly empty strings (below); both mean libusb could not
+                # actually open/talk to this enumerated device.
+                unresponsive_indices.append(index)
+                continue
+            if not usb_strings.manufacturer and not usb_strings.product and not usb_strings.serial:
+                unresponsive_indices.append(index)
+                continue
+            if usb_strings.serial == serial:
+                matching_indices.append(index)
+
+        if not matching_indices and unresponsive_indices:
+            sysfs_correlation = (
+                f" sysfs previously reported serial {serial!r} for this device, which is on "
+                "the bus but not answering USB control transfers."
+                if serial
+                else ""
+            )
+            raise IndexResolutionError(
+                "unresponsive_device",
+                f"librtlsdr enumerates index(es) {unresponsive_indices} with no manufacturer, "
+                "product or serial string readable — the device is present on the bus but not "
+                f"responding.{sysfs_correlation} Check USB power, cable and hub (a dongle "
+                "enumerating at full speed rather than high speed cannot stream); confirm with "
+                "`rtl_test -d <index>`.",
+            )
         if not matching_indices:
             raise IndexResolutionError(
                 "index_unresolved", f"no librtlsdr index currently reports serial {serial!r}"
@@ -306,15 +414,33 @@ class SupervisorService:
         try:
             resolved_index = await self.resolve_spawn_index(desired.serial)
         except IndexResolutionError as error:
-            await self._device_registry.transition(device_id, "error", error.reason)
-            self._publish_notice("error", error.reason, device_id, str(error))
+            await self._record_spawn_failure(device_id, error.reason, str(error))
             return
+        except Exception as error:  # deliberately broad — see the comment below
+            # Any *unexpected* failure from the rtlsdr adapter (e.g. a bare
+            # `IndexError`/`OSError` from a ctypes call this method did not
+            # anticipate) must still land the device in `error` with a
+            # reason, never leave it silently parked at `configured` — a
+            # failed spawn that changes no state is indistinguishable from
+            # one that never ran at all, and was reproduced exactly this way
+            # (finding: a device stuck at `configured`, present+enabled,
+            # `0/N streaming`, with no operator-visible signal whatsoever).
+            await self._record_spawn_failure(device_id, "spawn_failed", str(error))
+            _logger.exception(
+                "unexpected error resolving spawn index for %s", device_id, exc_info=error
+            )
+            return
+        else:
+            # A resolution that succeeds after previous failures clears this
+            # device's backoff/dedup state entirely, so the *next* failure
+            # (if any) starts a fresh backoff and is reported again rather
+            # than staying silently deduplicated against a stale entry.
+            self._spawn_failure_bookkeeping.pop(device_id, None)
 
         internal_port = self._allocate_internal_port(device_id)
         if internal_port is None:
-            await self._device_registry.transition(device_id, "error", "port_in_use")
-            self._publish_notice(
-                "error", "port_in_use", device_id, "no free internal loopback port available"
+            await self._record_spawn_failure(
+                device_id, "port_in_use", "no free internal loopback port available"
             )
             return
 
@@ -349,8 +475,7 @@ class SupervisorService:
             )
         except OSError as error:
             self._release_internal_port(device_id)
-            await self._device_registry.transition(device_id, "error", "spawn_failed")
-            self._publish_notice("error", "spawn_failed", device_id, str(error))
+            await self._record_spawn_failure(device_id, "spawn_failed", str(error))
             return
 
         # Exactly these six env vars, and no others (architecture §12.7) —
@@ -371,8 +496,7 @@ class SupervisorService:
         except OSError as error:
             rtl_tcp_process.terminate()
             self._release_internal_port(device_id)
-            await self._device_registry.transition(device_id, "error", "spawn_failed")
-            self._publish_notice("error", "spawn_failed", device_id, str(error))
+            await self._record_spawn_failure(device_id, "spawn_failed", str(error))
             return
 
         running_pair = _RunningPair(
@@ -582,6 +706,7 @@ class SupervisorService:
 
         self._release_internal_port(device_id)
         self._restart_bookkeeping.pop(device_id, None)
+        self._spawn_failure_bookkeeping.pop(device_id, None)
         self._device_registry.update_process_info(device_id, None)
         await self._device_registry.transition(device_id, "stopped", reason)
 
@@ -596,6 +721,47 @@ class SupervisorService:
         if status is not None and not status.enabled:
             return "disabled"
         return "device_absent"
+
+    # -- spawn-failure backoff/dedup --------------------------------------------
+
+    def _spawn_retry_ready(self, device_id: str) -> bool:
+        """Return whether enough backoff has elapsed to let `reconcile()` retry a spawn.
+
+        `True` (retry allowed) whenever this device has no recorded spawn
+        failure at all — the common case. Once a failure is recorded,
+        `reconcile()` will not attempt another spawn for this device until
+        `next_retry_at` (set by `_record_spawn_failure`) has passed, which is
+        what turns a hot retry loop into settle-and-backoff (hardware-
+        debugging finding: three identical `index_unresolved` notices in
+        seconds, driven by nothing more than routine reconcile churn).
+        """
+        bookkeeping = self._spawn_failure_bookkeeping.get(device_id)
+        if bookkeeping is None:
+            return True
+        return self._clock.monotonic() >= bookkeeping.next_retry_at
+
+    async def _record_spawn_failure(self, device_id: str, reason: str, message: str) -> None:
+        """Transition `device_id` to `error`, schedule its next retry, and dedup the notice.
+
+        Always updates the registry's `state_reason` (so `GET /api/status`
+        stays accurate every attempt), but only publishes a fresh `notice`
+        SSE event when this exact `(reason, message)` differs from the last
+        one actually sent for this device — repeats of the identical failure
+        are recorded silently instead of flooding the operator-facing notice
+        channel.
+        """
+        bookkeeping = self._spawn_failure_bookkeeping.setdefault(
+            device_id, _SpawnFailureBookkeeping()
+        )
+        notice_key = (reason, message)
+        should_publish = notice_key != bookkeeping.last_notice_key
+        bookkeeping.last_notice_key = notice_key
+        bookkeeping.next_retry_at = self._clock.monotonic() + bookkeeping.backoff_s
+        bookkeeping.backoff_s = min(bookkeeping.backoff_s * 2, BACKOFF_MAX_S)
+
+        await self._device_registry.transition(device_id, "error", reason)
+        if should_publish:
+            self._publish_notice("error", reason, device_id, message)
 
     # -- helpers ----------------------------------------------------------------
 

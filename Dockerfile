@@ -68,14 +68,26 @@ FROM python:3.12-slim AS runtime
 # (the -dev/headers package stays in the build stage). tini is PID 1: it reaps
 # the supervisor's `rtl_tcp`/relay subprocess tree on shutdown and forwards
 # signals correctly, which a bare `uvicorn` as PID 1 does not do.
+# procps supplies `ps`/`pkill`/`kill`, absent from python:3.12-slim by default
+# — needed to inspect or signal the supervised `rtl_tcp`/relay process tree
+# from inside the container (hardware-debugging finding: neither tool was
+# available when diagnosing a wedged/unresponsive dongle on the Pi).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libusb-1.0-0 tini \
+        libusb-1.0-0 tini procps \
     && rm -rf /var/lib/apt/lists/*
 
 # rtl_tcp and rtl_eeprom (the operator runs rtl_eeprom directly from this
-# image for the duplicate-serial remedy — README) plus the shared library
-# the ctypes adapter (`adapters/ctypes_rtlsdr.py`) loads via `CDLL`.
-COPY --from=rtlsdr-build /opt/rtlsdr/bin/rtl_tcp /opt/rtlsdr/bin/rtl_eeprom /usr/local/bin/
+# image for the duplicate-serial remedy — README), plus rtl_test and rtl_sdr —
+# the standard librtlsdr diagnostics an operator or this project's own runbook
+# needs to tell "electrically faulty/full-speed dongle" apart from a
+# configuration error (hardware-debugging finding: `rtl_test -d <index>` was
+# the one tool that would have made a bad cable/hub obvious immediately, and
+# it shipped in none of the previous images) — plus the shared library the
+# ctypes adapter (`adapters/ctypes_rtlsdr.py`) loads via `CDLL`.
+COPY --from=rtlsdr-build \
+    /opt/rtlsdr/bin/rtl_tcp /opt/rtlsdr/bin/rtl_eeprom \
+    /opt/rtlsdr/bin/rtl_test /opt/rtlsdr/bin/rtl_sdr \
+    /usr/local/bin/
 COPY --from=rtlsdr-build /opt/rtlsdr/lib/ /usr/local/lib/
 RUN ldconfig
 

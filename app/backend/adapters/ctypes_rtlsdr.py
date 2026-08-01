@@ -87,6 +87,10 @@ class CtypesRtlSdrLibrary:
             ctypes.c_char_p,
         ]
 
+    def is_available(self) -> bool:
+        """Always `True`: reaching this point means `librtlsdr` loaded successfully."""
+        return True
+
     def device_count(self) -> int:
         """Return `rtlsdr_get_device_count()` as a plain Python int."""
         return int(self._library.rtlsdr_get_device_count())
