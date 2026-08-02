@@ -5,6 +5,8 @@ import { ApiError, type DeviceStatus } from '@/api/client'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseDialog from '@/components/base/BaseDialog.vue'
 import BaseField from '@/components/base/BaseField.vue'
+import NoticeBox from '@/components/base/NoticeBox.vue'
+import SectionHeading from '@/components/base/SectionHeading.vue'
 import { useFleetStore } from '@/stores/fleet'
 import { isDeviceIdle } from '@/utils/deviceState'
 import { validateSerialClientSide } from '@/utils/serialValidation'
@@ -141,12 +143,18 @@ const statusMessage = computed(() => {
 const statusRegionVisible = computed(
   () => phase.value === 'awaiting-outcome' || phase.value === 'succeeded',
 )
+// These two regions must remain the *same* DOM nodes across phase changes
+// (see the comment above), so they carry `NoticeBox`'s look as class strings
+// rather than rendering a `NoticeBox` — swapping the component in and out is
+// exactly the remount this design avoids.
+const NOTICE_BOX_CLASSES = 'rounded-control border px-4 py-3 text-[12.5px] leading-[1.55]'
 const statusRegionClasses = computed(() =>
   phase.value === 'succeeded'
-    ? 'rounded-rack border border-signal-lime/60 bg-signal-lime/10 px-3 py-2 text-xs text-signal-lime'
-    : 'text-sm text-signal-slate',
+    ? `${NOTICE_BOX_CLASSES} border-signal-ok/50 bg-signal-ok/10 text-signal-ok`
+    : 'text-[12.5px] leading-[1.55] text-signal-muted',
 )
 const alertMessage = computed(() => (phase.value === 'failed' ? (outcomeMessage.value ?? '') : ''))
+const alertRegionClasses = `${NOTICE_BOX_CLASSES} border-signal-danger/50 bg-signal-danger/10 text-signal-danger`
 
 /** Maps a thrown `ApiError`'s machine code to an operator-facing sentence — never surfaces a raw code. */
 function humanizeFlashError(error: unknown): string {
@@ -183,28 +191,23 @@ function humanizeFlashError(error: unknown): string {
       <!-- A `<div>`, not `<header>`: this dialog is teleported to `<body>`,
            outside any sectioning root, so `<header>` here would register as
            a second page-level "banner" landmark alongside `FleetHeader`'s. -->
-      <div class="flex flex-col gap-1">
-        <h2
-          :id="headingId"
-          class="font-condensed text-base font-semibold uppercase tracking-legend text-signal-amber"
-        >
+      <div class="flex flex-col gap-2">
+        <SectionHeading :id="headingId" dot-class="bg-signal-danger">
           Flash a unique serial — {{ deviceLabel }}
-        </h2>
-        <p class="text-xs text-signal-slate">
+        </SectionHeading>
+        <p class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">
           Writes a permanent serial to this dongle's EEPROM via
           <code class="font-mono">rtl_eeprom</code>. This is the most destructive action Sentry can
           take on hardware — an interrupted write can corrupt the device's USB descriptor.
         </p>
       </div>
 
-      <p
-        v-if="!isDeviceIdleNow"
-        role="alert"
-        class="rounded-rack border border-signal-red bg-signal-red/10 px-3 py-2 text-xs text-signal-red"
-      >
-        This device is currently {{ device.state }}. Disable it and wait until it is idle before
-        flashing.
-      </p>
+      <NoticeBox v-if="!isDeviceIdleNow" tone="danger" role="alert">
+        <p class="m-0">
+          This device is currently {{ device.state }}. Disable it and wait until it is idle before
+          flashing.
+        </p>
+      </NoticeBox>
 
       <template v-if="phase === 'form' || phase === 'submitting'">
         <BaseField
@@ -216,26 +219,24 @@ function humanizeFlashError(error: unknown): string {
           @blur="validateDraft"
         />
 
-        <div
-          class="flex flex-col gap-2 rounded-rack border border-signal-amber/60 bg-signal-amber/10 px-3 py-2 text-xs text-signal-amber"
-        >
-          <p :id="consequenceId">
+        <NoticeBox tone="warn">
+          <p :id="consequenceId" class="m-0">
             This will stop <strong>{{ deviceLabel }}</strong
             >'s pair (if running), then write
             <strong class="font-mono">{{ serialDraft || '—' }}</strong> to its EEPROM. A physical
             replug is required afterwards before the new serial is visible.
           </p>
-          <label class="flex items-start gap-2">
+          <label class="flex items-start gap-2.5">
             <input
               v-model="acknowledged"
               type="checkbox"
-              class="mt-0.5 h-4 w-4 shrink-0"
+              class="mt-0.5 h-4 w-4 shrink-0 accent-signal-ok"
               :disabled="!isDeviceIdleNow || isBusy"
               :aria-describedby="consequenceId"
             />
             <span>I understand this writes to hardware and cannot be undone.</span>
           </label>
-        </div>
+        </NoticeBox>
 
         <div class="flex flex-wrap justify-end gap-2">
           <BaseButton variant="ghost" :disabled="isBusy" @click="requestClose">Cancel</BaseButton>
@@ -265,11 +266,7 @@ function humanizeFlashError(error: unknown): string {
       <p
         role="alert"
         aria-atomic="true"
-        :class="
-          phase === 'failed'
-            ? 'rounded-rack border border-signal-red bg-signal-red/10 px-3 py-2 text-xs text-signal-red'
-            : 'sr-only'
-        "
+        :class="phase === 'failed' ? alertRegionClasses : 'sr-only'"
       >
         {{ alertMessage }}
       </p>

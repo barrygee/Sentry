@@ -5,6 +5,7 @@ import type { DeviceStatus } from '@/api/client'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseToggle from '@/components/base/BaseToggle.vue'
 import MonoValue from '@/components/base/MonoValue.vue'
+import PanelCard from '@/components/base/PanelCard.vue'
 import DeviceNameField from '@/components/forms/DeviceNameField.vue'
 import PortAssignmentField from '@/components/forms/PortAssignmentField.vue'
 import { useFleetStore } from '@/stores/fleet'
@@ -22,6 +23,14 @@ import NeedsIdentificationNotice from './NeedsIdentificationNotice.vue'
  * layout over `DeviceStatusBadge`, `JackPair`, `MonoValue` and the two
  * inline-editable form fields. This is the component `UsbTopologyTree`
  * moves focus to on Enter/Space (architecture §9.4).
+ *
+ * Rendered as a `PanelCard` — Sentinel's settings card, with the device's
+ * name as the card label and its make/model line as the description. Cards
+ * were previously butt-joined into one continuous stack; in the settings
+ * layout each is a discrete card in the grid, spanning two columns because
+ * the name and port fields sit side by side inside it. The 3px state stripe
+ * on the left edge survives the move — it is the one place a card carries
+ * semantic colour, and the state's glyph and label sit right beside it.
  */
 const props = defineProps<{ device: DeviceStatus }>()
 
@@ -126,42 +135,48 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
 </script>
 
 <template>
-  <article
+  <PanelCard
     :id="`device-card-${device.device_id}`"
+    as="article"
+    :span="2"
     tabindex="-1"
-    class="flex flex-col gap-3 border-b border-ground-hairline bg-ground-panel px-4 py-4 first:rounded-t-rack last:rounded-b-rack"
-    :class="`border-l-[3px] ${stateMeta.borderColorClass}`"
+    :accent-border-class="stateMeta.stripeBorderColorClass"
+    class="outline-none"
   >
-    <header class="flex flex-col gap-2">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2">
-          <h3 class="font-condensed text-base font-semibold uppercase tracking-legend">
-            {{ device.name || device.device_id }}
-          </h3>
-          <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
+    <template #header>
+      <div class="flex flex-col gap-1.5">
+        <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <h3
+              class="m-0 font-condensed text-[13px] font-semibold uppercase tracking-label text-ink-primary"
+            >
+              {{ device.name || device.device_id }}
+            </h3>
+            <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
+          </div>
+          <div class="flex items-center gap-3">
+            <BaseButton
+              v-if="isForgettable"
+              variant="danger"
+              @click="emit('request-forget-device', device.device_id)"
+            >
+              Forget device
+            </BaseButton>
+            <BaseToggle
+              v-if="device.record_id !== null"
+              :model-value="device.enabled"
+              :label="`Enabled — ${device.name || device.device_id}`"
+              @update:model-value="commitEnabled"
+            />
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          <BaseButton
-            v-if="isForgettable"
-            variant="danger"
-            @click="emit('request-forget-device', device.device_id)"
-          >
-            Forget device
-          </BaseButton>
-          <BaseToggle
-            v-if="device.record_id !== null"
-            :model-value="device.enabled"
-            :label="`Enabled — ${device.name || device.device_id}`"
-            @update:model-value="commitEnabled"
-          />
-        </div>
+        <DeviceIdentitySummary
+          :manufacturer="identityManufacturer"
+          :product="identityProduct"
+          :serial="identitySerial"
+        />
       </div>
-      <DeviceIdentitySummary
-        :manufacturer="identityManufacturer"
-        :product="identityProduct"
-        :serial="identitySerial"
-      />
-    </header>
+    </template>
 
     <NeedsIdentificationNotice
       v-if="device.needs_identification"
@@ -177,18 +192,31 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
         :iq-port="device.output?.iq_port ?? null"
         :control-port="device.output?.control_port ?? null"
       />
-      <dl v-if="device.tuner" class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-signal-slate">
-        <div class="flex gap-1">
-          <dt>Center</dt>
-          <dd><MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" /></dd>
+      <!-- Sentinel's flat data rows (`.tle-cat-row`): each reading is a chip
+           on a faint wash, its name in the small uppercase legend and its
+           value in tabular mono, rather than a run of inline text. -->
+      <dl v-if="device.tuner" class="m-0 flex flex-wrap gap-px">
+        <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
+          <dt class="font-condensed text-[10px] uppercase tracking-legend text-signal-muted">
+            Center
+          </dt>
+          <dd class="m-0 text-sm">
+            <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
+          </dd>
         </div>
-        <div class="flex gap-1">
-          <dt>Rate</dt>
-          <dd><MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" /></dd>
+        <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
+          <dt class="font-condensed text-[10px] uppercase tracking-legend text-signal-muted">
+            Rate
+          </dt>
+          <dd class="m-0 text-sm">
+            <MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" />
+          </dd>
         </div>
-        <div class="flex gap-1">
-          <dt>Gain</dt>
-          <dd>
+        <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
+          <dt class="font-condensed text-[10px] uppercase tracking-legend text-signal-muted">
+            Gain
+          </dt>
+          <dd class="m-0 text-sm">
             <!-- No unit when the tuner is in AGC: the value is a mode, not a
                  measurement, and "AGC dB" reads as nonsense. -->
             <MonoValue v-if="device.tuner.gain_auto" value="AGC" />
@@ -209,10 +237,13 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
           @commit="commitPort"
         />
       </div>
-      <p v-if="needsBothFieldsToConfigure" class="text-xs text-signal-slate">
+      <p
+        v-if="needsBothFieldsToConfigure"
+        class="m-0 text-[12.5px] leading-[1.55] text-signal-muted"
+      >
         Configuring a new device needs both a valid name and a valid output port — nothing is saved
         until both fields have been entered.
       </p>
     </div>
-  </article>
+  </PanelCard>
 </template>

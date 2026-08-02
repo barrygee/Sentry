@@ -920,49 +920,47 @@ enter/leave transitions; state changes become instant swaps.
 
 ---
 
-### 9.5 Design direction — "Patch Bay" *(requires sign-off before any UI is built)*
+### 9.5 Design direction — Sentinel's settings language
 
-Sentry is an operator console for RF hardware bolted to a Raspberry Pi. It should feel like a
-piece of **rack-mounted signal routing equipment**, not a SaaS admin panel. The operator's core
-question — *which dongle is on which port, and is it passing signal?* — is the same question a
-patch bay answers, so the interface borrows that language literally.
+> **This section was rewritten by [ADR-0006](../adr/0006-adopt-sentinel-settings-visual-language.md).**
+> It previously specified "Patch Bay": a near-black instrument panel with a signal-amber accent,
+> chosen as a *sibling* to Sentinel so an operator with both windows open could tell them apart at
+> a glance. That direction was built, then reversed — the two tools are one system and should not
+> look like two products. Read the ADR for the reasoning, the risk that was accepted, and the
+> alternatives rejected; this section now describes only what the UI is.
 
-**Relationship to Sentinel — recommendation: sibling, not twin.**
+Sentry is styled as **Sentinel's settings section**: the same card grid, square corners, flat
+fills, uppercase Barlow legends and light canvas. Structure, typography and palette are all
+Sentinel's. Sentry identifies itself by its content — a device grid and a USB tree, unlike any
+Sentinel screen — not by its chrome.
 
-Sentinel's identity (read from `frontend/vue/src/assets/`) is: near-black ground, a single
-saturated lime accent `#c8ff00`, Barlow / Barlow Condensed, red `#ff5050` for alarm — a tactical
-HUD. Operators will frequently have **both apps open at once**, on the same screen, describing
-the same dongles. Two options were considered:
-
-- *Twin* — reuse Sentinel's palette exactly. Rejected: at a glance the two apps become
-  indistinguishable, and "which window am I in?" is a real operational error when one window can
-  flash a dongle's EEPROM.
-- *Deliberately distinct* — a wholly separate identity. Rejected: they are one system, and an
-  unrelated look makes Sentry read as third-party software rather than the layer beneath Sentinel.
-
-**Recommended: sibling.** Inherit the type system and the ground so they are obviously family;
-move the accent so they are never confused. Sentry is the infrastructure floor; Sentinel is the
-operations deck.
+The canonical values live in `app/frontend/tailwind.config.ts`, whose header comment carries the
+full contrast table. The table below is the direction, not the source of truth.
 
 | Aspect | Direction |
 |---|---|
-| **Tone** | Instrument panel. Dense, precise, physical. Calm at rest — the only saturated colour on a healthy screen is the state stripe on each rack unit. |
-| **Ground** | `#0a0b0c` page, `#141617` panel, `#1b1e1f` raised, hairlines `#242829`. Same near-black family as Sentinel, so the two windows sit together comfortably. |
-| **Accent** | **Signal amber `#ffb020`** is Sentry's primary — active controls, focus, selection, the brand mark. This is the one deliberate divergence from Sentinel's lime and it is what identifies the window instantly. |
-| **Semantics** | `streaming` = lime `#c8ff00` *(shared with Sentinel — a healthy Sentry chain deliberately rhymes with Sentinel's live state)*; `degraded` = amber `#ffb020`; `error` = red `#ff5050` *(shared)*; `stopped`/`detected` = slate `#5c6467`; topology connectors and informational values = cyan `#3fd0e0`. Six states, six unambiguous colours, each also carrying a text label and a distinct glyph. |
-| **Typography** | Barlow Condensed 600, uppercase, `0.08em` tracking for labels, rack legends and column heads — inherited from Sentinel. Barlow 400 for prose and messages. A true monospace with **tabular figures** (`ui-monospace` stack, JetBrains Mono where available) for every port, frequency, PID, USB path and byte count — digits must not shift width as they tick, or the whole panel jitters. |
-| **Layout** | A two-column rack. **Left rail:** the USB topology drawn as an actual signal chain — Pi root at top, 1px cyan connector lines descending through hub nodes to dongle leaves, each junction marked with a small port lug carrying its port number. **Right:** a vertical stack of device cards styled as **rack units** — full-bleed, hairline-separated, no gaps, no drop shadows, no floating cards. Each unit has a 3px left-edge state stripe, which is the only place saturated colour appears at size. Corner radius ≤ 2px throughout. |
-| **Signature element** | The **jack pair**: `P` and `P+2` rendered as a paired label block resembling two physical jacks with their numbers etched beneath, IQ and CTRL. This is the thing an operator scans for and the visual motif the rest of the UI is built around. It appears on the card, in the topology lug, and on the Sentinel-endpoint card. |
-| **Motion** | Near-zero, by intent — a monitoring surface that animates is a monitoring surface you stop trusting. State changes cross-fade 120 ms. Hotplug rows fade+slide 160 ms so a change is *perceptible* without becoming furniture. The one moving element is a 2 px amber flow tick travelling the state stripe of a `streaming` unit. All of it is disabled under `prefers-reduced-motion: reduce`, where state changes become instant swaps. |
-| **Density** | Desktop-class information density, but **mobile-first**: below `md` the rack collapses to a single column, the topology tree becomes a collapsible drawer above the units, and touch targets go to 44 px. An operator will absolutely stand next to the Pi with a phone while plugging dongles in — that is a primary use case, not a fallback. |
-| **Empty state** | A drawn rack blank plate with the text "NO DEVICES DETECTED — CONNECT AN SDR". No illustration, no mascot, no marketing tone. |
+| **Tone** | Instrument panel, restated in daylight. Dense, precise, calm at rest — on a healthy screen the only saturated colour is the accent fill on a control the operator can act on. |
+| **Ground** | `#f6f6f4` canvas, `#ffffff` card, `#e8eaed` input and flat-row fill, `#e2e2df` hairlines. Sentinel's own surface values. |
+| **Accent** | Lime `#c8ff00`, **as a fill only, never text or a border.** It is 1.18:1 on white — below the 3:1 non-text floor, so it can never carry meaning alone. It appears behind `#0a0c10` text (16.55:1) on the primary button, the active toggle, the heading dot and the skip link, exactly as Sentinel uses it. Where the accent is needed *as* a colour, `signal.ok` `#4a7200` is its text-safe form. |
+| **Semantics** | `streaming` = `ok` `#4a7200`; `degraded` = `warn` `#8a5a00`; `error` = `danger` `#b8352a`; `starting` and structural chrome = `info` `#0c6a84`; `stopped`/`detected`/`configured` = `muted` `#66686e` for the label with `faint` `#8a8d92` for the stripe. Tokens are named for meaning, not hue, because on this palette the tone that means "lime" is an olive. Every state also carries a text label and a distinct glyph — colour is never the sole indicator. |
+| **Typography** | Barlow Condensed 600 uppercase for every legend, on Sentinel's five-step tracking scale: `0.1em` card titles, `0.14em` captions, `0.16em` headings and buttons, `0.18em` control labels, `0.22em` muted group labels. Barlow 400 for prose. A true monospace with **tabular figures** (JetBrains Mono, `ui-monospace` fallback) for every port, frequency, PID, USB path and byte count — digits must not shift width as they tick. This is the one place Sentry keeps its own choice: Sentinel sets these in Barlow. |
+| **Layout** | Two columns on a 44px gutter. **Left rail (320px):** the USB topology as flat data rows — 1px connector line, a neutral port lug carrying the port number, hairline-gapped rows on a faint wash. **Right:** device cards in an auto-filling grid, `minmax(min(300px,100%), 1fr)` with a 16px gutter, capped at a 1480px measure; each card spans two columns to fit its side-by-side name and port fields. Each card carries a 3px left-edge state stripe. Square corners throughout, bar 4px status chips and 6px buttons. |
+| **Signature element** | The **jack pair**: `P` and `P+2` as a paired readout, IQ and CTRL, on one flat square surface split by a hairline. Its legends are neutral grey — Sentinel keeps the equivalent element (`.settings-location-label`) muted, and an accent fill repeated on every card would shout. |
+| **Motion** | Near-zero, by intent — a monitoring surface that animates is one you stop trusting. Colour and background transitions only, ~150ms, matching Sentinel's controls. All of it disabled under `prefers-reduced-motion: reduce`. |
+| **Density** | Desktop-class density, but **mobile-first**: below `md` the layout collapses to one column and the topology becomes a disclosure above the cards; below `sm` cards drop to a single column and their fields stack. Buttons are 44px on touch and Sentinel's 38px from `sm` up. An operator will stand next to the Pi with a phone while plugging dongles in — a primary use case, not a fallback. |
+| **Empty state** | A dashed blank plate reading "NO DEVICES DETECTED", with one line of detail. No illustration, no mascot, no marketing tone. |
 | **Voice** | Terse and technical. "STREAMING · 1234/1236 · 2.400 MS/s", not "Your device is working correctly!". Errors state the fix: "DVB kernel driver bound — blacklist `dvb_usb_rtl28xxu` on the host and reboot." |
 
-Every colour pairing is verified to WCAG 2.2 AA before build: ≥ 4.5:1 for text, ≥ 3:1 for state
-stripes, focus rings and the topology connectors. The amber focus ring is 2 px with a 2 px offset
-and is never removed — on a black ground it is the most visible affordance available.
+**Accessibility is a gate, not a finish.** Every semantic tone is verified ≥ 4.5:1 against all
+three grounds — the `#e8eaed` input fill binds, since field labels and badge text sit on it —
+computed from relative luminance, not eyeballed. `signal.faint` is the single sub-threshold tone
+(3.08:1) and is restricted to non-text use with its label rendered in `muted` alongside. The focus
+ring is 2px ink `#23262f` at a 2px offset (13.96:1) and is never removed; it is ink rather than
+the accent because a lime ring is not a focus indicator.
 
-The `frontend-design` skill owns the execution detail; the above is the direction it executes.
+Sentinel's own settings CSS runs secondary text at 3.49:1 and muted labels at ~2.6:1. Those fail
+AA, so Sentry's equivalents are darkened rather than copied — the one place the match is
+deliberately inexact. ADR-0006 lists every such deviation.
 
 ---
 

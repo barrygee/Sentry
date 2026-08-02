@@ -85,12 +85,15 @@ function onClick(): void {
     @keydown="treeContext.onKeydown($event, node.path)"
     @click="onClick"
   >
+    <!-- Sentinel's flat table rows (`.tle-cat-row`): a faint wash, square,
+         separated by a hairline gap rather than a border, brightening on
+         hover and on the roving-tabindex focus target. -->
     <div
-      class="flex min-h-[36px] items-center gap-2 rounded-rack px-1.5 py-1"
-      :class="isFocused ? 'bg-ground-raised' : 'hover:bg-ground-raised/60'"
-      :style="{ paddingLeft: `${(meta?.level ?? 1) * 12}px` }"
+      class="mb-px flex min-h-[36px] items-center gap-2 rounded-rack py-1 pr-2 transition-colors"
+      :class="isFocused ? 'bg-ground-hairline' : 'bg-ground-raised/40 hover:bg-ground-raised'"
+      :style="{ paddingLeft: `${6 + (meta?.level ?? 1) * 12}px` }"
     >
-      <span aria-hidden="true" class="h-px w-3 bg-signal-cyan/50" />
+      <span aria-hidden="true" class="h-px w-3 shrink-0 bg-signal-info/50" />
       <PortLug v-if="lastPortSegment !== null" :port-number="lastPortSegment" />
       <template v-if="node.device">
         <StatusDot :state="node.device.state" />
@@ -99,7 +102,10 @@ function onClick(): void {
         }}</span>
       </template>
       <template v-else>
-        <span class="font-condensed text-xs uppercase tracking-legend text-signal-slate">Hub</span>
+        <span
+          class="font-condensed text-[10px] font-semibold uppercase tracking-control text-signal-muted"
+          >Hub</span
+        >
       </template>
     </div>
     <ul v-if="node.children.length > 0 && isExpanded" role="group" class="m-0 list-none p-0">

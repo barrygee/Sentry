@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import BaseButton from '@/components/base/BaseButton.vue'
+import NoticeBox, { type NoticeTone } from '@/components/base/NoticeBox.vue'
 import { useFleetStore } from '@/stores/fleet'
 import type { NoticeLevel } from '@/types/fleet'
 
@@ -24,14 +26,14 @@ function roleFor(level: NoticeLevel): 'status' | 'alert' {
   return level === 'info' ? 'status' : 'alert'
 }
 
-function classesFor(level: NoticeLevel): string {
+function toneFor(level: NoticeLevel): NoticeTone {
   switch (level) {
     case 'error':
-      return 'border-signal-red bg-signal-red/10 text-signal-red'
+      return 'danger'
     case 'warn':
-      return 'border-signal-amber bg-signal-amber/10 text-signal-amber'
+      return 'warn'
     default:
-      return 'border-signal-cyan bg-signal-cyan/10 text-signal-cyan'
+      return 'info'
   }
 }
 </script>
@@ -39,26 +41,23 @@ function classesFor(level: NoticeLevel): string {
 <template>
   <ul
     v-if="visibleNotices.length > 0"
-    class="flex flex-col gap-2 px-4 pt-4 sm:px-6"
+    class="m-0 flex list-none flex-col gap-2 px-5 pt-[26px] md:px-gutter"
     aria-label="Notices"
   >
     <li v-for="notice in visibleNotices" :key="notice.id">
-      <div
-        :role="roleFor(notice.level)"
-        class="flex flex-col gap-2 rounded-rack border px-3 py-2 text-xs sm:flex-row sm:items-start sm:justify-between sm:gap-3"
-        :class="classesFor(notice.level)"
-      >
-        <p>{{ notice.message }}</p>
-        <button
-          type="button"
-          class="min-h-[44px] shrink-0 rounded-rack border px-2 font-condensed text-xs uppercase tracking-legend"
-          :class="classesFor(notice.level)"
-          @click="fleetStore.dismissNotice(notice.id)"
-        >
-          Dismiss
-          <span class="sr-only">notice: {{ notice.message }}</span>
-        </button>
-      </div>
+      <NoticeBox :tone="toneFor(notice.level)" :role="roleFor(notice.level)">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <p class="m-0">{{ notice.message }}</p>
+          <BaseButton
+            variant="ghost"
+            class="shrink-0 self-start"
+            @click="fleetStore.dismissNotice(notice.id)"
+          >
+            Dismiss
+            <span class="sr-only">notice: {{ notice.message }}</span>
+          </BaseButton>
+        </div>
+      </NoticeBox>
     </li>
   </ul>
 </template>

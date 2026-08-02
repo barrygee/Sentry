@@ -21,8 +21,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from os import PathLike
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +34,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from starlette.responses import Response
+from starlette.types import Scope
 
 from app.backend.adapters.asyncio_process import AsyncioProcessSpawner
 from app.backend.adapters.composite_hotplug import CompositeHotplugSource
@@ -64,6 +68,45 @@ _logger = logging.getLogger(__name__)
 # app/backend/main.py -> app/backend -> app -> repo root, where alembic.ini lives.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FRONTEND_DIST = _REPO_ROOT / "app" / "frontend" / "dist"
+
+
+class CacheAwareSpaStaticFiles(StaticFiles):
+    """Serves the built SPA with cache headers that match how Vite names files.
+
+    Vite content-hashes every JS/CSS asset (`index-GcUORenv.css`), so those are
+    immutable: a changed file gets a new name, and the old name is never reused.
+    They can be cached for a year.
+
+    `index.html` is the exception and the reason this class exists. It is the
+    one file with a stable name, and it is what *points at* the hashed assets.
+    Served with default headers a browser may reuse a cached copy indefinitely,
+    pinning the app to the previous deploy's asset names — the UI simply does
+    not change after an upgrade, with no error anywhere to explain why. Serving
+    it `no-cache` means the browser must revalidate it on every load, so a new
+    deploy is picked up immediately while the (usually much larger) hashed
+    assets still come from cache.
+
+    `no-cache` is deliberate rather than `no-store`: it permits a conditional
+    request, so an unchanged index still answers 304 rather than resending.
+    """
+
+    IMMUTABLE_SUFFIXES = (".js", ".css", ".woff2", ".woff", ".svg", ".png", ".jpg", ".webp")
+
+    def file_response(
+        self,
+        full_path: PathLike[str],
+        stat_result: os.stat_result,
+        scope: Scope,
+        status_code: int = 200,
+    ) -> Response:
+        """Delegate to Starlette, then set `Cache-Control` from the file's extension."""
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        path_name = str(full_path)
+        if path_name.endswith(".html"):
+            response.headers["Cache-Control"] = "no-cache"
+        elif path_name.endswith(self.IMMUTABLE_SUFFIXES):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
 
 
 class _NullRtlSdrLibrary:
@@ -459,7 +502,7 @@ def create_app() -> FastAPI:
     if _FRONTEND_DIST.is_dir():
         application.mount(
             "/",
-            StaticFiles(directory=str(_FRONTEND_DIST), html=True),
+            CacheAwareSpaStaticFiles(directory=str(_FRONTEND_DIST), html=True),
             name="spa",
         )
     return application

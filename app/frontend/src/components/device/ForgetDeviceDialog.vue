@@ -4,6 +4,8 @@ import { computed, ref, useId, watch } from 'vue'
 import { ApiError, type DeviceStatus } from '@/api/client'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseDialog from '@/components/base/BaseDialog.vue'
+import NoticeBox from '@/components/base/NoticeBox.vue'
+import SectionHeading from '@/components/base/SectionHeading.vue'
 import { useFleetStore } from '@/stores/fleet'
 
 /**
@@ -94,14 +96,14 @@ function humanizeForgetError(error: unknown): string {
       <!-- A `<div>`, not `<header>`: this dialog is teleported to `<body>`,
            outside any sectioning root, so `<header>` here would register as
            a second page-level "banner" landmark alongside `FleetHeader`'s. -->
-      <div class="flex flex-col gap-1">
-        <h2
-          :id="headingId"
-          class="font-condensed text-base font-semibold uppercase tracking-legend text-signal-red"
-        >
+      <div class="flex flex-col gap-2">
+        <!-- Red dot rather than the identity amber: this dialog's whole
+             purpose is a destructive confirmation, and the heading is the
+             first thing announced. -->
+        <SectionHeading :id="headingId" dot-class="bg-signal-danger">
           Forget {{ deviceLabel }}?
-        </h2>
-        <p :id="consequenceId" class="text-xs text-signal-slate">
+        </SectionHeading>
+        <p :id="consequenceId" class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">
           This discards <strong>{{ deviceLabel }}</strong
           >'s saved name, output port and tuning defaults. It's recoverable in that replugging the
           hardware re-detects it as a fresh, unconfigured device — but nothing about how it was set
@@ -109,13 +111,9 @@ function humanizeForgetError(error: unknown): string {
         </p>
       </div>
 
-      <p
-        v-if="phase === 'failed'"
-        role="alert"
-        class="rounded-rack border border-signal-red bg-signal-red/10 px-3 py-2 text-xs text-signal-red"
-      >
-        {{ errorMessage }}
-      </p>
+      <NoticeBox v-if="phase === 'failed'" tone="danger" role="alert">
+        <p class="m-0">{{ errorMessage }}</p>
+      </NoticeBox>
 
       <div class="flex flex-wrap justify-end gap-2">
         <BaseButton variant="ghost" :disabled="isBusy" @click="requestClose">Cancel</BaseButton>

@@ -2,6 +2,18 @@
 /**
  * The single button primitive every control in the app composes from —
  * variants are style-only, never a reason to duplicate markup.
+ *
+ * Chrome follows Sentinel's settings buttons (`.ba-btn--ghost/primary/danger`):
+ * 11px uppercase Barlow at 0.16em tracking, a 6px radius, and a flat fill
+ * rather than an outline. `ghost` is the neutral grey wash, `primary` is the
+ * solid lime accent behind near-black text (16.55:1 — the accent is only ever
+ * a fill, see `tailwind.config.ts`), and `danger` is a red wash. The primary
+ * hover `#d8ff33` is Sentinel's own value.
+ *
+ * Height is 44px on touch-sized viewports and Sentinel's 38px from `sm` up:
+ * the settings look is built around the shorter control, but shrinking a
+ * button below a comfortable thumb target on a phone is not a trade worth
+ * making for visual fidelity. Both clear WCAG 2.2 AA target size (24px).
  */
 const props = withDefaults(
   defineProps<{
@@ -19,10 +31,10 @@ const props = withDefaults(
 defineEmits<{ click: [MouseEvent] }>()
 
 const variantClasses = {
-  primary: 'bg-signal-amber text-ground-page hover:bg-[#ffc04d] disabled:bg-ground-hairline',
-  ghost:
-    'bg-transparent text-[#e7e9ea] border border-ground-hairline hover:border-signal-amber disabled:opacity-40',
-  danger: 'bg-transparent text-signal-red border border-signal-red hover:bg-signal-red/10',
+  primary:
+    'bg-signal-accent font-bold tracking-control text-ink-on-accent hover:bg-[#d8ff33] disabled:bg-ground-raised disabled:text-signal-muted',
+  ghost: 'bg-ground-raised text-ink-primary hover:bg-ground-hairline disabled:opacity-40',
+  danger: 'bg-signal-danger/10 text-signal-danger hover:bg-signal-danger/20 disabled:opacity-40',
 } as const satisfies Record<'primary' | 'ghost' | 'danger', string>
 </script>
 
@@ -31,7 +43,7 @@ const variantClasses = {
     :type="type"
     :disabled="disabled"
     :class="[
-      'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-rack px-4 font-condensed text-sm font-semibold uppercase tracking-legend transition-colors disabled:cursor-not-allowed',
+      'inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-control border-none px-[18px] font-condensed text-[11px] font-semibold uppercase tracking-heading transition-colors disabled:cursor-not-allowed sm:min-h-[38px]',
       variantClasses[props.variant],
     ]"
     @click="$emit('click', $event)"

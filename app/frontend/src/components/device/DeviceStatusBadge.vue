@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import StatusBadge from '@/components/base/StatusBadge.vue'
 import StatusDot from '@/components/base/StatusDot.vue'
 import type { DeviceState } from '@/components/base/StatusDot.vue'
+
+/**
+ * A device's state as a Sentinel-style status chip (`.tle-status-badge`) —
+ * the tinted-wash chip rather than an outlined pill. The wash stays neutral
+ * rather than tracking the state's own colour: the state colour is already
+ * carried by `StatusDot`'s glyph inside the chip and by the card's left
+ * stripe, and a third coloured surface for the same fact made the card read
+ * as three competing alerts.
+ */
 
 const props = withDefaults(
   defineProps<{
@@ -20,12 +30,10 @@ function humanizeReason(reason: string): string {
 </script>
 
 <template>
-  <span
-    class="inline-flex items-center gap-1.5 rounded-rack border border-ground-hairline bg-ground-raised px-2 py-1 font-condensed text-xs uppercase tracking-legend"
-  >
+  <StatusBadge tone="neutral">
     <StatusDot :state="state" />
-    <span v-if="reasonText" class="text-signal-slate normal-case tracking-normal"
+    <span v-if="reasonText" class="normal-case tracking-normal text-signal-muted"
       >· {{ reasonText }}</span
     >
-  </span>
+  </StatusBadge>
 </template>

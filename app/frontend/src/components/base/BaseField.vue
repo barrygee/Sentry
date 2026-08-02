@@ -8,6 +8,10 @@ import { computed, ref, useId } from 'vue'
  * and any future form field compose this rather than re-implementing
  * label/error wiring (architecture §9.4 forms rule).
  *
+ * Visually it is Sentinel's settings input shell: one flat, square surface
+ * holding a small uppercase label chip and the input side by side, with the
+ * accent underline drawn inside the row on focus and a red one while invalid.
+ *
  * Exposes `focus()` so a caller whose blur-triggered validation just failed
  * can return focus to the input — otherwise a commit-on-blur error leaves
  * focus wherever the operator tabbed to next, and a screen-reader user never
@@ -56,26 +60,43 @@ defineExpose({
 </script>
 
 <template>
-  <div class="flex flex-col gap-1">
-    <label
-      :for="fieldId"
-      class="font-condensed text-xs uppercase tracking-legend text-signal-slate"
+  <div class="flex flex-col gap-1.5">
+    <!-- Sentinel's labelled-input shell (`.settings-location-row`): the label
+         sits inside the field's own flat fill rather than floating above it,
+         and the whole row shares one square surface. The underlines are drawn
+         inside the row and layer under the global focus ring rather than
+         competing with it — the ring remains the focus indicator
+         (architecture §9.5). Sentinel draws its focus underline in the raw
+         lime accent; here it is `signal.ok`, the accent's text-safe form,
+         because lime on the input fill is 1.4:1 and would be an underline
+         nobody can see. -->
+    <div
+      class="flex items-stretch overflow-hidden rounded-rack bg-ground-raised transition-shadow focus-within:shadow-[inset_0_-2px_0_theme(colors.signal.ok)]"
+      :class="[
+        error ? 'shadow-[inset_0_-2px_0_theme(colors.signal.danger)]' : '',
+        disabled ? 'opacity-40' : '',
+      ]"
     >
-      {{ label }}
-    </label>
-    <input
-      :id="fieldId"
-      ref="inputElement"
-      v-model="modelValue"
-      :type="type"
-      :inputmode="inputMode"
-      :disabled="disabled"
-      :aria-invalid="error ? 'true' : undefined"
-      :aria-describedby="resolvedDescribedBy"
-      class="min-h-[44px] rounded-rack border border-ground-hairline bg-ground-raised px-3 font-mono text-sm font-mono-tabular text-[#e7e9ea] outline-none focus-visible:border-signal-amber disabled:opacity-40"
-      @blur="emit('blur')"
-    />
-    <p v-if="hint && !error" :id="hintId" class="text-xs text-signal-slate">{{ hint }}</p>
-    <p v-if="error" :id="errorId" class="text-xs text-signal-red" role="alert">{{ error }}</p>
+      <label
+        :for="fieldId"
+        class="flex shrink-0 select-none items-center px-3 font-condensed text-[9px] font-semibold uppercase tracking-heading text-signal-muted"
+      >
+        {{ label }}
+      </label>
+      <input
+        :id="fieldId"
+        ref="inputElement"
+        v-model="modelValue"
+        :type="type"
+        :inputmode="inputMode"
+        :disabled="disabled"
+        :aria-invalid="error ? 'true' : undefined"
+        :aria-describedby="resolvedDescribedBy"
+        class="min-h-[44px] w-full min-w-0 flex-1 border-none bg-transparent px-3 font-mono text-sm font-mono-tabular text-ink-primary outline-none disabled:cursor-not-allowed sm:min-h-[38px]"
+        @blur="emit('blur')"
+      />
+    </div>
+    <p v-if="hint && !error" :id="hintId" class="text-xs text-signal-muted">{{ hint }}</p>
+    <p v-if="error" :id="errorId" class="text-xs text-signal-danger" role="alert">{{ error }}</p>
   </div>
 </template>
