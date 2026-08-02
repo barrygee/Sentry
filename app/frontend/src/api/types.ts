@@ -4,1053 +4,1050 @@
  */
 
 export interface paths {
-    "/api/devices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List configured and detected devices
-         * @description Return every configured device plus every detected-but-unconfigured one.
-         */
-        get: operations["list_devices_api_devices_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/devices/{device_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove a device's persisted configuration
-         * @description Remove a device's persisted configuration.
-         *
-         *     Config-removal only, and only for a device that is not currently present
-         *     (settled contract, see module docstring): `404 unknown_device` for a
-         *     device_id with no persisted row, `409 device_present` while it is plugged
-         *     in, `204 No Content` otherwise.
-         */
-        delete: operations["delete_device_api_devices__device_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Create or update a device's configuration
-         * @description Upsert one device's configuration; creates the row on first call for a detected device.
-         *
-         *     Validation order mirrors architecture §7.5's response list: the device
-         *     must be known and identified before any conflict is checked, the proposed
-         *     port is validated through the full six-rule `PortAllocatorService`
-         *     (returning its specific rejection code, not a generic one), then the name
-         *     is checked for a case-insensitive collision, and only then is the mutation
-         *     applied — `DeviceConflictError` from the repository's unique indexes is
-         *     still caught as the last line of defence against a concurrent-request
-         *     race (architecture §6.1).
-         */
-        patch: operations["patch_device_api_devices__device_id__patch"];
-        trace?: never;
-    };
-    "/api/devices/{device_id}/serial": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Flash a unique serial to the dongle's EEPROM
-         * @description Begin the guarded EEPROM serial-flash flow; the outcome arrives via SSE `notice`.
-         *
-         *     `request.confirm`'s `Literal[True]` and `request.serial`'s allow-list
-         *     pattern are already enforced by Pydantic before this handler runs
-         *     (architecture §7.6 guards 1-2). This handler enforces guards 3-4 (serial
-         *     uniqueness, device idleness) plus the per-device lock, then hands the
-         *     actual guarded flash (charset re-check, per-device asyncio lock, list-argv
-         *     exec) to `EepromService.flash_serial()` as a background task — the
-         *     endpoint itself never performs the flash inline, matching the 202
-         *     contract.
-         */
-        post: operations["flash_serial_api_devices__device_id__serial_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Realtime fleet events (Server-Sent Events)
-         * @description Open an SSE stream of fleet events.
-         *
-         *     The response is `text/event-stream` and is not one flat JSON schema — the
-         *     frozen shape of each named event is documented in `schemas/device.py`,
-         *     `schemas/events.py` and `schemas/health.py`. Client disconnect cancels the
-         *     underlying generator (Starlette's normal `StreamingResponse` behaviour),
-         *     which the `finally` block above uses to release the bus subscription.
-         */
-        get: operations["get_events_api_events_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Health snapshot
-         * @description Return the current health snapshot.
-         *
-         *     200 unless the database is unreachable, in which case 503 with the same
-         *     body shape — a flapping healthcheck on one degraded dongle must never
-         *     restart the container and take the healthy dongles down with it
-         *     (architecture §7.1). No auth dependency is declared on this router: the
-         *     Docker healthcheck must reach it regardless of `SENTRY_AUTH_TOKEN`.
-         */
-        get: operations["get_health_api_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sdrs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Permanent alias for the current stable /v1/sdrs
-         * @description Permanent convenience alias serving the current stable SDR export version.
-         */
-        get: operations["get_sdrs_alias_api_sdrs_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Realtime per-SDR status
-         * @description Return the realtime per-SDR view — identical payload to the SSE `snapshot` event.
-         */
-        get: operations["get_status_api_status_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/sdrs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The Sentinel-consumed SDR export (versioned)
-         * @description Return every configured device mapped onto Sentinel's `SdrRadio` field names.
-         */
-        get: operations["get_sdrs_v1_api_v1_sdrs_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  '/api/devices': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List configured and detected devices
+     * @description Return every configured device plus every detected-but-unconfigured one.
+     */
+    get: operations['list_devices_api_devices_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/devices/{device_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Remove a device's persisted configuration
+     * @description Remove a device's persisted configuration.
+     *
+     *     Config-removal only, and only for a device that is not currently present
+     *     (settled contract, see module docstring): `404 unknown_device` for a
+     *     device_id with no persisted row, `409 device_present` while it is plugged
+     *     in, `204 No Content` otherwise.
+     */
+    delete: operations['delete_device_api_devices__device_id__delete']
+    options?: never
+    head?: never
+    /**
+     * Create or update a device's configuration
+     * @description Upsert one device's configuration; creates the row on first call for a detected device.
+     *
+     *     Validation order mirrors architecture §7.5's response list: the device
+     *     must be known and identified before any conflict is checked, the proposed
+     *     port is validated through the full six-rule `PortAllocatorService`
+     *     (returning its specific rejection code, not a generic one), then the name
+     *     is checked for a case-insensitive collision, and only then is the mutation
+     *     applied — `DeviceConflictError` from the repository's unique indexes is
+     *     still caught as the last line of defence against a concurrent-request
+     *     race (architecture §6.1).
+     */
+    patch: operations['patch_device_api_devices__device_id__patch']
+    trace?: never
+  }
+  '/api/devices/{device_id}/serial': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Flash a unique serial to the dongle's EEPROM
+     * @description Begin the guarded EEPROM serial-flash flow; the outcome arrives via SSE `notice`.
+     *
+     *     `request.confirm`'s `Literal[True]` and `request.serial`'s allow-list
+     *     pattern are already enforced by Pydantic before this handler runs
+     *     (architecture §7.6 guards 1-2). This handler enforces guards 3-4 (serial
+     *     uniqueness, device idleness) plus the per-device lock, then hands the
+     *     actual guarded flash (charset re-check, per-device asyncio lock, list-argv
+     *     exec) to `EepromService.flash_serial()` as a background task — the
+     *     endpoint itself never performs the flash inline, matching the 202
+     *     contract.
+     */
+    post: operations['flash_serial_api_devices__device_id__serial_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/events': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Realtime fleet events (Server-Sent Events)
+     * @description Open an SSE stream of fleet events.
+     *
+     *     The response is `text/event-stream` and is not one flat JSON schema — the
+     *     frozen shape of each named event is documented in `schemas/device.py`,
+     *     `schemas/events.py` and `schemas/health.py`. Client disconnect cancels the
+     *     underlying generator (Starlette's normal `StreamingResponse` behaviour),
+     *     which the `finally` block above uses to release the bus subscription.
+     */
+    get: operations['get_events_api_events_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/health': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Health snapshot
+     * @description Return the current health snapshot.
+     *
+     *     200 unless the database is unreachable, in which case 503 with the same
+     *     body shape — a flapping healthcheck on one degraded dongle must never
+     *     restart the container and take the healthy dongles down with it
+     *     (architecture §7.1). No auth dependency is declared on this router: the
+     *     Docker healthcheck must reach it regardless of `SENTRY_AUTH_TOKEN`.
+     */
+    get: operations['get_health_api_health_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/sdrs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Permanent alias for the current stable /v1/sdrs
+     * @description Permanent convenience alias serving the current stable SDR export version.
+     */
+    get: operations['get_sdrs_alias_api_sdrs_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/status': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Realtime per-SDR status
+     * @description Return the realtime per-SDR view — identical payload to the SSE `snapshot` event.
+     */
+    get: operations['get_status_api_status_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/sdrs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The Sentinel-consumed SDR export (versioned)
+     * @description Return every configured device mapped onto Sentinel's `SdrRadio` field names.
+     */
+    get: operations['get_sdrs_v1_api_v1_sdrs_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
-export type webhooks = Record<string, never>;
+export type webhooks = Record<string, never>
 export interface components {
-    schemas: {
-        /**
-         * ClientCounts
-         * @description Per-port connected-client counts from `SocketStatsSource`.
-         *
-         *     Every field is nullable and advisory: `None` on platforms without
-         *     `/proc/net/tcp` (architecture decision — always nullable, never a hard
-         *     dependency for status reporting).
-         */
-        ClientCounts: {
-            /** Control */
-            control?: number | null;
-            /** Iq */
-            iq?: number | null;
-        };
-        /**
-         * DeviceCounts
-         * @description Per-state device tallies surfaced in the health snapshot.
-         */
-        DeviceCounts: {
-            /** Configured */
-            configured: number;
-            /** Degraded */
-            degraded: number;
-            /** Error */
-            error: number;
-            /** Needs Identification */
-            needs_identification: number;
-            /** Present */
-            present: number;
-            /** Streaming */
-            streaming: number;
-        };
-        /**
-         * DevicePatch
-         * @description `PATCH /api/devices/{device_id}` request body — all fields optional, one required.
-         *
-         *     `extra="forbid"` rejects unknown fields outright rather than silently
-         *     ignoring operator typos (architecture §12.12).
-         */
-        DevicePatch: {
-            /** Bias Tee */
-            bias_tee?: boolean | null;
-            /** Center Hz */
-            center_hz?: number | null;
-            /** Description */
-            description?: string | null;
-            /** Direct Sampling */
-            direct_sampling?: (0 | 1 | 2) | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Gain Auto */
-            gain_auto?: boolean | null;
-            /** Gain Db */
-            gain_db?: number | null;
-            /** Name */
-            name?: string | null;
-            /** Output Port */
-            output_port?: number | null;
-            /** Ppm Correction */
-            ppm_correction?: number | null;
-            /** Sample Rate */
-            sample_rate?: number | null;
-        };
-        /**
-         * DeviceRecord
-         * @description One device's configuration-centric record — `GET /api/devices` item and PATCH response.
-         */
-        DeviceRecord: {
-            /**
-             * Bias Tee
-             * @description Bias-T power, nullable
-             */
-            bias_tee?: boolean | null;
-            /** Center Hz */
-            center_hz?: number | null;
-            /** Control Port */
-            control_port?: number | null;
-            /** Created At */
-            created_at: number;
-            /** Description */
-            description: string;
-            /** Device Id */
-            device_id: string;
-            /**
-             * Direct Sampling
-             * @description Direct-sampling mode, nullable
-             */
-            direct_sampling?: (0 | 1 | 2) | null;
-            /** Enabled */
-            enabled: boolean;
-            /** Gain Auto */
-            gain_auto: boolean;
-            /** Gain Db */
-            gain_db?: number | null;
-            /** Identity Key */
-            identity_key: string;
-            /**
-             * Identity Kind
-             * @enum {string}
-             */
-            identity_kind: "serial" | "usb";
-            /** Last Seen At */
-            last_seen_at?: number | null;
-            /** Last Serial */
-            last_serial: string;
-            /** Last Topology Path */
-            last_topology_path: string;
-            /** Name */
-            name: string;
-            /** Needs Identification */
-            needs_identification: boolean;
-            /** Output Port */
-            output_port?: number | null;
-            /** Ppm Correction */
-            ppm_correction: number;
-            /** Present */
-            present: boolean;
-            /** Record Id */
-            record_id: number | null;
-            /** Sample Rate */
-            sample_rate?: number | null;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "detected" | "configured" | "starting" | "streaming" | "degraded" | "stopped" | "error";
-            /** Updated At */
-            updated_at: number;
-        };
-        /**
-         * DeviceStatus
-         * @description One device's realtime status — the `GET /api/status` and SSE payload shape.
-         */
-        DeviceStatus: {
-            clients?: components["schemas"]["ClientCounts"] | null;
-            /** Description */
-            description: string;
-            /**
-             * Device Id
-             * @description The public key: "serial:<value>" or "usb:<path>"
-             */
-            device_id: string;
-            /** Enabled */
-            enabled: boolean;
-            /** Identity Key */
-            identity_key: string;
-            /**
-             * Identity Kind
-             * @enum {string}
-             */
-            identity_kind: "serial" | "usb";
-            /** Last Seen At */
-            last_seen_at?: number | null;
-            /** Name */
-            name: string;
-            /** Needs Identification */
-            needs_identification: boolean;
-            /** @description Null for an unconfigured device */
-            output?: components["schemas"]["OutputInfo"] | null;
-            /** Present */
-            present: boolean;
-            processes?: components["schemas"]["ProcessInfo"] | null;
-            /**
-             * Record Id
-             * @description The DB surrogate key; null for a detected device
-             */
-            record_id: number | null;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "detected" | "configured" | "starting" | "streaming" | "degraded" | "stopped" | "error";
-            /**
-             * State Reason
-             * @description Machine code, non-null in error
-             */
-            state_reason?: string | null;
-            /**
-             * State Since
-             * @description Unix ms this state began
-             */
-            state_since: number;
-            /** @description Null until control_follower's first state event */
-            tuner?: components["schemas"]["TunerInfo"] | null;
-            /** @description Null when the device is absent */
-            usb?: components["schemas"]["UsbInfo"] | null;
-            /** @description Populated instead of `usb` for an absent configured device */
-            usb_last_known?: components["schemas"]["UsbLastKnownInfo"] | null;
-        };
-        /**
-         * DevicesListResponse
-         * @description `GET /api/devices` body: every configured and every detected device.
-         */
-        DevicesListResponse: {
-            constraints: components["schemas"]["PortConstraints"];
-            /** Devices */
-            devices: components["schemas"]["DeviceRecord"][];
-            /** Port Suggestion */
-            port_suggestion: number | null;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /**
-         * HealthResponse
-         * @description `GET /api/health` body. Auth-exempt; 503 only when the database is unreachable.
-         */
-        HealthResponse: {
-            /**
-             * Database
-             * @enum {string}
-             */
-            database: "ok" | "error";
-            devices: components["schemas"]["DeviceCounts"];
-            hotplug: components["schemas"]["HotplugHealth"];
-            /**
-             * Started At
-             * @description Unix ms the process started
-             */
-            started_at: number;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "ok" | "degraded" | "unhealthy";
-            /** Uptime S */
-            uptime_s: number;
-            /** Version */
-            version: string;
-        };
-        /**
-         * HotplugHealth
-         * @description Whether the primary hotplug mechanism (udev) or only the reconcile fallback is active.
-         */
-        HotplugHealth: {
-            /** Healthy */
-            healthy: boolean;
-            /** Last Event At */
-            last_event_at?: number | null;
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "udev" | "reconcile";
-        };
-        /**
-         * OutputInfo
-         * @description The public IQ/control endpoint for a configured device.
-         */
-        OutputInfo: {
-            /**
-             * Control Port
-             * @description P + 2, the NDJSON control port
-             */
-            control_port: number;
-            /**
-             * Host
-             * @description The Pi's advertised LAN address
-             */
-            host: string;
-            /**
-             * Iq Port
-             * @description The relay's public IQ port P
-             */
-            iq_port: number;
-        };
-        /**
-         * PortConstraints
-         * @description Mirrors the port-allocator rule table so the UI can validate inline.
-         *
-         *     Advisory only — the server always re-validates on `PATCH` (architecture §7.4).
-         */
-        PortConstraints: {
-            /** In Use */
-            in_use: number[];
-            /** Internal Range */
-            internal_range: [
-                number,
-                number
-            ];
-            /** Port Max */
-            port_max: number;
-            /** Port Min */
-            port_min: number;
-            /** Reserved */
-            reserved: number[];
-        };
-        /**
-         * ProcessInfo
-         * @description Supervisor-owned process/lifecycle telemetry for a device's running pair.
-         */
-        ProcessInfo: {
-            /**
-             * Internal Port
-             * @description The loopback rtl_tcp port
-             */
-            internal_port?: number | null;
-            /** Last Exit Code */
-            last_exit_code?: number | null;
-            /** Last Restart At */
-            last_restart_at?: number | null;
-            /** Relay Pid */
-            relay_pid?: number | null;
-            /**
-             * Restarts
-             * @default 0
-             */
-            restarts: number;
-            /** Rtl Tcp Pid */
-            rtl_tcp_pid?: number | null;
-        };
-        /**
-         * SdrExportItem
-         * @description One configured device, mapped onto Sentinel's `SdrRadio` / `RadioIn` field names.
-         *
-         *     Field-by-field mapping and rationale: architecture §7.8.
-         */
-        SdrExportItem: {
-            /**
-             * Agc
-             * @description Sentry's gain_auto
-             */
-            agc?: boolean | null;
-            /**
-             * Available
-             * @description Display-only: grey out rather than hide when false
-             */
-            available: boolean;
-            /**
-             * Bandwidth
-             * @description Sentry's sample_rate
-             */
-            bandwidth?: number | null;
-            /**
-             * Control Port
-             * @description P + 2, sent for verification only
-             */
-            control_port: number;
-            /** Description */
-            description: string;
-            /** Enabled */
-            enabled: boolean;
-            /** Host */
-            host: string;
-            /** Name */
-            name: string;
-            /**
-             * Port
-             * @description The relay's IQ port P
-             */
-            port: number;
-            /**
-             * Rf Gain
-             * @description Sentry's gain_db; null when AGC
-             */
-            rf_gain?: number | null;
-            /**
-             * Sentry Device Id
-             * @description Idempotency key for Sentinel's import
-             */
-            sentry_device_id: string;
-            /**
-             * State
-             * @description Display-only device state
-             */
-            state: string;
-        };
-        /**
-         * SdrExportResponse
-         * @description `GET /api/v1/sdrs` and `GET /api/sdrs` (permanent alias) body.
-         */
-        SdrExportResponse: {
-            /**
-             * Api Version
-             * @default 1
-             */
-            api_version: number;
-            /**
-             * Control Port Offset
-             * @description Sentinel already computes port + this offset
-             * @default 2
-             */
-            control_port_offset: number;
-            /** Generated At */
-            generated_at: number;
-            /** Sdrs */
-            sdrs: components["schemas"]["SdrExportItem"][];
-            source: components["schemas"]["SdrExportSource"];
-        };
-        /**
-         * SdrExportSource
-         * @description Identifies the Sentry instance that produced this export.
-         */
-        SdrExportSource: {
-            /**
-             * Host
-             * @description Never 0.0.0.0 or a container-internal address
-             */
-            host: string;
-            /** Http Port */
-            http_port: number;
-            /**
-             * Name
-             * @default sentry
-             * @constant
-             */
-            name: "sentry";
-            /** Version */
-            version: string;
-        };
-        /**
-         * SerialFlashAccepted
-         * @description `202 Accepted` body; the outcome arrives later as an SSE `notice`.
-         */
-        SerialFlashAccepted: {
-            /** Device Id */
-            device_id: string;
-            /**
-             * Operation Id
-             * @description Correlates this request with its SSE notice events
-             */
-            operation_id: string;
-            /**
-             * Requires Replug
-             * @description A physical replug is required before the new serial is visible
-             * @default true
-             */
-            requires_replug: boolean;
-            /**
-             * Status
-             * @constant
-             */
-            status: "in_progress";
-        };
-        /**
-         * SerialFlashRequest
-         * @description Request body for flashing a unique serial to a dongle's EEPROM.
-         */
-        SerialFlashRequest: {
-            /**
-             * Confirm
-             * @description Must be exactly true; a destructive hardware write requires explicit intent
-             * @constant
-             */
-            confirm: true;
-            /** Serial */
-            serial: string;
-        };
-        /**
-         * StatusResponse
-         * @description `GET /api/status` and the SSE `snapshot` event body.
-         */
-        StatusResponse: {
-            /**
-             * Generated At
-             * @description Unix ms this snapshot was assembled
-             */
-            generated_at: number;
-            /**
-             * Sdrs
-             * @description Sorted by usb.topology_path; absent devices last
-             */
-            sdrs: components["schemas"]["DeviceStatus"][];
-        };
-        /**
-         * TunerInfo
-         * @description The live tuner state as last observed via `control_follower` (architecture §7.2).
-         */
-        TunerInfo: {
-            /**
-             * Bias Tee
-             * @description Bias-T power state, when the dongle supports it
-             */
-            bias_tee?: boolean | null;
-            /** Center Hz */
-            center_hz: number;
-            /**
-             * Direct Sampling
-             * @description Direct-sampling mode (0=off, 1=I-ADC, 2=Q-ADC), when in use
-             */
-            direct_sampling?: (0 | 1 | 2) | null;
-            /** Gain Auto */
-            gain_auto: boolean;
-            /** Gain Db */
-            gain_db: number;
-            /**
-             * Locked
-             * @description Whether another owner currently holds the tuning token
-             */
-            locked: boolean;
-            /**
-             * Observed At
-             * @description Unix ms this state was last observed on P+2
-             */
-            observed_at: number;
-            /** Sample Rate */
-            sample_rate: number;
-        };
-        /**
-         * UsbInfo
-         * @description The live USB descriptor and topology for a present device (architecture §7.2).
-         */
-        UsbInfo: {
-            /** Bus Number */
-            bus_number: number;
-            /**
-             * Device Address
-             * @description Kernel devnum; unstable, display only
-             */
-            device_address: number;
-            /**
-             * Driver
-             * @description Bound kernel driver name, if any
-             */
-            driver?: string | null;
-            /**
-             * Driver Conflict
-             * @description True when the DVB kernel driver is bound instead of the userspace driver
-             */
-            driver_conflict: boolean;
-            /**
-             * Hub Depth
-             * @description len(port_chain) - 1
-             */
-            hub_depth: number;
-            /** Manufacturer */
-            manufacturer?: string | null;
-            /**
-             * Port Chain
-             * @description The port path as integers, e.g. (1, 4, 2)
-             */
-            port_chain: number[];
-            /** Product */
-            product?: string | null;
-            /**
-             * Product Id
-             * @description Lowercase hex, no "0x", e.g. "2838"
-             */
-            product_id: string;
-            /**
-             * Serial
-             * @description The raw reported iSerial
-             */
-            serial?: string | null;
-            /**
-             * Topology Path
-             * @description Bus-port path, e.g. "1-1.4.2"
-             */
-            topology_path: string;
-            /**
-             * Vendor Id
-             * @description Lowercase hex, no "0x", e.g. "0bda"
-             */
-            vendor_id: string;
-        };
-        /**
-         * UsbLastKnownInfo
-         * @description A reduced USB description for a configured device that is currently absent.
-         *
-         *     Populated from the persisted `last_*` columns so an absent device still
-         *     renders identifiably in the UI (architecture §7.2).
-         */
-        UsbLastKnownInfo: {
-            /** Manufacturer */
-            manufacturer?: string | null;
-            /** Product */
-            product?: string | null;
-            /** Product Id */
-            product_id: string;
-            /** Serial */
-            serial?: string | null;
-            /** Topology Path */
-            topology_path: string;
-            /** Vendor Id */
-            vendor_id: string;
-        };
-        /** ValidationError */
-        ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
-    };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+  schemas: {
+    /**
+     * ClientCounts
+     * @description Per-port connected-client counts from `SocketStatsSource`.
+     *
+     *     Every field is nullable and advisory: `None` on platforms without
+     *     `/proc/net/tcp` (architecture decision — always nullable, never a hard
+     *     dependency for status reporting).
+     */
+    ClientCounts: {
+      /** Control */
+      control?: number | null
+      /** Iq */
+      iq?: number | null
+    }
+    /**
+     * DeviceCounts
+     * @description Per-state device tallies surfaced in the health snapshot.
+     */
+    DeviceCounts: {
+      /** Configured */
+      configured: number
+      /** Degraded */
+      degraded: number
+      /** Error */
+      error: number
+      /** Needs Identification */
+      needs_identification: number
+      /** Present */
+      present: number
+      /** Streaming */
+      streaming: number
+    }
+    /**
+     * DevicePatch
+     * @description `PATCH /api/devices/{device_id}` request body — all fields optional, one required.
+     *
+     *     `extra="forbid"` rejects unknown fields outright rather than silently
+     *     ignoring operator typos (architecture §12.12).
+     */
+    DevicePatch: {
+      /** Bias Tee */
+      bias_tee?: boolean | null
+      /** Center Hz */
+      center_hz?: number | null
+      /** Description */
+      description?: string | null
+      /** Direct Sampling */
+      direct_sampling?: (0 | 1 | 2) | null
+      /** Enabled */
+      enabled?: boolean | null
+      /** Gain Auto */
+      gain_auto?: boolean | null
+      /** Gain Db */
+      gain_db?: number | null
+      /** Name */
+      name?: string | null
+      /** Output Port */
+      output_port?: number | null
+      /** Ppm Correction */
+      ppm_correction?: number | null
+      /** Sample Rate */
+      sample_rate?: number | null
+    }
+    /**
+     * DeviceRecord
+     * @description One device's configuration-centric record — `GET /api/devices` item and PATCH response.
+     */
+    DeviceRecord: {
+      /**
+       * Bias Tee
+       * @description Bias-T power, nullable
+       */
+      bias_tee?: boolean | null
+      /** Center Hz */
+      center_hz?: number | null
+      /** Control Port */
+      control_port?: number | null
+      /** Created At */
+      created_at: number
+      /** Description */
+      description: string
+      /** Device Id */
+      device_id: string
+      /**
+       * Direct Sampling
+       * @description Direct-sampling mode, nullable
+       */
+      direct_sampling?: (0 | 1 | 2) | null
+      /** Enabled */
+      enabled: boolean
+      /** Gain Auto */
+      gain_auto: boolean
+      /** Gain Db */
+      gain_db?: number | null
+      /** Identity Key */
+      identity_key: string
+      /**
+       * Identity Kind
+       * @enum {string}
+       */
+      identity_kind: 'serial' | 'usb'
+      /** Last Seen At */
+      last_seen_at?: number | null
+      /** Last Serial */
+      last_serial: string
+      /** Last Topology Path */
+      last_topology_path: string
+      /** Name */
+      name: string
+      /** Needs Identification */
+      needs_identification: boolean
+      /** Output Port */
+      output_port?: number | null
+      /** Ppm Correction */
+      ppm_correction: number
+      /** Present */
+      present: boolean
+      /** Record Id */
+      record_id: number | null
+      /** Sample Rate */
+      sample_rate?: number | null
+      /**
+       * State
+       * @enum {string}
+       */
+      state: 'detected' | 'configured' | 'starting' | 'streaming' | 'degraded' | 'stopped' | 'error'
+      /** Updated At */
+      updated_at: number
+    }
+    /**
+     * DeviceStatus
+     * @description One device's realtime status — the `GET /api/status` and SSE payload shape.
+     */
+    DeviceStatus: {
+      clients?: components['schemas']['ClientCounts'] | null
+      /** Description */
+      description: string
+      /**
+       * Device Id
+       * @description The public key: "serial:<value>" or "usb:<path>"
+       */
+      device_id: string
+      /** Enabled */
+      enabled: boolean
+      /** Identity Key */
+      identity_key: string
+      /**
+       * Identity Kind
+       * @enum {string}
+       */
+      identity_kind: 'serial' | 'usb'
+      /** Last Seen At */
+      last_seen_at?: number | null
+      /** Name */
+      name: string
+      /** Needs Identification */
+      needs_identification: boolean
+      /** @description Null for an unconfigured device */
+      output?: components['schemas']['OutputInfo'] | null
+      /** Present */
+      present: boolean
+      processes?: components['schemas']['ProcessInfo'] | null
+      /**
+       * Record Id
+       * @description The DB surrogate key; null for a detected device
+       */
+      record_id: number | null
+      /**
+       * State
+       * @enum {string}
+       */
+      state: 'detected' | 'configured' | 'starting' | 'streaming' | 'degraded' | 'stopped' | 'error'
+      /**
+       * State Reason
+       * @description Machine code, non-null in error
+       */
+      state_reason?: string | null
+      /**
+       * State Since
+       * @description Unix ms this state began
+       */
+      state_since: number
+      /** @description Null until control_follower's first state event */
+      tuner?: components['schemas']['TunerInfo'] | null
+      /** @description Null when the device is absent */
+      usb?: components['schemas']['UsbInfo'] | null
+      /** @description Populated instead of `usb` for an absent configured device */
+      usb_last_known?: components['schemas']['UsbLastKnownInfo'] | null
+    }
+    /**
+     * DevicesListResponse
+     * @description `GET /api/devices` body: every configured and every detected device.
+     */
+    DevicesListResponse: {
+      constraints: components['schemas']['PortConstraints']
+      /** Devices */
+      devices: components['schemas']['DeviceRecord'][]
+      /** Port Suggestion */
+      port_suggestion: number | null
+    }
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components['schemas']['ValidationError'][]
+    }
+    /**
+     * HealthResponse
+     * @description `GET /api/health` body. Auth-exempt; 503 only when the database is unreachable.
+     */
+    HealthResponse: {
+      /**
+       * Database
+       * @enum {string}
+       */
+      database: 'ok' | 'error'
+      devices: components['schemas']['DeviceCounts']
+      hotplug: components['schemas']['HotplugHealth']
+      /**
+       * Started At
+       * @description Unix ms the process started
+       */
+      started_at: number
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'ok' | 'degraded' | 'unhealthy'
+      /** Uptime S */
+      uptime_s: number
+      /** Version */
+      version: string
+    }
+    /**
+     * HotplugHealth
+     * @description Whether the primary hotplug mechanism (udev) or only the reconcile fallback is active.
+     */
+    HotplugHealth: {
+      /** Healthy */
+      healthy: boolean
+      /** Last Event At */
+      last_event_at?: number | null
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: 'udev' | 'reconcile'
+    }
+    /**
+     * OutputInfo
+     * @description The public IQ/control endpoint for a configured device.
+     */
+    OutputInfo: {
+      /**
+       * Control Port
+       * @description P + 2, the NDJSON control port
+       */
+      control_port: number
+      /**
+       * Host
+       * @description The Pi's advertised LAN address
+       */
+      host: string
+      /**
+       * Iq Port
+       * @description The relay's public IQ port P
+       */
+      iq_port: number
+    }
+    /**
+     * PortConstraints
+     * @description Mirrors the port-allocator rule table so the UI can validate inline.
+     *
+     *     Advisory only — the server always re-validates on `PATCH` (architecture §7.4).
+     */
+    PortConstraints: {
+      /** In Use */
+      in_use: number[]
+      /** Internal Range */
+      internal_range: [number, number]
+      /** Port Max */
+      port_max: number
+      /** Port Min */
+      port_min: number
+      /** Reserved */
+      reserved: number[]
+    }
+    /**
+     * ProcessInfo
+     * @description Supervisor-owned process/lifecycle telemetry for a device's running pair.
+     */
+    ProcessInfo: {
+      /**
+       * Internal Port
+       * @description The loopback rtl_tcp port
+       */
+      internal_port?: number | null
+      /** Last Exit Code */
+      last_exit_code?: number | null
+      /** Last Restart At */
+      last_restart_at?: number | null
+      /** Relay Pid */
+      relay_pid?: number | null
+      /**
+       * Restarts
+       * @default 0
+       */
+      restarts: number
+      /** Rtl Tcp Pid */
+      rtl_tcp_pid?: number | null
+    }
+    /**
+     * SdrExportItem
+     * @description One configured device, mapped onto Sentinel's `SdrRadio` / `RadioIn` field names.
+     *
+     *     Field-by-field mapping and rationale: architecture §7.8.
+     */
+    SdrExportItem: {
+      /**
+       * Agc
+       * @description Sentry's gain_auto
+       */
+      agc?: boolean | null
+      /**
+       * Available
+       * @description Display-only: grey out rather than hide when false
+       */
+      available: boolean
+      /**
+       * Bandwidth
+       * @description Sentry's sample_rate
+       */
+      bandwidth?: number | null
+      /**
+       * Control Port
+       * @description P + 2, sent for verification only
+       */
+      control_port: number
+      /** Description */
+      description: string
+      /** Enabled */
+      enabled: boolean
+      /** Host */
+      host: string
+      /** Name */
+      name: string
+      /**
+       * Port
+       * @description The relay's IQ port P
+       */
+      port: number
+      /**
+       * Rf Gain
+       * @description Sentry's gain_db; null when AGC
+       */
+      rf_gain?: number | null
+      /**
+       * Sentry Device Id
+       * @description Idempotency key for Sentinel's import
+       */
+      sentry_device_id: string
+      /**
+       * State
+       * @description Display-only device state
+       */
+      state: string
+    }
+    /**
+     * SdrExportResponse
+     * @description `GET /api/v1/sdrs` and `GET /api/sdrs` (permanent alias) body.
+     */
+    SdrExportResponse: {
+      /**
+       * Api Version
+       * @default 1
+       */
+      api_version: number
+      /**
+       * Control Port Offset
+       * @description Sentinel already computes port + this offset
+       * @default 2
+       */
+      control_port_offset: number
+      /** Generated At */
+      generated_at: number
+      /** Sdrs */
+      sdrs: components['schemas']['SdrExportItem'][]
+      source: components['schemas']['SdrExportSource']
+    }
+    /**
+     * SdrExportSource
+     * @description Identifies the Sentry instance that produced this export.
+     */
+    SdrExportSource: {
+      /**
+       * Host
+       * @description Never 0.0.0.0 or a container-internal address
+       */
+      host: string
+      /** Http Port */
+      http_port: number
+      /**
+       * Name
+       * @default sentry
+       * @constant
+       */
+      name: 'sentry'
+      /** Version */
+      version: string
+    }
+    /**
+     * SerialFlashAccepted
+     * @description `202 Accepted` body; the outcome arrives later as an SSE `notice`.
+     */
+    SerialFlashAccepted: {
+      /** Device Id */
+      device_id: string
+      /**
+       * Operation Id
+       * @description Correlates this request with its SSE notice events
+       */
+      operation_id: string
+      /**
+       * Requires Replug
+       * @description A physical replug is required before the new serial is visible
+       * @default true
+       */
+      requires_replug: boolean
+      /**
+       * Status
+       * @constant
+       */
+      status: 'in_progress'
+    }
+    /**
+     * SerialFlashRequest
+     * @description Request body for flashing a unique serial to a dongle's EEPROM.
+     */
+    SerialFlashRequest: {
+      /**
+       * Confirm
+       * @description Must be exactly true; a destructive hardware write requires explicit intent
+       * @constant
+       */
+      confirm: true
+      /** Serial */
+      serial: string
+    }
+    /**
+     * StatusResponse
+     * @description `GET /api/status` and the SSE `snapshot` event body.
+     */
+    StatusResponse: {
+      /**
+       * Generated At
+       * @description Unix ms this snapshot was assembled
+       */
+      generated_at: number
+      /**
+       * Sdrs
+       * @description Sorted by usb.topology_path; absent devices last
+       */
+      sdrs: components['schemas']['DeviceStatus'][]
+    }
+    /**
+     * TunerInfo
+     * @description The live tuner state as last observed via `control_follower` (architecture §7.2).
+     */
+    TunerInfo: {
+      /**
+       * Bias Tee
+       * @description Bias-T power state, when the dongle supports it
+       */
+      bias_tee?: boolean | null
+      /** Center Hz */
+      center_hz: number
+      /**
+       * Direct Sampling
+       * @description Direct-sampling mode (0=off, 1=I-ADC, 2=Q-ADC), when in use
+       */
+      direct_sampling?: (0 | 1 | 2) | null
+      /** Gain Auto */
+      gain_auto: boolean
+      /** Gain Db */
+      gain_db: number
+      /**
+       * Locked
+       * @description Whether another owner currently holds the tuning token
+       */
+      locked: boolean
+      /**
+       * Observed At
+       * @description Unix ms this state was last observed on P+2
+       */
+      observed_at: number
+      /** Sample Rate */
+      sample_rate: number
+    }
+    /**
+     * UsbInfo
+     * @description The live USB descriptor and topology for a present device (architecture §7.2).
+     */
+    UsbInfo: {
+      /** Bus Number */
+      bus_number: number
+      /**
+       * Device Address
+       * @description Kernel devnum; unstable, display only
+       */
+      device_address: number
+      /**
+       * Driver
+       * @description Bound kernel driver name, if any
+       */
+      driver?: string | null
+      /**
+       * Driver Conflict
+       * @description True when the DVB kernel driver is bound instead of the userspace driver
+       */
+      driver_conflict: boolean
+      /**
+       * Hub Depth
+       * @description len(port_chain) - 1
+       */
+      hub_depth: number
+      /** Manufacturer */
+      manufacturer?: string | null
+      /**
+       * Port Chain
+       * @description The port path as integers, e.g. (1, 4, 2)
+       */
+      port_chain: number[]
+      /** Product */
+      product?: string | null
+      /**
+       * Product Id
+       * @description Lowercase hex, no "0x", e.g. "2838"
+       */
+      product_id: string
+      /**
+       * Serial
+       * @description The raw reported iSerial
+       */
+      serial?: string | null
+      /**
+       * Topology Path
+       * @description Bus-port path, e.g. "1-1.4.2"
+       */
+      topology_path: string
+      /**
+       * Vendor Id
+       * @description Lowercase hex, no "0x", e.g. "0bda"
+       */
+      vendor_id: string
+    }
+    /**
+     * UsbLastKnownInfo
+     * @description A reduced USB description for a configured device that is currently absent.
+     *
+     *     Populated from the persisted `last_*` columns so an absent device still
+     *     renders identifiably in the UI (architecture §7.2).
+     */
+    UsbLastKnownInfo: {
+      /** Manufacturer */
+      manufacturer?: string | null
+      /** Product */
+      product?: string | null
+      /** Product Id */
+      product_id: string
+      /** Serial */
+      serial?: string | null
+      /** Topology Path */
+      topology_path: string
+      /** Vendor Id */
+      vendor_id: string
+    }
+    /** ValidationError */
+    ValidationError: {
+      /** Context */
+      ctx?: Record<string, never>
+      /** Input */
+      input?: unknown
+      /** Location */
+      loc: (string | number)[]
+      /** Message */
+      msg: string
+      /** Error Type */
+      type: string
+    }
+  }
+  responses: never
+  parameters: never
+  requestBodies: never
+  headers: never
+  pathItems: never
 }
-export type $defs = Record<string, never>;
+export type $defs = Record<string, never>
 export interface operations {
-    list_devices_api_devices_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DevicesListResponse"];
-                };
-            };
-        };
-    };
-    delete_device_api_devices__device_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Either "serial:<value>" or "usb:<topology_path>" */
-                device_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patch_device_api_devices__device_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Either "serial:<value>" or "usb:<topology_path>" */
-                device_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DevicePatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeviceRecord"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    flash_serial_api_devices__device_id__serial_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Either "serial:<value>" or "usb:<topology_path>" */
-                device_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SerialFlashRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SerialFlashAccepted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_events_api_events_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    get_health_api_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthResponse"];
-                };
-            };
-        };
-    };
-    get_sdrs_alias_api_sdrs_get: {
-        parameters: {
-            query?: {
-                include_disabled?: boolean;
-                available_only?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SdrExportResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_status_api_status_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StatusResponse"];
-                };
-            };
-        };
-    };
-    get_sdrs_v1_api_v1_sdrs_get: {
-        parameters: {
-            query?: {
-                include_disabled?: boolean;
-                available_only?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SdrExportResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
+  list_devices_api_devices_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DevicesListResponse']
+        }
+      }
+    }
+  }
+  delete_device_api_devices__device_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Either "serial:<value>" or "usb:<topology_path>" */
+        device_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  patch_device_api_devices__device_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Either "serial:<value>" or "usb:<topology_path>" */
+        device_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DevicePatch']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DeviceRecord']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  flash_serial_api_devices__device_id__serial_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Either "serial:<value>" or "usb:<topology_path>" */
+        device_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SerialFlashRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SerialFlashAccepted']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_events_api_events_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': unknown
+        }
+      }
+    }
+  }
+  get_health_api_health_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HealthResponse']
+        }
+      }
+    }
+  }
+  get_sdrs_alias_api_sdrs_get: {
+    parameters: {
+      query?: {
+        include_disabled?: boolean
+        available_only?: boolean
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SdrExportResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_status_api_status_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StatusResponse']
+        }
+      }
+    }
+  }
+  get_sdrs_v1_api_v1_sdrs_get: {
+    parameters: {
+      query?: {
+        include_disabled?: boolean
+        available_only?: boolean
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SdrExportResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
 }
