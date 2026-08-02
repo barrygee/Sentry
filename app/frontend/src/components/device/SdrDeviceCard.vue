@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 
 import type { DeviceStatus } from '@/api/client'
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -122,8 +122,33 @@ const identitySerial = computed(
   () => props.device.usb?.serial ?? props.device.usb_last_known?.serial ?? null,
 )
 
-/** The forget/delete control only ever makes sense for a configured device that is currently absent — the server itself refuses to delete a live one. */
-const isForgettable = computed(() => !props.device.present && props.device.record_id !== null)
+/**
+ * Whether this device has configuration there is anything to forget. The
+ * control is rendered for any such device, but only *enabled* when the dongle
+ * is also unplugged — see `forgetBlockedReason`.
+ */
+const hasSavedConfiguration = computed(() => props.device.record_id !== null)
+
+/**
+ * Why the forget control is disabled, or `null` when it is usable.
+ *
+ * The server refuses `DELETE` for a plugged-in device (`409 device_present`),
+ * so the button previously just did not render while present — leaving an
+ * operator to conclude the product cannot remove an SDR at all, since the only
+ * place the control ever appeared was inside the collapsed absent-devices
+ * group. It is now always shown, and says why it is unavailable.
+ *
+ * The rule is not merely a safety interlock: Sentry re-detects hardware by
+ * hotplug and keys unidentified dongles by USB topology path, so deleting a
+ * *present* device's row would see it reappear as a fresh, unconfigured device
+ * within the second. "Forget" can only mean "discard its settings" while the
+ * hardware is attached, which is not what the word promises.
+ */
+const forgetBlockedHintId = `${useId()}-forget-blocked`
+
+const forgetBlockedReason = computed(() =>
+  props.device.present ? 'Unplug this dongle to forget its configuration.' : null,
+)
 </script>
 
 <template>
@@ -146,8 +171,11 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
           </div>
           <div class="flex items-center gap-3">
             <BaseButton
-              v-if="isForgettable"
+              v-if="hasSavedConfiguration"
               variant="danger"
+              :disabled="forgetBlockedReason !== null"
+              :title="forgetBlockedReason ?? undefined"
+              :aria-describedby="forgetBlockedReason ? forgetBlockedHintId : undefined"
               @click="emit('request-forget-device', device.device_id)"
             >
               Forget device
@@ -160,6 +188,13 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
               @update:model-value="commitEnabled"
             />
           </div>
+          <p
+            v-if="hasSavedConfiguration && forgetBlockedReason"
+            :id="forgetBlockedHintId"
+            class="m-0 basis-full text-right text-[11px] leading-[1.5] text-signal-muted"
+          >
+            {{ forgetBlockedReason }}
+          </p>
         </div>
         <DeviceIdentitySummary
           :manufacturer="identityManufacturer"

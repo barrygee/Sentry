@@ -14,6 +14,13 @@
  * because these are the primary controls on a page rather than dense controls
  * inside a side panel, and the touch-target floor below applies to them.
  *
+ * Disabled drops the tone rather than the opacity: every variant falls back to
+ * a faint fill with muted-grey text. A 30% wash of red left "Forget device"
+ * barely legible, which matters because that button is disabled *by design*
+ * while a dongle is plugged in — the operator has to be able to read the thing
+ * whose unavailability the card is explaining. Disabled controls are exempt
+ * from WCAG 1.4.3, so this is legibility rather than compliance.
+ *
  * Height is 44px on touch-sized viewports and Sentinel's 38px from `sm` up:
  * the settings look is built around the shorter control, but shrinking a
  * button below a comfortable thumb target on a phone is not a trade worth
@@ -38,9 +45,9 @@ const variantClasses = {
   primary:
     'bg-signal-accent font-bold text-ink-on-accent hover:bg-[#d8ff33] disabled:bg-white/[0.08] disabled:text-signal-muted',
   ghost:
-    'bg-white/[0.08] font-bold text-signal-muted hover:bg-white/[0.1] hover:text-white disabled:opacity-30',
+    'bg-white/[0.08] font-bold text-signal-muted hover:bg-white/[0.1] hover:text-white disabled:bg-white/[0.04] disabled:text-signal-muted',
   danger:
-    'bg-signal-danger/[0.15] font-bold text-signal-danger hover:bg-signal-danger/25 disabled:opacity-30',
+    'bg-signal-danger/[0.15] font-bold text-signal-danger hover:bg-signal-danger/25 disabled:bg-white/[0.04] disabled:text-signal-muted',
 } as const satisfies Record<'primary' | 'ghost' | 'danger', string>
 </script>
 
