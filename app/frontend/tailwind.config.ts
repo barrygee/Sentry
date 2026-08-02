@@ -123,8 +123,10 @@ export default {
       letterSpacing: {
         /** The wordmark's negative tracking (Sentinel's logo.svg, -1.5%). */
         wordmark: '-0.015em',
-        /** Large readouts and card titles (Sentinel's frequency display `0.04em`, its station name `0.06em`). */
+        /** Large readouts (Sentinel's frequency display, `0.04em`). */
         readout: '0.04em',
+        /** Data-cell values and card titles (Sentinel `.ba-data-cell-value`, its station name). */
+        data: '0.06em',
         /** Glyph-adjacent micro-labels. */
         legend: '0.08em',
         /** Card titles. */

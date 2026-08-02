@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import type { DeviceStatus } from '@/api/client'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseToggle from '@/components/base/BaseToggle.vue'
+import DataCell from '@/components/base/DataCell.vue'
 import MonoValue from '@/components/base/MonoValue.vue'
 import PanelCard from '@/components/base/PanelCard.vue'
 import DeviceNameField from '@/components/forms/DeviceNameField.vue'
@@ -177,36 +178,26 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
       :last-topology-path="device.usb_last_known?.topology_path ?? null"
     />
 
-    <div class="flex flex-wrap items-center gap-4">
+    <div class="flex flex-wrap items-start gap-8">
       <JackPair
         :iq-port="device.output?.iq_port ?? null"
         :control-port="device.output?.control_port ?? null"
       />
-      <!-- Sentinel's flat data rows (`.tle-cat-row`): each reading is a chip
-           on a faint wash, its name in the small uppercase legend and its
-           value in tabular mono, rather than a run of inline text. -->
-      <dl v-if="device.tuner" class="m-0 flex flex-wrap gap-px">
-        <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
-          <dt class="font-sans text-[9px] uppercase tracking-control text-signal-muted">Center</dt>
-          <dd class="m-0 text-sm">
-            <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
-          </dd>
-        </div>
-        <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
-          <dt class="font-sans text-[9px] uppercase tracking-control text-signal-muted">Rate</dt>
-          <dd class="m-0 text-sm">
-            <MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" />
-          </dd>
-        </div>
-        <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
-          <dt class="font-sans text-[9px] uppercase tracking-control text-signal-muted">Gain</dt>
-          <dd class="m-0 text-sm">
-            <!-- No unit when the tuner is in AGC: the value is a mode, not a
-                 measurement, and "AGC dB" reads as nonsense. -->
-            <MonoValue v-if="device.tuner.gain_auto" value="AGC" />
-            <MonoValue v-else :value="device.tuner.gain_db.toFixed(1)" unit="dB" />
-          </dd>
-        </div>
+      <!-- Sentinel's telemetry cells (`BaseDataCell`): caption above value,
+           no fill behind either. -->
+      <dl v-if="device.tuner" class="m-0 flex flex-wrap items-start gap-8">
+        <DataCell label="Center" label-tag="dt" value-tag="dd">
+          <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
+        </DataCell>
+        <DataCell label="Rate" label-tag="dt" value-tag="dd">
+          <MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" />
+        </DataCell>
+        <DataCell label="Gain" label-tag="dt" value-tag="dd">
+          <!-- No unit when the tuner is in AGC: the value is a mode, not a
+               measurement, and "AGC dB" reads as nonsense. -->
+          <MonoValue v-if="device.tuner.gain_auto" value="AGC" />
+          <MonoValue v-else :value="device.tuner.gain_db.toFixed(1)" unit="dB" />
+        </DataCell>
       </dl>
     </div>
 
