@@ -80,7 +80,12 @@ function validateAndCommit(): void {
 <template>
   <!-- `w-full` so the readout sits beside the input rather than being
        squeezed onto its own row: the parent stacks its fields with
-       `items-start`, which otherwise shrink-wraps this row to the input. -->
+       `items-start`, which otherwise shrink-wraps this row to the input.
+
+       The input is 76px — the measured width of its own "OUTPUT PORT" caption —
+       so the field is no wider than the thing naming it. With the 12px side
+       padding that leaves 52px of content, which still fits a five-digit port
+       (the range runs to 65535), not just the four-digit ones in normal use. -->
   <div class="flex w-full flex-wrap items-start gap-8">
     <BaseField
       ref="fieldRef"
@@ -91,7 +96,7 @@ function validateAndCommit(): void {
       :error="clientError ?? props.serverError"
       :disabled="props.disabled"
       :described-by="relayPortsId"
-      class="w-full max-w-[220px]"
+      class="w-[76px]"
       @blur="validateAndCommit"
     />
     <DataCell :id="relayPortsId" label="Relay listens on" :value="relayPortsSummary" />

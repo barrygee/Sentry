@@ -12,6 +12,12 @@ import { computed, ref, useId } from 'vue'
  * its own flat, square input, with the accent underline drawn inside the input
  * on focus and a red one while invalid.
  *
+ * The input matches Sentinel's search field (`.bfp-input-wrap`/`.bfp-input`):
+ * a `rgba(0,0,0,.32)` scrim, 40px tall, white 14px text at 0.1em with an accent
+ * caret. One deliberate difference — Sentinel uppercases its search text, which
+ * suits a filter keyword but would misrepresent a device name the operator
+ * typed, so the value keeps its own casing here.
+ *
  * Exposes `focus()` so a caller whose blur-triggered validation just failed
  * can return focus to the input — otherwise a commit-on-blur error leaves
  * focus wherever the operator tabbed to next, and a screen-reader user never
@@ -85,7 +91,7 @@ defineExpose({
       :disabled="disabled"
       :aria-invalid="error ? 'true' : undefined"
       :aria-describedby="resolvedDescribedBy"
-      class="min-h-[44px] w-full min-w-0 rounded-rack border-none bg-ground-raised px-4 text-[13px] font-tabular text-ink-primary outline-none transition-shadow focus:shadow-[inset_0_-2px_0_theme(colors.signal.accent)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-[38px]"
+      class="min-h-[44px] w-full min-w-0 rounded-rack border-none bg-ground-field px-3 text-[14px] font-tabular tracking-label text-white caret-signal-accent outline-none transition-shadow focus:shadow-[inset_0_-2px_0_theme(colors.signal.accent)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-[40px]"
       :class="error ? 'shadow-[inset_0_-2px_0_theme(colors.signal.danger)]' : ''"
       @blur="emit('blur')"
     />
