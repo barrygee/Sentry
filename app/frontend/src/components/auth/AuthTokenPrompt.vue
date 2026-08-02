@@ -35,7 +35,7 @@ function submit(): void {
          page-level "banner" landmark alongside `FleetHeader`'s. -->
     <div class="flex flex-col gap-2">
       <SectionHeading :id="headingId">Authentication required</SectionHeading>
-      <p class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">
+      <p class="m-0 text-[12px] leading-[1.6] text-signal-muted">
         This Sentry instance requires an operator token. Enter the value configured as
         <code class="font-mono">SENTRY_AUTH_TOKEN</code> to continue — it is kept only for this
         browser tab.

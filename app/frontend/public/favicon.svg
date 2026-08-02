@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
+  <!-- The ⊙ mark, matching Sentinel's favicon.svg and the in-app LogoMark:
+       white ring with a green dot (#c8ff00), same ring/dot proportions, padded
+       so the ring clears the tile edges. -->
+  <rect width="60" height="60" rx="13" ry="13" fill="black"/>
+  <circle cx="30" cy="30" r="17.5" fill="none" stroke="#ffffff" stroke-width="5"/>
+  <circle cx="30" cy="30" r="6.9" fill="#c8ff00"/>
+</svg>

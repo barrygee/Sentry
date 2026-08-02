@@ -22,7 +22,7 @@ const TONE_CLASSES = {
   accent: 'bg-signal-accent/[0.12] text-signal-accent',
   ok: 'bg-signal-ok/[0.12] text-signal-ok',
   warn: 'bg-signal-warn/[0.12] text-signal-warn',
-  danger: 'bg-signal-danger/[0.12] text-signal-danger',
+  danger: 'bg-signal-danger/[0.15] text-signal-danger',
   info: 'bg-signal-info/[0.12] text-signal-info',
 } as const satisfies Record<StatusBadgeTone, string>
 
@@ -31,7 +31,7 @@ const toneClass = computed(() => TONE_CLASSES[props.tone])
 
 <template>
   <span
-    class="inline-flex items-center gap-1.5 rounded-chip px-2 py-[3px] font-sans text-[10px] uppercase tracking-legend"
+    class="inline-flex items-center gap-1.5 rounded-chip px-2 py-[3px] font-sans text-[9px] font-bold uppercase tracking-control"
     :class="toneClass"
   >
     <slot />

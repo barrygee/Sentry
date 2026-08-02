@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DeviceStatus } from '@/api/client'
-import PanelGrid from '@/components/base/PanelGrid.vue'
+import PanelStack from '@/components/base/PanelStack.vue'
 import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
 
 /**
@@ -8,14 +8,15 @@ import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
  * not currently plugged in ("ghosts" — Sentry keys unidentified dongles by
  * USB topology path, so a re-enumerated or moved dongle leaves its old
  * configuration behind as an absent record). Kept structurally separate from
- * the present-device stack, with a dashed border and its own disclosure
- * rather than colour alone, so an operator scanning the page can tell
- * instantly what hardware is actually attached — and collapsed by default so
- * several accumulated ghosts never dominate the page.
+ * the present-device stack, behind its own disclosure rather than colour
+ * alone, so an operator scanning the page can tell instantly what hardware is
+ * actually attached — and collapsed by default so several accumulated ghosts
+ * never dominate the page. It sits on a faint wash instead of the dashed
+ * outline it once had, matching the borderless surfaces around it.
  *
  * The dashed container and its summary now sit on the settings vocabulary:
  * the summary reads as a muted group label (matching "USB Topology" and
- * "Devices" above it) and the ghosts inside lay out in their own `PanelGrid`,
+ * "Devices" above it) and the ghosts inside lay out in their own `PanelStack`,
  * so an expanded group looks like the live grid with the colour drained out
  * of it rather than like a different kind of list.
  */
@@ -27,19 +28,19 @@ defineEmits<{
 </script>
 
 <template>
-  <details class="group mt-2 rounded-rack border border-dashed border-signal-faint/60">
+  <details class="group mt-2 rounded-rack bg-white/[0.03]">
     <summary
-      class="flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack px-card py-3 font-sans text-[10px] uppercase tracking-group text-signal-muted transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden"
+      class="flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack px-card py-3 font-sans text-[9px] uppercase tracking-control text-signal-muted transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden"
     >
       <span aria-hidden="true" class="transition-transform group-open:rotate-90">▶</span>
       Absent devices — configuration kept ({{ devices.length }})
     </summary>
-    <div class="flex flex-col gap-4 border-t border-dashed border-signal-faint/60 p-card">
-      <p class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">
+    <div class="flex flex-col gap-4 p-card pt-0">
+      <p class="m-0 text-[12px] leading-[1.6] text-signal-muted">
         Not currently plugged in. Replugging the hardware re-detects it; forgetting one discards its
         saved name, port and tuning defaults.
       </p>
-      <PanelGrid>
+      <PanelStack>
         <SdrDeviceCard
           v-for="device in devices"
           :key="device.device_id"
@@ -47,7 +48,7 @@ defineEmits<{
           @request-serial-flash="$emit('request-serial-flash', $event)"
           @request-forget-device="$emit('request-forget-device', $event)"
         />
-      </PanelGrid>
+      </PanelStack>
     </div>
   </details>
 </template>

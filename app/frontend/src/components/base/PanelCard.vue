@@ -1,42 +1,30 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-
 /**
- * The card every settings-style surface is built from (Sentinel
- * `.settings-item`): square corners, a flat panel fill, 22px of padding, and
- * a 12px stack of an optional label/description info block above whatever
- * control the caller slots in.
+ * The card every panel surface is built from: square corners, a flat panel
+ * fill, 22px of padding, and a stack of an optional label/description block
+ * above whatever control the caller slots in.
  *
- * Sentinel separates its white cards from the light canvas with a hairline
- * shadow; on Sentry's near-black ground a shadow reads as nothing, so the
- * same separation comes from the panel fill sitting one step above the page
- * plus a hairline border.
+ * Borderless: the card is separated from the page by its fill alone, sitting
+ * one step above the black ground. Sentinel's own panels work the same way —
+ * flat fills, no outlines.
  *
- * `accentBorderClass` adds the 3px left stripe used for a device's state —
- * the one place a card carries semantic colour, and never the sole indicator
- * (the state's glyph and label sit inside the card).
+ * The card title uses Sentinel's condensed station-name treatment (Barlow
+ * Condensed, uppercase, lightly tracked) — the closest thing in its dark
+ * chrome to "the name of the thing this panel is about".
+ *
+ * Earlier versions carried grid-span props and a 3px semantic left stripe.
+ * Both are gone: the stack is a single column so spans mean nothing, and the
+ * stripe was removed at the owner's request. Device state is still carried by
+ * `DeviceStatusBadge`, which pairs a coloured glyph with a text label, so no
+ * information was lost with it.
  */
-const props = withDefaults(
+withDefaults(
   defineProps<{
-    /** Card title, rendered in the uppercase 13px card-label style. Omit for a card that is all control. */
+    /** Card title. Omit for a card that is all control. */
     label?: string | null
     /** Supporting sentence beneath the label. */
     description?: string | null
-    /**
-     * Grid columns to occupy. `1` is the default 300px-minimum column; `2`
-     * and `3` are Sentinel's `--half`/`--triple` for controls that can't be
-     * squeezed into one; `full` is `--wide`.
-     */
-    span?: 1 | 2 | 3 | 'full'
-    /** Opt out of row-height stretching (Sentinel `--natural-height`). */
-    naturalHeight?: boolean
-    /**
-     * Tailwind class for the 3px semantic left stripe. Must be a left-edge-only
-     * colour (`border-l-*`) — the card carries an all-sides hairline border, so
-     * an unscoped `border-*` colour would repaint every edge.
-     */
-    accentBorderClass?: string | null
-    /** Element to render as — `li` inside a `PanelGrid as="ul"`, `article` for a self-contained record. */
+    /** Element to render as — `li` inside a `PanelStack as="ul"`, `article` for a self-contained record. */
     as?: 'div' | 'li' | 'article' | 'section'
     /** Heading level for `label`. Defaults to a non-heading `<span>`. */
     labelLevel?: 2 | 3 | 4 | 'none'
@@ -44,46 +32,24 @@ const props = withDefaults(
   {
     label: null,
     description: null,
-    span: 1,
-    naturalHeight: false,
-    accentBorderClass: null,
     as: 'div',
     labelLevel: 'none',
   },
 )
-
-// Written out in full rather than interpolated: Tailwind's content scanner
-// only sees literal class strings, so `col-span-${n}` would be purged.
-const SPAN_CLASSES = {
-  1: '',
-  2: 'sm:col-span-2',
-  3: 'sm:col-span-2 lg:col-span-3',
-  full: 'col-span-full',
-} as const
-
-const spanClass = computed(() => SPAN_CLASSES[props.span])
 </script>
 
 <template>
-  <component
-    :is="as"
-    class="flex list-none flex-col items-stretch gap-3 border border-ground-hairline bg-ground-panel p-card"
-    :class="[
-      spanClass,
-      naturalHeight ? 'self-start' : '',
-      accentBorderClass ? `border-l-[3px] ${accentBorderClass}` : '',
-    ]"
-  >
+  <component :is="as" class="flex list-none flex-col items-stretch gap-4 bg-ground-panel p-card">
     <div v-if="label || description || $slots.header" class="flex flex-col gap-1.5">
       <slot name="header">
         <component
           :is="labelLevel === 'none' ? 'span' : `h${labelLevel}`"
           v-if="label"
-          class="m-0 font-sans text-[13px] font-medium uppercase tracking-label text-ink-primary"
+          class="m-0 font-condensed text-[14px] font-normal uppercase tracking-readout text-ink-primary"
         >
           {{ label }}
         </component>
-        <p v-if="description" class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">
+        <p v-if="description" class="m-0 text-[12px] leading-[1.6] text-signal-muted">
           {{ description }}
         </p>
       </slot>

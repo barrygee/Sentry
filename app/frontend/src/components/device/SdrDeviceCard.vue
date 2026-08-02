@@ -9,7 +9,6 @@ import PanelCard from '@/components/base/PanelCard.vue'
 import DeviceNameField from '@/components/forms/DeviceNameField.vue'
 import PortAssignmentField from '@/components/forms/PortAssignmentField.vue'
 import { useFleetStore } from '@/stores/fleet'
-import { DEVICE_STATE_META } from '@/utils/deviceState'
 
 import DeviceAbsentNotice from './DeviceAbsentNotice.vue'
 import DeviceIdentitySummary from './DeviceIdentitySummary.vue'
@@ -24,13 +23,8 @@ import NeedsIdentificationNotice from './NeedsIdentificationNotice.vue'
  * inline-editable form fields. This is the component `UsbTopologyTree`
  * moves focus to on Enter/Space (architecture §9.4).
  *
- * Rendered as a `PanelCard` — Sentinel's settings card, with the device's
- * name as the card label and its make/model line as the description. Cards
- * were previously butt-joined into one continuous stack; in the settings
- * layout each is a discrete card in the grid, spanning two columns because
- * the name and port fields sit side by side inside it. The 3px state stripe
- * on the left edge survives the move — it is the one place a card carries
- * semantic colour, and the state's glyph and label sit right beside it.
+ * Rendered as a `PanelCard`, one per row of the centred device stack, with the
+ * device's name as the card title and its make/model line beneath.
  */
 const props = defineProps<{ device: DeviceStatus }>()
 
@@ -41,8 +35,6 @@ const emit = defineEmits<{
 }>()
 
 const fleetStore = useFleetStore()
-
-const stateMeta = computed(() => DEVICE_STATE_META[props.device.state])
 
 const nameDraft = ref(props.device.name)
 const portDraft = ref<number | null>(props.device.output?.iq_port ?? null)
@@ -138,9 +130,7 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
   <PanelCard
     :id="`device-card-${device.device_id}`"
     as="article"
-    :span="2"
     tabindex="-1"
-    :accent-border-class="stateMeta.stripeBorderColorClass"
     class="outline-none"
   >
     <template #header>
@@ -148,7 +138,7 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
         <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div class="flex flex-wrap items-center gap-2">
             <h3
-              class="m-0 font-sans text-[13px] font-medium uppercase tracking-label text-ink-primary"
+              class="m-0 font-condensed text-[14px] font-normal uppercase tracking-readout text-ink-primary"
             >
               {{ device.name || device.device_id }}
             </h3>
@@ -197,19 +187,19 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
            value in tabular mono, rather than a run of inline text. -->
       <dl v-if="device.tuner" class="m-0 flex flex-wrap gap-px">
         <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
-          <dt class="font-sans text-[10px] uppercase tracking-legend text-signal-muted">Center</dt>
+          <dt class="font-sans text-[9px] uppercase tracking-control text-signal-muted">Center</dt>
           <dd class="m-0 text-sm">
             <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
           </dd>
         </div>
         <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
-          <dt class="font-sans text-[10px] uppercase tracking-legend text-signal-muted">Rate</dt>
+          <dt class="font-sans text-[9px] uppercase tracking-control text-signal-muted">Rate</dt>
           <dd class="m-0 text-sm">
             <MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" />
           </dd>
         </div>
         <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
-          <dt class="font-sans text-[10px] uppercase tracking-legend text-signal-muted">Gain</dt>
+          <dt class="font-sans text-[9px] uppercase tracking-control text-signal-muted">Gain</dt>
           <dd class="m-0 text-sm">
             <!-- No unit when the tuner is in AGC: the value is a mode, not a
                  measurement, and "AGC dB" reads as nonsense. -->
@@ -221,20 +211,22 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
     </div>
 
     <div v-if="isEditable" class="flex flex-col gap-2">
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <DeviceNameField v-model="nameDraft" @commit="commitName" />
+      <!-- Stacked, not side by side: one field per row reads as a form. Each
+           is capped near the length of what it holds — a 64-char name and a
+           4-digit port — rather than stretched to the card's full width, which
+           left an input several times wider than any value it can contain. -->
+      <div class="flex flex-col items-start gap-3">
+        <DeviceNameField v-model="nameDraft" class="w-full max-w-[340px]" @commit="commitName" />
         <PortAssignmentField
           v-model="portDraft"
           :constraints="fleetStore.constraints"
           :own-reserved-ports="ownReservedPorts"
           :committed-iq-port="device.output?.iq_port ?? null"
+          class="w-full max-w-[220px]"
           @commit="commitPort"
         />
       </div>
-      <p
-        v-if="needsBothFieldsToConfigure"
-        class="m-0 text-[12.5px] leading-[1.55] text-signal-muted"
-      >
+      <p v-if="needsBothFieldsToConfigure" class="m-0 text-[12px] leading-[1.6] text-signal-muted">
         Configuring a new device needs both a valid name and a valid output port — nothing is saved
         until both fields have been entered.
       </p>

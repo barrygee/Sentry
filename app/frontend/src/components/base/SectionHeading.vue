@@ -1,32 +1,31 @@
 <script setup lang="ts">
 /**
- * A top-level section title in Sentinel's settings style
- * (`#settings-section-heading`): large uppercase Barlow with wide tracking,
- * preceded by a small accent dot that echoes the wordmark's mark. The dot is
- * decorative — the heading text alone is what assistive tech announces.
+ * A dialog or section title, in Sentinel's condensed-title style — the same
+ * treatment it gives a station name (`Barlow Condensed`, uppercase, lightly
+ * tracked) rather than the 9px legends it uses for section labels, which are
+ * far too small to head a modal.
  *
  * `level` picks the heading element so the page keeps a correct outline
- * without the caller having to restate the visual treatment; the look is
- * identical at every level, because in a settings-style layout the group
- * label beneath (`GroupLabel`) carries the visual step down, not the heading.
+ * without the caller restating the visual treatment.
+ *
+ * There is no accent dot. An earlier version prefixed every heading with one,
+ * echoing the wordmark's mark; the mark now appears once, in `FleetHeader`,
+ * where it means something.
  */
 withDefaults(
   defineProps<{
     /** Heading level, 1-3. Defaults to `2`. */
     level?: 1 | 2 | 3
-    /** Tone of the accent dot. Defaults to the amber identity accent. */
-    dotClass?: string
   }>(),
-  { level: 2, dotClass: 'bg-signal-accent' },
+  { level: 2 },
 )
 </script>
 
 <template>
   <component
     :is="`h${level}`"
-    class="flex items-center gap-3 font-sans text-[21px] font-normal uppercase leading-none tracking-heading text-ink-primary"
+    class="m-0 font-condensed text-[18px] font-normal uppercase leading-tight tracking-readout text-ink-primary"
   >
-    <span aria-hidden="true" class="h-1.5 w-1.5 shrink-0 rounded-full" :class="dotClass" />
     <slot />
   </component>
 </template>

@@ -1,31 +1,22 @@
 <script setup lang="ts">
-import GroupLabel from '@/components/base/GroupLabel.vue'
-
 /**
- * The page shell, laid out on Sentinel's gutters: 44px of page padding at `md`
- * and up, and a generous bottom gutter so the last card never sits flush
- * against the viewport edge.
+ * The devices section: the stack, and nothing above it.
  *
- * A single column. This was a two-column rack with the USB topology tree in a
- * 320px left rail; the tree was removed, and with it the only reason for the
- * second column — the device grid already reflows from one to three columns on
- * its own, so it takes the full width at every breakpoint.
+ * The visible "Devices" band label was removed — the cards are the only thing
+ * on the page, so a label naming them said nothing an operator did not already
+ * see. The heading survives as screen-reader-only text because two things
+ * still depend on it: it is the skip link's destination (`App.vue`), and it is
+ * this section's accessible name via `aria-labelledby`. Deleting the element
+ * would break both, so it is hidden rather than removed.
  *
- * The "Devices" band label uses the muted group-label style rather than a
- * second large heading: in this vocabulary a page carries exactly one 21px
- * title (the wordmark in `FleetHeader`) and everything below it is a band
- * label. It is also the skip link's destination, so it is visible rather than
- * screen-reader-only — an operator can see where focus landed.
+ * Page padding and the centred measure live in `FleetView`, on the wrapper
+ * shared with the notices and conflict banners.
  */
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col px-5 pb-16 pt-[26px] md:px-gutter md:pb-[110px]">
-    <section aria-labelledby="devices-heading" class="flex flex-col gap-3">
-      <GroupLabel id="devices-heading" :level="2" tabindex="-1" class="outline-none">
-        Devices
-      </GroupLabel>
-      <slot name="devices" />
-    </section>
-  </div>
+  <section aria-labelledby="devices-heading" class="flex flex-col">
+    <h2 id="devices-heading" tabindex="-1" class="sr-only outline-none">Devices</h2>
+    <slot name="devices" />
+  </section>
 </template>
