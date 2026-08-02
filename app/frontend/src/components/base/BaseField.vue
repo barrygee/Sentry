@@ -66,12 +66,11 @@ defineExpose({
          and the whole row shares one square surface. The underlines are drawn
          inside the row and layer under the global focus ring rather than
          competing with it — the ring remains the focus indicator
-         (architecture §9.5). Sentinel draws its focus underline in the raw
-         lime accent; here it is `signal.ok`, the accent's text-safe form,
-         because lime on the input fill is 1.4:1 and would be an underline
-         nobody can see. -->
+         (architecture §9.5). The underline is the raw lime accent, as
+         Sentinel draws it — on this dark fill it is 12.34:1 and genuinely
+         visible, unlike on the light theme where it had to be substituted. -->
     <div
-      class="flex items-stretch overflow-hidden rounded-rack bg-ground-raised transition-shadow focus-within:shadow-[inset_0_-2px_0_theme(colors.signal.ok)]"
+      class="flex items-stretch overflow-hidden rounded-rack bg-ground-raised transition-shadow focus-within:shadow-[inset_0_-2px_0_theme(colors.signal.accent)]"
       :class="[
         error ? 'shadow-[inset_0_-2px_0_theme(colors.signal.danger)]' : '',
         disabled ? 'opacity-40' : '',
@@ -79,7 +78,7 @@ defineExpose({
     >
       <label
         :for="fieldId"
-        class="flex shrink-0 select-none items-center px-3 font-condensed text-[9px] font-semibold uppercase tracking-heading text-signal-muted"
+        class="flex shrink-0 select-none items-center px-3 font-sans text-[9px] uppercase tracking-heading text-signal-muted"
       >
         {{ label }}
       </label>
@@ -92,7 +91,7 @@ defineExpose({
         :disabled="disabled"
         :aria-invalid="error ? 'true' : undefined"
         :aria-describedby="resolvedDescribedBy"
-        class="min-h-[44px] w-full min-w-0 flex-1 border-none bg-transparent px-3 font-mono text-sm font-mono-tabular text-ink-primary outline-none disabled:cursor-not-allowed sm:min-h-[38px]"
+        class="min-h-[44px] w-full min-w-0 flex-1 border-none bg-transparent px-3 text-sm font-tabular text-ink-primary outline-none disabled:cursor-not-allowed sm:min-h-[38px]"
         @blur="emit('blur')"
       />
     </div>

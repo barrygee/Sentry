@@ -20,7 +20,7 @@ withDefaults(
 <template>
   <component
     :is="level === 'none' ? 'p' : `h${level}`"
-    class="col-span-full m-0 font-condensed text-[10px] font-semibold uppercase tracking-group text-signal-muted"
+    class="col-span-full m-0 font-sans text-[10px] uppercase tracking-group text-signal-muted"
   >
     <slot />
   </component>

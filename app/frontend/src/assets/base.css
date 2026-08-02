@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    color-scheme: light;
+    color-scheme: dark;
   }
 
   * {
@@ -26,13 +26,11 @@
   }
 
   /* Visible, managed focus everywhere — never suppressed (architecture §9.5).
-     Square, matching every other corner in the console.
-
-     The ring is ink, not the lime accent: on the light ground lime is 1.18:1,
-     far under the 3:1 a focus indicator must meet, whereas ink is 13.96:1.
-     The accent stays a fill; the focus indicator has to actually be seen. */
+     Square, matching every other corner in the console. The lime accent is
+     17.76:1 on the page ground, so on this theme it is both the brand colour
+     and the most visible affordance available. */
   :focus-visible {
-    outline: 2px solid theme('colors.ink.primary');
+    outline: 2px solid theme('colors.signal.accent');
     outline-offset: 2px;
     border-radius: theme('borderRadius.rack');
   }
@@ -75,7 +73,7 @@
 @layer utilities {
   /* Tabular figures for every port, frequency, PID and byte count so digits
      never shift width as they tick (architecture §9.5 typography). */
-  .font-mono-tabular {
+  .font-tabular {
     font-variant-numeric: tabular-nums;
   }
 

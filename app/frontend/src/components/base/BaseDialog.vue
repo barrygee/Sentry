@@ -9,9 +9,7 @@ import { nextTick, ref, watch } from 'vue'
  * `labelledBy` and their body as the default slot.
  *
  * Visually the panel is a settings card scaled up (Sentinel `.settings-item`):
- * square, white, 22px padding. The scrim is an ink wash rather than a wash of
- * the page ground — on a light theme a near-white scrim over near-white
- * content dims nothing and the modal stops reading as modal.
+ * square, flat panel fill, 22px padding, over a blurred black scrim.
  *
  * `disableDismiss` suppresses `Escape` (and the caller is expected to also
  * disable its own close/cancel controls) while a destructive action is
@@ -97,7 +95,7 @@ watch(
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-ink-primary/40 p-4 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
     >
       <!-- The static checker doesn't recognise `role="dialog"` as interactive, but a modal
            genuinely needs its own `keydown` handler here: it owns the Escape-to-dismiss

@@ -97,15 +97,10 @@ function onClick(): void {
       <PortLug v-if="lastPortSegment !== null" :port-number="lastPortSegment" />
       <template v-if="node.device">
         <StatusDot :state="node.device.state" />
-        <span class="truncate font-mono text-xs">{{
-          node.device.name || node.device.device_id
-        }}</span>
+        <span class="truncate text-xs">{{ node.device.name || node.device.device_id }}</span>
       </template>
       <template v-else>
-        <span
-          class="font-condensed text-[10px] font-semibold uppercase tracking-control text-signal-muted"
-          >Hub</span
-        >
+        <span class="font-sans text-[10px] uppercase tracking-control text-signal-muted">Hub</span>
       </template>
     </div>
     <ul v-if="node.children.length > 0 && isExpanded" role="group" class="m-0 list-none p-0">

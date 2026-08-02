@@ -25,7 +25,7 @@ const meta = computed(() => META[props.connection])
 
 <template>
   <StatusBadge :tone="meta.tone">
-    <span aria-hidden="true" class="font-mono text-[10px] leading-none">{{ meta.glyph }}</span>
+    <span aria-hidden="true" class="text-[10px] leading-none">{{ meta.glyph }}</span>
     {{ meta.label }}
   </StatusBadge>
 </template>

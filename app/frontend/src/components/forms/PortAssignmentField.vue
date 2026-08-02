@@ -94,10 +94,7 @@ function validateAndCommit(): void {
       @blur="validateAndCommit"
     />
     <div v-if="isDraftPending" :id="pendingPreviewId" class="flex items-center gap-2">
-      <span
-        class="font-condensed text-[10px] font-semibold uppercase tracking-control text-signal-warn"
-        >Pending</span
-      >
+      <span class="font-sans text-[10px] uppercase tracking-control text-signal-warn">Pending</span>
       <JackPair
         compact
         :iq-port="modelValue"

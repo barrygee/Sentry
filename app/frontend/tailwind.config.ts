@@ -1,105 +1,112 @@
 import type { Config } from 'tailwindcss'
 
 /**
- * "Patch Bay" design tokens (architecture §9.5).
+ * Design tokens (architecture §9.5).
  *
- * Sentry adopts Sentinel's settings section wholesale — its light palette,
- * card grid, square corners, flat fills and uppercase Barlow legends. The two
- * consoles are meant to read as one product, so the ground tones and the lime
- * accent are Sentinel's own values, not approximations:
- *   canvas  #f6f6f4   card  #ffffff   input fill #e8eaed
- *   accent  #c8ff00   text-on-accent  #0a0c10
+ * Sentry matches **Sentinel's dark application chrome** — not the light
+ * settings panel, which is a scoped exception inside Sentinel's own dark app.
+ * Surfaces, accent and type are Sentinel's `assets/template.css` `:root`
+ * values and its SDR panel, used as-is rather than approximated:
+ *   --color-bg          #000000    -> ground.page
+ *   SDR panel surface   #0a0d14    -> ground.panel   (its rgba(10,13,20,.92))
+ *   --color-button-bg   #26292e    -> ground.raised  (control/slider fill)
+ *   --color-border      rgba(255,255,255,.08) -> ground.hairline
+ *   --color-accent      #c8ff00    -> signal.accent
  *
- * This replaced Sentry's original near-black "patch bay" theme, whose amber
- * accent existed to tell the two windows apart. That divergence is gone by
- * choice; what distinguishes Sentry now is its content, not its palette.
+ * ## The accent is text again
  *
- * ## The accent is a FILL, never text
- *
- * Lime `#c8ff00` is 1.18:1 on white — invisible as text and below the 3:1
- * non-text minimum, so it can never carry meaning on its own. It appears only
- * as a solid fill behind `ink.on-accent` (16.55:1): the primary button, the
- * active toggle, the heading dot, `PortLug`. This is exactly how Sentinel's
- * settings panel uses it. Wherever "the accent, as text" is needed — the
- * `streaming` state label, its card stripe, an OK status — use `signal.ok`,
- * the text-safe olive form.
+ * On the light palette lime was fill-only: 1.18:1 on white, unusable as text.
+ * On black it is 17.76:1, and Sentinel uses it exactly that way — its active
+ * segmented option is lime *text* on a `rgba(200,255,0,.12)` fill. So the
+ * accent is free to be a label, a glyph, a border or a fill here, and the
+ * separate text-safe stand-in the light theme needed is gone: `signal.ok` and
+ * `signal.accent` are both `#c8ff00`, since a healthy Sentry chain and
+ * Sentinel's live indicator are deliberately the same colour.
  *
  * ## Contrast, computed not eyeballed
  *
- * Every semantic tone clears WCAG 2.2 AA (4.5:1) against all three grounds it
- * can land on, including the `raised` input fill, which is the darkest and so
- * the binding constraint:
- *                    canvas   card   raised(#e8eaed)
- *   ink.primary      13.96   15.11   12.54
- *   signal.muted      5.15    5.57    4.62   (secondary text, field labels)
- *   signal.ok         5.25    5.68    4.71   (streaming / success)
- *   signal.warn       5.48    5.93    4.92   (degraded)
- *   signal.danger     5.42    5.86    4.87   (error)
- *   signal.info       5.69    6.16    5.11   (starting / structural chrome)
- *   signal.faint      3.08    3.33    2.76   (NON-TEXT ONLY — see below)
+ * Verified against all three surfaces. `ground.raised` (#26292e) is the
+ * lightest and therefore binds:
+ *                     page    panel   raised(#26292e)
+ *   ink.primary       16.83   15.57   11.69
+ *   signal.accent/ok  17.76   16.44   12.34
+ *   signal.warn       11.48   10.63    7.98
+ *   signal.info       11.31   10.47    7.86
+ *   signal.danger      6.52    6.03    4.53
+ *   signal.muted       7.79    7.21    5.42
+ *   signal.faint       4.94    4.57    3.43   (non-text; clears 3:1 everywhere)
  *
- * `signal.faint` is the one tone below the text threshold. It is the >=3:1
- * non-text minimum on canvas and card, for the idle-state card stripe and
- * glyph only; the matching state LABEL uses `signal.muted`. Never set it as
- * a text colour, and never use it on `raised` at all (2.76:1).
+ * Sentinel's own `.sdr-field-label` is `rgba(255,255,255,.25)` — 2.25:1 on the
+ * control fill, a clear AA failure that its own CSS acknowledges elsewhere
+ * ("rgba(…, 0.18) only managed ~1.68:1"). Sentry's muted tone is lifted to
+ * `#9a9ea3` instead of copying it. That, and `signal.danger` being Sentinel's
+ * `#ff5050` only because it happens to clear 4.5:1, are the only places the
+ * match is deliberately inexact.
  *
- * Sentinel's own settings CSS runs its secondary text at rgba(16,19,29,.5)
- * and its muted labels at .35 — 3.49:1 and ~2.6:1. Those fail AA, so Sentry's
- * equivalents are darkened to the values above rather than copied exactly.
- * It is the one place the match is deliberately inexact.
+ * ## Type
  *
- * Structural tokens (square corners, the tracking scale, 22px card padding,
- * 44px gutter, 1480px measure) come from the same source — see each below.
+ * Barlow throughout, matching Sentinel: legends are Barlow 400 uppercase on a
+ * wide tracking scale (its `.sdr-field-label` is 9px/400/0.18em), not the
+ * condensed semibold Sentry used before. Numerics are Barlow with
+ * `tabular-nums` rather than a monospace — Sentinel has no mono anywhere, and
+ * Sentry's `font-mono` resolved to the system face (no JetBrains Mono ships in
+ * either project), which is the most visible way the two drifted apart.
+ * Barlow Condensed is kept only for the large readouts Sentinel also sets in
+ * it. Note neither project ships BarlowCondensed-300, so Sentinel's `300` on
+ * those readouts is synthesised; Sentry asks for 400 rather than chase it.
+ *
+ * Structural tokens (square corners, 22px card padding, 44px gutter, 1480px
+ * measure) come from Sentinel's settings grid — see each below.
  */
 export default {
   content: ['./index.html', './src/**/*.{vue,ts}'],
   theme: {
     extend: {
       colors: {
-        /** Surfaces, lightest-to-flattest: the page behind everything, the cards on it, the fills inside those. */
+        /** Surfaces, darkest-to-lightest: the page behind everything, the panels on it, the control fills inside those. */
         ground: {
-          /** Page canvas (Sentinel `#settings-panel`). */
-          page: '#f6f6f4',
-          /** Card surface (Sentinel `.settings-item`). */
-          panel: '#ffffff',
-          /** Input and flat-data-row fill (Sentinel's `#e8eaed`). */
-          raised: '#e8eaed',
-          /** Hairline borders and dividers (Sentinel's rgba(16,19,29,.08), flattened). */
-          hairline: '#e2e2df',
+          /** Page (Sentinel `--color-bg`). */
+          page: '#000000',
+          /** Panel/card surface (Sentinel's SDR panel, `rgba(10,13,20,.92)` flattened). */
+          panel: '#0a0d14',
+          /** Control and input fill (Sentinel `--color-button-bg`). */
+          raised: '#26292e',
+          /**
+           * Hairline borders and dividers (Sentinel `--color-border`). Left as
+           * rgba rather than flattened so it reads correctly on both the page
+           * and the lighter panel — the same reason Sentinel keeps it rgba.
+           */
+          hairline: 'rgba(255, 255, 255, 0.08)',
         },
         /** Type colours. */
         ink: {
-          /** Body and heading text (Sentinel's rgba(16,19,29,.92), flattened). */
-          primary: '#23262f',
+          /** Body and heading text (Sentinel `--color-text`, flattened). */
+          primary: '#e6e6e6',
           /** Text that sits on a solid `signal.accent` fill. */
           'on-accent': '#0a0c10',
         },
-        /**
-         * Semantic tones. Named for what they mean, not what they look like —
-         * `ok` is an olive, not a lime, because the lime it stands in for is
-         * fill-only (see the header comment).
-         */
+        /** Semantic tones, named for meaning rather than hue. */
         signal: {
-          /** The lime accent. FILL ONLY — never a text or border colour. */
+          /** The lime accent (Sentinel `--color-accent`). Text, border or fill — all are safe on black. */
           accent: '#c8ff00',
-          /** Streaming / success / "applied". The text-safe form of the accent. */
-          ok: '#4a7200',
+          /** Streaming / success. Identical to the accent by intent: Sentry's healthy chain is Sentinel's live indicator. */
+          ok: '#c8ff00',
           /** Degraded, and any "are you sure" warning surface. */
-          warn: '#8a5a00',
-          /** Error, and destructive actions. */
-          danger: '#b8352a',
+          warn: '#ffb020',
+          /** Error, and destructive actions (Sentinel's `#ff5050`). */
+          danger: '#ff5050',
           /** Starting, connecting, and structural chrome (topology connectors). */
-          info: '#0c6a84',
+          info: '#3fd0e0',
           /** Secondary text: descriptions, field labels, idle-state labels. */
-          muted: '#66686e',
-          /** NON-TEXT ONLY (3.08:1 on canvas): idle-state stripes and glyphs. */
-          faint: '#8a8d92',
+          muted: '#9a9ea3',
+          /** Non-text: idle-state stripes and glyphs. Clears 3:1 on every surface but is not text-safe on `raised`. */
+          faint: '#797e84',
         },
       },
       fontFamily: {
         sans: ['Barlow', 'system-ui', 'sans-serif'],
+        /** Large readouts only — Sentinel sets its frequency display in this. */
         condensed: ['"Barlow Condensed"', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       borderRadius: {
         /**
@@ -109,28 +116,29 @@ export default {
          * squares the whole console in one place.
          */
         rack: '0px',
-        /** Small status chips only (Sentinel `.tle-status-badge`). */
+        /** Small status chips only. */
         chip: '4px',
-        /** Buttons and inset notice boxes (Sentinel `.ba-btn--ghost`, `.settings-connectivity-warning`). */
-        control: '6px',
       },
       /**
-       * Sentinel's settings section runs a five-step tracking scale, tightening
-       * as type gets larger. Every uppercase legend in Sentry maps onto one of
-       * these steps rather than inventing its own value.
+       * Tracking widens as type gets smaller — Sentinel's dark chrome runs its
+       * 9px field labels at 0.18em and its large readouts at 0.04em. Every
+       * uppercase legend in Sentry maps onto one of these steps rather than
+       * inventing its own value.
        */
       letterSpacing: {
-        /** 13px card titles (Sentinel `.settings-item-label`). */
-        label: '0.1em',
-        /** Pre-existing Sentry legend step, kept for glyph-adjacent micro-labels. */
+        /** Large readouts (Sentinel's frequency display, `0.04em`). */
+        readout: '0.04em',
+        /** Glyph-adjacent micro-labels. */
         legend: '0.08em',
-        /** Search/section-heading type (Sentinel `#settings-search-input`). */
+        /** Card titles. */
+        label: '0.1em',
+        /** Buttons and inline chips (Sentinel `.sdr-panel-btn`, `.sdr-scan-btn`). */
         caption: '0.14em',
-        /** 21px section headings and ghost buttons (Sentinel `#settings-section-heading`). */
+        /** Section headings. */
         heading: '0.16em',
-        /** 10px control captions and primary buttons (Sentinel `.toggle-setting-label`). */
+        /** 9-10px field labels — Sentinel's dominant legend step (`.sdr-field-label`). */
         control: '0.18em',
-        /** Muted full-row group labels (Sentinel `.settings-group-label`). */
+        /** Muted full-row group labels. */
         group: '0.22em',
       },
       spacing: {

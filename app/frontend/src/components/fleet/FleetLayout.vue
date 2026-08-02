@@ -38,7 +38,7 @@ function toggleTopology(): void {
         <GroupLabel id="topology-heading" :level="2">USB Topology</GroupLabel>
         <button
           type="button"
-          class="-my-2 min-h-[44px] rounded-control px-2 font-condensed text-[10px] font-semibold uppercase tracking-control text-signal-muted transition-colors hover:text-ink-primary md:hidden"
+          class="-my-2 min-h-[44px] rounded-rack px-2 font-sans text-[10px] uppercase tracking-control text-signal-muted transition-colors hover:text-ink-primary md:hidden"
           :aria-expanded="isTopologyExpandedOnMobile"
           aria-controls="topology-panel"
           @click="toggleTopology"

@@ -147,7 +147,7 @@ const statusRegionVisible = computed(
 // (see the comment above), so they carry `NoticeBox`'s look as class strings
 // rather than rendering a `NoticeBox` — swapping the component in and out is
 // exactly the remount this design avoids.
-const NOTICE_BOX_CLASSES = 'rounded-control border px-4 py-3 text-[12.5px] leading-[1.55]'
+const NOTICE_BOX_CLASSES = 'rounded-rack border px-4 py-3 text-[12.5px] leading-[1.55]'
 const statusRegionClasses = computed(() =>
   phase.value === 'succeeded'
     ? `${NOTICE_BOX_CLASSES} border-signal-ok/50 bg-signal-ok/10 text-signal-ok`

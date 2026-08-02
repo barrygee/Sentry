@@ -24,19 +24,15 @@ defineProps<{
   >
     <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
       <SectionHeading :level="1">Sentry</SectionHeading>
-      <p
-        class="font-condensed text-[10px] font-semibold uppercase tracking-group text-signal-muted"
-      >
+      <p class="font-sans text-[10px] uppercase tracking-group text-signal-muted">
         SDR Fleet Manager
       </p>
     </div>
     <div class="flex items-center gap-3">
-      <p
-        class="font-condensed text-[10px] font-semibold uppercase tracking-control text-signal-muted"
-      >
-        <span class="font-mono font-mono-tabular text-signal-ok">{{ streamingCount }}</span>
+      <p class="font-sans text-[10px] uppercase tracking-control text-signal-muted">
+        <span class="font-tabular text-signal-ok">{{ streamingCount }}</span>
         <span aria-hidden="true" class="px-1">/</span>
-        <span class="font-mono font-mono-tabular">{{ deviceCount }}</span>
+        <span class="font-tabular">{{ deviceCount }}</span>
         <span class="pl-2">streaming</span>
       </p>
       <ConnectionPill :connection="connection" />

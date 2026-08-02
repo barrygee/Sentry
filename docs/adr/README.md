@@ -13,7 +13,7 @@ and update the old one's status to `Superseded by ADR-NNNN`.
 | [0003](0003-device-identity-strategy.md) | Three-tier device identity; librtlsdr index resolved at spawn, never cached | Accepted |
 | [0004](0004-sse-over-websocket.md) | Server-Sent Events, not WebSocket, for realtime status | Accepted |
 | [0005](0005-sqlite-wal-persistence.md) | SQLite with WAL for configuration persistence | Accepted |
-| [0006](0006-adopt-sentinel-settings-visual-language.md) | Adopt Sentinel's settings visual language, palette included | Accepted |
+| [0006](0006-adopt-sentinel-visual-language.md) | Adopt Sentinel's visual language, palette included | Accepted |
 
 The design these decisions serve is
 [`docs/architecture/sentry-fleet-manager.md`](../architecture/sentry-fleet-manager.md).

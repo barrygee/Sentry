@@ -25,11 +25,11 @@ const props = withDefaults(
 )
 
 const TONE_CLASSES = {
-  danger: 'border-signal-danger/50 bg-signal-danger/10 text-signal-danger',
-  warn: 'border-signal-warn/50 bg-signal-warn/10 text-signal-warn',
-  info: 'border-signal-info/50 bg-signal-info/10 text-signal-info',
-  ok: 'border-signal-ok/50 bg-signal-ok/10 text-signal-ok',
-  neutral: 'border-ground-hairline bg-ground-raised text-signal-muted',
+  danger: 'border-signal-danger/40 bg-signal-danger/[0.12] text-signal-danger',
+  warn: 'border-signal-warn/40 bg-signal-warn/[0.12] text-signal-warn',
+  info: 'border-signal-info/40 bg-signal-info/[0.12] text-signal-info',
+  ok: 'border-signal-ok/40 bg-signal-ok/[0.12] text-signal-ok',
+  neutral: 'border-ground-hairline bg-white/[0.04] text-signal-muted',
 } as const satisfies Record<NoticeTone, string>
 
 const toneClass = computed(() => TONE_CLASSES[props.tone])
@@ -38,7 +38,7 @@ const toneClass = computed(() => TONE_CLASSES[props.tone])
 <template>
   <div
     :role="props.role ?? undefined"
-    class="flex flex-col gap-2 rounded-control border px-4 py-3 text-[12.5px] leading-[1.55]"
+    class="flex flex-col gap-2 rounded-rack border px-4 py-3 text-[12.5px] leading-[1.55]"
     :class="toneClass"
   >
     <slot />
