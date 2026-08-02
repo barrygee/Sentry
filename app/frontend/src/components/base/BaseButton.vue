@@ -38,9 +38,9 @@ const variantClasses = {
   primary:
     'bg-signal-accent font-bold text-ink-on-accent hover:bg-[#d8ff33] disabled:bg-white/[0.08] disabled:text-signal-muted',
   ghost:
-    'bg-white/[0.08] font-bold text-signal-muted hover:bg-white/[0.12] hover:text-ink-primary disabled:opacity-30',
+    'bg-white/[0.08] font-bold text-signal-muted hover:bg-white/[0.1] hover:text-white disabled:opacity-30',
   danger:
-    'bg-signal-danger/[0.12] font-bold text-signal-danger hover:bg-signal-danger/20 disabled:opacity-30',
+    'bg-signal-danger/[0.15] font-bold text-signal-danger hover:bg-signal-danger/25 disabled:opacity-30',
 } as const satisfies Record<'primary' | 'ghost' | 'danger', string>
 </script>
 

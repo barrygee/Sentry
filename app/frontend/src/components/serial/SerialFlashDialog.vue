@@ -154,7 +154,7 @@ const statusRegionClasses = computed(() =>
     : 'text-[12px] leading-[1.6] text-signal-muted',
 )
 const alertMessage = computed(() => (phase.value === 'failed' ? (outcomeMessage.value ?? '') : ''))
-const alertRegionClasses = `${NOTICE_BOX_CLASSES} bg-signal-danger/[0.12] text-signal-danger`
+const alertRegionClasses = `${NOTICE_BOX_CLASSES} bg-signal-danger/[0.15] text-signal-danger`
 
 /** Maps a thrown `ApiError`'s machine code to an operator-facing sentence — never surfaces a raw code. */
 function humanizeFlashError(error: unknown): string {

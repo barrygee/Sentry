@@ -22,7 +22,7 @@ const TONE_CLASSES = {
   accent: 'bg-signal-accent/[0.12] text-signal-accent',
   ok: 'bg-signal-ok/[0.12] text-signal-ok',
   warn: 'bg-signal-warn/[0.12] text-signal-warn',
-  danger: 'bg-signal-danger/[0.12] text-signal-danger',
+  danger: 'bg-signal-danger/[0.15] text-signal-danger',
   info: 'bg-signal-info/[0.12] text-signal-info',
 } as const satisfies Record<StatusBadgeTone, string>
 

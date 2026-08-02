@@ -24,7 +24,7 @@ const props = withDefaults(
 )
 
 const TONE_CLASSES = {
-  danger: 'bg-signal-danger/[0.12] text-signal-danger',
+  danger: 'bg-signal-danger/[0.15] text-signal-danger',
   warn: 'bg-signal-warn/[0.12] text-signal-warn',
   info: 'bg-signal-info/[0.12] text-signal-info',
   ok: 'bg-signal-ok/[0.12] text-signal-ok',
