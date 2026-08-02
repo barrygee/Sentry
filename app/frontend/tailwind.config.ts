@@ -118,8 +118,6 @@ export default {
          * squares the whole console in one place.
          */
         rack: '0px',
-        /** Small status chips only. */
-        chip: '4px',
       },
       /**
        * Tracking widens as type gets smaller — Sentinel's dark chrome runs its
@@ -154,8 +152,13 @@ export default {
         gutter: '44px',
       },
       maxWidth: {
-        /** The device stack's measure (Sentinel's 860px for its wide settings controls). */
-        stack: '860px',
+        /**
+         * The device stack's measure. Was 860px (Sentinel's width for its wide
+         * settings controls), narrowed 40% at the owner's request — a card holds
+         * a handful of short readouts and two small inputs, and did not need the
+         * width of a settings document.
+         */
+        stack: '516px',
       },
     },
   },

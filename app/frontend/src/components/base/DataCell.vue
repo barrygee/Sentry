@@ -11,21 +11,32 @@
  * labels and documented in `tailwind.config.ts`.
  *
  * `labelTag`/`valueTag` exist so a caller can keep real markup semantics —
- * `JackPair` renders its pairs inside a `<dl>` and passes `dt`/`dd`, which a
- * hardcoded `<span>` would have quietly thrown away.
+ * `DeviceIdentitySummary` renders its pairs inside a `<dl>` and passes
+ * `dt`/`dd`, which a hardcoded `<span>` would have quietly thrown away.
  */
 withDefaults(
   defineProps<{
-    /** The caption, e.g. "IQ". Rendered uppercase by CSS. */
+    /** The caption, e.g. "Serial number". Rendered uppercase by CSS. */
     label: string
     /** Plain-text value. Ignored when the default slot supplies richer content. */
     value?: string | number | null
+    /**
+     * A short line beneath the value saying what the reading *is*, for cells
+     * whose caption names a thing without explaining it ("Relay listens on").
+     *
+     * Rendered inside the value element rather than as a sibling: where the
+     * cell sits in a `<dl>`, that element is a `<dd>`, and the spec allows a
+     * wrapping `<div>` to contain only `<dt>`/`<dd>` — a third element beside
+     * them would be invalid markup. Nesting it also means the explanation is
+     * read as part of the definition rather than as loose text after it.
+     */
+    hint?: string | null
     /** Element for the caption — `dt` inside a description list. */
     labelTag?: 'span' | 'dt'
     /** Element for the value — `dd` inside a description list. */
     valueTag?: 'span' | 'dd'
   }>(),
-  { value: null, labelTag: 'span', valueTag: 'span' },
+  { value: null, hint: null, labelTag: 'span', valueTag: 'span' },
 )
 </script>
 
@@ -42,6 +53,12 @@ withDefaults(
       class="m-0 whitespace-nowrap font-sans text-[14px] font-semibold tracking-data text-white"
     >
       <slot>{{ value }}</slot>
+      <span
+        v-if="hint"
+        class="mt-1 block whitespace-normal font-sans text-[11px] font-normal leading-[1.5] tracking-normal text-signal-muted"
+      >
+        {{ hint }}
+      </span>
     </component>
   </div>
 </template>
