@@ -8,6 +8,11 @@ import { nextTick, ref, watch } from 'vue'
  * semantics itself. Callers provide the id of their own heading via
  * `labelledBy` and their body as the default slot.
  *
+ * Visually the panel is a settings card scaled up (Sentinel `.settings-item`):
+ * square, white, 22px padding. The scrim is an ink wash rather than a wash of
+ * the page ground — on a light theme a near-white scrim over near-white
+ * content dims nothing and the modal stops reading as modal.
+ *
  * `disableDismiss` suppresses `Escape` (and the caller is expected to also
  * disable its own close/cancel controls) while a destructive action is
  * already committed and in flight, so a stray keypress can never read as
@@ -92,7 +97,7 @@ watch(
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-ground-page/80 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-ink-primary/40 p-4 backdrop-blur-sm"
     >
       <!-- The static checker doesn't recognise `role="dialog"` as interactive, but a modal
            genuinely needs its own `keydown` handler here: it owns the Escape-to-dismiss
@@ -104,7 +109,7 @@ watch(
         aria-modal="true"
         :aria-labelledby="labelledBy"
         tabindex="-1"
-        class="flex w-full max-w-md flex-col gap-4 rounded-rack border border-ground-hairline bg-ground-panel p-4 shadow-xl outline-none sm:p-6"
+        class="flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-rack border border-ground-hairline bg-ground-panel p-card outline-none"
         @keydown="onKeydown"
       >
         <slot />

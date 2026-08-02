@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   * {
@@ -20,17 +20,42 @@
   body {
     margin: 0;
     background-color: theme('colors.ground.page');
-    color: #e7e9ea;
+    color: theme('colors.ink.primary');
     font-family: theme('fontFamily.sans');
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Visible, managed focus everywhere — the amber ring is Sentry's primary
-     affordance on a black ground and is never suppressed (architecture §9.5). */
+  /* Visible, managed focus everywhere — never suppressed (architecture §9.5).
+     Square, matching every other corner in the console.
+
+     The ring is ink, not the lime accent: on the light ground lime is 1.18:1,
+     far under the 3:1 a focus indicator must meet, whereas ink is 13.96:1.
+     The accent stays a fill; the focus indicator has to actually be seen. */
   :focus-visible {
-    outline: 2px solid theme('colors.signal.amber');
+    outline: 2px solid theme('colors.ink.primary');
     outline-offset: 2px;
     border-radius: theme('borderRadius.rack');
+  }
+
+  /* Thin, near-invisible-until-needed scrollbars, mirroring Sentinel's
+     settings body (`#settings-body`): the thumb is the hairline tone, the
+     track disappears into the page. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.ground.hairline') transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: theme('colors.ground.hairline');
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   /* prefers-reduced-motion: reduce disables every animation and

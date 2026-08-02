@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import { apiClient } from '@/api/client'
 import EmptyState from '@/components/base/EmptyState.vue'
+import PanelGrid from '@/components/base/PanelGrid.vue'
 import AbsentDeviceGroup from '@/components/fleet/AbsentDeviceGroup.vue'
 import FleetHeader from '@/components/fleet/FleetHeader.vue'
 import FleetLayout from '@/components/fleet/FleetLayout.vue'
@@ -128,7 +129,7 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
     <NoticeList />
     <ul
       v-if="visibleConflictGroups.length"
-      class="flex flex-col gap-2 px-4 pt-4 sm:px-6"
+      class="m-0 flex list-none flex-col gap-2 px-5 pt-[26px] md:px-gutter"
       aria-label="Serial conflicts"
     >
       <li v-for="group in visibleConflictGroups" :key="group.serial">
@@ -160,7 +161,7 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
             title="No devices currently plugged in"
             detail="Every configured device below is absent — see the collapsed group beneath."
           />
-          <div v-else class="flex flex-col rounded-rack border border-ground-hairline">
+          <PanelGrid v-else>
             <SdrDeviceCard
               v-for="device in fleetStore.presentDevices"
               :key="device.device_id"
@@ -168,7 +169,7 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
               @request-serial-flash="openSerialFlashDialog"
               @request-forget-device="openForgetDialog"
             />
-          </div>
+          </PanelGrid>
           <AbsentDeviceGroup
             v-if="fleetStore.absentConfiguredDevices.length > 0"
             :devices="fleetStore.absentConfiguredDevices"

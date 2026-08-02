@@ -4,6 +4,7 @@ import { ref, useId } from 'vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseDialog from '@/components/base/BaseDialog.vue'
 import BaseField from '@/components/base/BaseField.vue'
+import SectionHeading from '@/components/base/SectionHeading.vue'
 import { useAuthToken } from '@/composables/useAuthToken'
 
 /**
@@ -32,14 +33,9 @@ function submit(): void {
     <!-- A `<div>`, not `<header>`: teleported to `<body>`, outside any
          sectioning root, so `<header>` would double up as a second
          page-level "banner" landmark alongside `FleetHeader`'s. -->
-    <div class="flex flex-col gap-1">
-      <h2
-        :id="headingId"
-        class="font-condensed text-base font-semibold uppercase tracking-legend text-signal-amber"
-      >
-        Authentication required
-      </h2>
-      <p class="text-xs text-signal-slate">
+    <div class="flex flex-col gap-2">
+      <SectionHeading :id="headingId">Authentication required</SectionHeading>
+      <p class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">
         This Sentry instance requires an operator token. Enter the value configured as
         <code class="font-mono">SENTRY_AUTH_TOKEN</code> to continue — it is kept only for this
         browser tab.

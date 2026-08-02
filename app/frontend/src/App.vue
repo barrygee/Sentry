@@ -10,7 +10,7 @@ const { politeMessage, assertiveMessage } = useLiveAnnouncer()
 <template>
   <a
     href="#devices-heading"
-    class="sr-only-focusable fixed left-2 top-2 z-[100] rounded-rack bg-ground-page px-3 py-2 font-condensed text-xs uppercase tracking-legend text-signal-amber"
+    class="sr-only-focusable fixed left-2 top-2 z-[100] rounded-rack bg-signal-accent px-4 py-3 font-condensed text-[11px] font-semibold uppercase tracking-heading text-ink-on-accent"
   >
     Skip to devices
   </a>

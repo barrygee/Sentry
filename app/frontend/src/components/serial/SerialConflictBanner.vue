@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BaseButton from '@/components/base/BaseButton.vue'
+import NoticeBox from '@/components/base/NoticeBox.vue'
 
 /**
  * Surfaces a duplicate-serial conflict (architecture §5.1 tier 3, and the
@@ -25,31 +26,27 @@ defineEmits<{ dismiss: []; 'request-serial-flash': [deviceId: string] }>()
 </script>
 
 <template>
-  <div
-    role="alert"
-    class="flex flex-col gap-2 rounded-rack border border-signal-red bg-signal-red/10 px-3 py-2 text-xs text-signal-red sm:flex-row sm:items-start sm:justify-between sm:gap-3"
-  >
-    <div class="flex flex-col gap-2">
-      <p>
-        Serial conflict — <span class="font-mono">{{ serial }}</span> is reported by more than one
-        present device<span v-if="conflictingDevices.length">
-          ({{ conflictingDevices.map((device) => device.label).join(', ') }})</span
-        >. Neither can be remembered across a reboot until one is given a unique serial.
-      </p>
-      <ul v-if="conflictingDevices.length" class="flex flex-wrap gap-2">
-        <li v-for="device in conflictingDevices" :key="device.deviceId">
-          <BaseButton variant="ghost" @click="$emit('request-serial-flash', device.deviceId)">
-            Flash serial — {{ device.label }}
-          </BaseButton>
-        </li>
-      </ul>
+  <NoticeBox tone="danger" role="alert">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div class="flex flex-col gap-3">
+        <p class="m-0">
+          Serial conflict — <span class="font-mono">{{ serial }}</span> is reported by more than one
+          present device<span v-if="conflictingDevices.length">
+            ({{ conflictingDevices.map((device) => device.label).join(', ') }})</span
+          >. Neither can be remembered across a reboot until one is given a unique serial.
+        </p>
+        <ul v-if="conflictingDevices.length" class="m-0 flex list-none flex-wrap gap-2 p-0">
+          <li v-for="device in conflictingDevices" :key="device.deviceId">
+            <BaseButton variant="ghost" @click="$emit('request-serial-flash', device.deviceId)">
+              Flash serial — {{ device.label }}
+            </BaseButton>
+          </li>
+        </ul>
+      </div>
+      <BaseButton variant="ghost" class="shrink-0 self-start" @click="$emit('dismiss')">
+        Dismiss
+        <span class="sr-only">serial conflict for {{ serial }}</span>
+      </BaseButton>
     </div>
-    <button
-      type="button"
-      class="min-h-[44px] shrink-0 rounded-rack border border-signal-red px-2 font-condensed text-xs uppercase tracking-legend"
-      @click="$emit('dismiss')"
-    >
-      Dismiss
-    </button>
-  </div>
+  </NoticeBox>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DeviceStatus } from '@/api/client'
+import PanelGrid from '@/components/base/PanelGrid.vue'
 import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
 
 /**
@@ -11,6 +12,12 @@ import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
  * rather than colour alone, so an operator scanning the page can tell
  * instantly what hardware is actually attached — and collapsed by default so
  * several accumulated ghosts never dominate the page.
+ *
+ * The dashed container and its summary now sit on the settings vocabulary:
+ * the summary reads as a muted group label (matching "USB Topology" and
+ * "Devices" above it) and the ghosts inside lay out in their own `PanelGrid`,
+ * so an expanded group looks like the live grid with the colour drained out
+ * of it rather than like a different kind of list.
  */
 defineProps<{ devices: DeviceStatus[] }>()
 defineEmits<{
@@ -20,27 +27,27 @@ defineEmits<{
 </script>
 
 <template>
-  <details class="mt-4 rounded-rack border border-dashed border-signal-slateMuted/60">
+  <details class="group mt-2 rounded-rack border border-dashed border-signal-faint/60">
     <summary
-      class="flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack px-4 py-2 font-condensed text-xs uppercase tracking-legend text-signal-slate [&::-webkit-details-marker]:hidden"
+      class="flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack px-card py-3 font-condensed text-[10px] font-semibold uppercase tracking-group text-signal-muted transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden"
     >
-      <span aria-hidden="true">▽</span>
+      <span aria-hidden="true" class="transition-transform group-open:rotate-90">▶</span>
       Absent devices — configuration kept ({{ devices.length }})
     </summary>
-    <p
-      class="border-t border-dashed border-signal-slateMuted/60 px-4 py-2 text-xs text-signal-slate"
-    >
-      Not currently plugged in. Replugging the hardware re-detects it; forgetting one discards its
-      saved name, port and tuning defaults.
-    </p>
-    <div class="flex flex-col border-t border-dashed border-signal-slateMuted/60">
-      <SdrDeviceCard
-        v-for="device in devices"
-        :key="device.device_id"
-        :device="device"
-        @request-serial-flash="$emit('request-serial-flash', $event)"
-        @request-forget-device="$emit('request-forget-device', $event)"
-      />
+    <div class="flex flex-col gap-4 border-t border-dashed border-signal-faint/60 p-card">
+      <p class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">
+        Not currently plugged in. Replugging the hardware re-detects it; forgetting one discards its
+        saved name, port and tuning defaults.
+      </p>
+      <PanelGrid>
+        <SdrDeviceCard
+          v-for="device in devices"
+          :key="device.device_id"
+          :device="device"
+          @request-serial-flash="$emit('request-serial-flash', $event)"
+          @request-forget-device="$emit('request-forget-device', $event)"
+        />
+      </PanelGrid>
     </div>
   </details>
 </template>

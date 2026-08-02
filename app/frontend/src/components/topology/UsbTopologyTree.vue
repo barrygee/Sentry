@@ -95,7 +95,7 @@ function findNodeByPath(nodes: TopologyNode[], path: string): TopologyNode | nul
     v-else
     role="tree"
     aria-label="USB topology"
-    class="m-0 flex flex-col gap-0.5 rounded-rack border border-ground-hairline bg-ground-panel p-2 list-none"
+    class="m-0 list-none rounded-rack border border-ground-hairline bg-ground-panel p-card"
   >
     <UsbTopologyNode v-for="node in roots" :key="node.path" :node="node" />
   </ul>
