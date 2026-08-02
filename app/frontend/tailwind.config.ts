@@ -105,8 +105,10 @@ export default {
       },
       fontFamily: {
         sans: ['Barlow', 'system-ui', 'sans-serif'],
-        /** Large readouts only — Sentinel sets its frequency display in this. */
+        /** Large readouts and card titles — Sentinel sets its frequency display and station name in this. */
         condensed: ['"Barlow Condensed"', 'system-ui', 'sans-serif'],
+        /** The wordmark only. Sentinel's logo.svg is Inter 500; nothing else in either app uses it. */
+        wordmark: ['Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         /**
@@ -126,7 +128,9 @@ export default {
        * inventing its own value.
        */
       letterSpacing: {
-        /** Large readouts (Sentinel's frequency display, `0.04em`). */
+        /** The wordmark's negative tracking (Sentinel's logo.svg, -1.5%). */
+        wordmark: '-0.015em',
+        /** Large readouts and card titles (Sentinel's frequency display `0.04em`, its station name `0.06em`). */
         readout: '0.04em',
         /** Glyph-adjacent micro-labels. */
         legend: '0.08em',
@@ -148,8 +152,8 @@ export default {
         gutter: '44px',
       },
       maxWidth: {
-        /** The settings grid's measure — stops cards stretching on ultrawide displays. */
-        console: '1480px',
+        /** The device stack's measure (Sentinel's 860px for its wide settings controls). */
+        stack: '860px',
       },
     },
   },

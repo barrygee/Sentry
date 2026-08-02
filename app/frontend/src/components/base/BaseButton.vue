@@ -49,7 +49,7 @@ const variantClasses = {
     :type="type"
     :disabled="disabled"
     :class="[
-      'inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-rack border-none px-[18px] font-sans text-[11px] uppercase tracking-caption transition-colors disabled:cursor-not-allowed sm:min-h-[38px]',
+      'inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-rack border-none px-[18px] font-sans text-[9px] uppercase tracking-control transition-colors disabled:cursor-not-allowed sm:min-h-[38px]',
       variantClasses[props.variant],
     ]"
     @click="$emit('click', $event)"

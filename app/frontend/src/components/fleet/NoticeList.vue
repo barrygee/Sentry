@@ -41,7 +41,7 @@ function toneFor(level: NoticeLevel): NoticeTone {
 <template>
   <ul
     v-if="visibleNotices.length > 0"
-    class="m-0 flex list-none flex-col gap-2 px-5 pt-[26px] md:px-gutter"
+    class="m-0 flex list-none flex-col gap-2 p-0"
     aria-label="Notices"
   >
     <li v-for="notice in visibleNotices" :key="notice.id">

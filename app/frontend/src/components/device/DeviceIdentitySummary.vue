@@ -25,15 +25,15 @@ withDefaults(
 <template>
   <p
     v-if="manufacturer || product || serial"
-    class="m-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[12.5px] leading-[1.55] text-signal-muted"
+    class="m-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[12px] leading-[1.6] text-signal-muted"
   >
     <span v-if="manufacturer || product">{{
       [manufacturer, product].filter(Boolean).join(' ')
     }}</span>
     <span v-if="serial" class="flex items-baseline gap-1.5">
-      <span class="font-sans text-[9px] uppercase tracking-heading">SN</span>
+      <span class="font-sans text-[9px] uppercase tracking-control">SN</span>
       <MonoValue :value="serial" />
     </span>
   </p>
-  <p v-else class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">Make/model unknown</p>
+  <p v-else class="m-0 text-[12px] leading-[1.6] text-signal-muted">Make/model unknown</p>
 </template>

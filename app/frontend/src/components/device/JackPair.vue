@@ -34,7 +34,7 @@ withDefaults(
       :class="compact ? 'px-2 py-1' : ''"
     >
       <dt
-        class="font-sans text-[9px] uppercase tracking-heading text-signal-muted"
+        class="font-sans text-[9px] uppercase tracking-control text-signal-muted"
         aria-hidden="true"
       >
         IQ
@@ -48,7 +48,7 @@ withDefaults(
       :class="compact ? 'px-2 py-1' : ''"
     >
       <dt
-        class="font-sans text-[9px] uppercase tracking-heading text-signal-muted"
+        class="font-sans text-[9px] uppercase tracking-control text-signal-muted"
         aria-hidden="true"
       >
         CTRL

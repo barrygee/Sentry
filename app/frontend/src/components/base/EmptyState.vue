@@ -15,10 +15,10 @@ withDefaults(defineProps<{ title: string; detail?: string | null }>(), { detail:
   <div
     class="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-rack border border-dashed border-ground-hairline bg-ground-panel px-6 py-10 text-center"
   >
-    <p class="font-sans text-[11px] uppercase tracking-control text-signal-muted">
+    <p class="font-sans text-[9px] uppercase tracking-control text-signal-muted">
       {{ title }}
     </p>
-    <p v-if="detail" class="max-w-prose text-[12.5px] leading-[1.55] text-signal-muted">
+    <p v-if="detail" class="max-w-prose text-[12px] leading-[1.6] text-signal-muted">
       {{ detail }}
     </p>
   </div>

@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiClient } from '@/api/client'
 import EmptyState from '@/components/base/EmptyState.vue'
-import PanelGrid from '@/components/base/PanelGrid.vue'
+import PanelStack from '@/components/base/PanelStack.vue'
 import AbsentDeviceGroup from '@/components/fleet/AbsentDeviceGroup.vue'
 import FleetHeader from '@/components/fleet/FleetHeader.vue'
 import FleetLayout from '@/components/fleet/FleetLayout.vue'
@@ -105,53 +105,58 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
 
 <template>
   <div class="flex min-h-full flex-col">
-    <FleetHeader :connection="fleetStore.connection" />
-    <NoticeList />
-    <ul
-      v-if="visibleConflictGroups.length"
-      class="m-0 flex list-none flex-col gap-2 px-5 pt-[26px] md:px-gutter"
-      aria-label="Serial conflicts"
-    >
-      <li v-for="group in visibleConflictGroups" :key="group.serial">
-        <SerialConflictBanner
-          :serial="group.serial"
-          :conflicting-devices="group.devices"
-          @dismiss="dismissConflictGroup(group.serial)"
-          @request-serial-flash="openSerialFlashDialog"
-        />
-      </li>
-    </ul>
-    <FleetLayout>
-      <template #devices>
-        <EmptyState
-          v-if="!hasDevices"
-          title="No devices detected"
-          detail="Connect an SDR to a USB port on this Pi."
-        />
-        <template v-else>
-          <EmptyState
-            v-if="fleetStore.presentDevices.length === 0"
-            title="No devices currently plugged in"
-            detail="Every configured device below is absent — see the collapsed group beneath."
+    <FleetHeader />
+    <!-- One centred measure for everything below the header — notices, conflict
+         banners and the device stack all share it, so nothing runs full-bleed
+         past the cards. -->
+    <div class="mx-auto flex w-full max-w-stack flex-col gap-6 px-5 pb-16 pt-4">
+      <NoticeList />
+      <ul
+        v-if="visibleConflictGroups.length"
+        class="m-0 flex list-none flex-col gap-2 p-0"
+        aria-label="Serial conflicts"
+      >
+        <li v-for="group in visibleConflictGroups" :key="group.serial">
+          <SerialConflictBanner
+            :serial="group.serial"
+            :conflicting-devices="group.devices"
+            @dismiss="dismissConflictGroup(group.serial)"
+            @request-serial-flash="openSerialFlashDialog"
           />
-          <PanelGrid v-else>
-            <SdrDeviceCard
-              v-for="device in fleetStore.presentDevices"
-              :key="device.device_id"
-              :device="device"
+        </li>
+      </ul>
+      <FleetLayout>
+        <template #devices>
+          <EmptyState
+            v-if="!hasDevices"
+            title="No devices detected"
+            detail="Connect an SDR to a USB port on this Pi."
+          />
+          <template v-else>
+            <EmptyState
+              v-if="fleetStore.presentDevices.length === 0"
+              title="No devices currently plugged in"
+              detail="Every configured device below is absent — see the collapsed group beneath."
+            />
+            <PanelStack v-else>
+              <SdrDeviceCard
+                v-for="device in fleetStore.presentDevices"
+                :key="device.device_id"
+                :device="device"
+                @request-serial-flash="openSerialFlashDialog"
+                @request-forget-device="openForgetDialog"
+              />
+            </PanelStack>
+            <AbsentDeviceGroup
+              v-if="fleetStore.absentConfiguredDevices.length > 0"
+              :devices="fleetStore.absentConfiguredDevices"
               @request-serial-flash="openSerialFlashDialog"
               @request-forget-device="openForgetDialog"
             />
-          </PanelGrid>
-          <AbsentDeviceGroup
-            v-if="fleetStore.absentConfiguredDevices.length > 0"
-            :devices="fleetStore.absentConfiguredDevices"
-            @request-serial-flash="openSerialFlashDialog"
-            @request-forget-device="openForgetDialog"
-          />
+          </template>
         </template>
-      </template>
-    </FleetLayout>
+      </FleetLayout>
+    </div>
     <SerialFlashDialog
       :device="fleetStore.serialFlashDialogDevice"
       @close="closeSerialFlashDialog"

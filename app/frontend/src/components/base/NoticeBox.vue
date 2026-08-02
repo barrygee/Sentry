@@ -38,7 +38,7 @@ const toneClass = computed(() => TONE_CLASSES[props.tone])
 <template>
   <div
     :role="props.role ?? undefined"
-    class="flex flex-col gap-2 rounded-rack border px-4 py-3 text-[12.5px] leading-[1.55]"
+    class="flex flex-col gap-2 rounded-rack border px-4 py-3 text-[12px] leading-[1.6]"
     :class="toneClass"
   >
     <slot />

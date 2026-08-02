@@ -31,7 +31,7 @@ const toneClass = computed(() => TONE_CLASSES[props.tone])
 
 <template>
   <span
-    class="inline-flex items-center gap-1.5 rounded-chip px-2 py-[3px] font-sans text-[10px] uppercase tracking-legend"
+    class="inline-flex items-center gap-1.5 rounded-chip px-2 py-[3px] font-sans text-[9px] font-bold uppercase tracking-control"
     :class="toneClass"
   >
     <slot />

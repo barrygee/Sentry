@@ -103,7 +103,7 @@ function humanizeForgetError(error: unknown): string {
         <SectionHeading :id="headingId" dot-class="bg-signal-danger">
           Forget {{ deviceLabel }}?
         </SectionHeading>
-        <p :id="consequenceId" class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">
+        <p :id="consequenceId" class="m-0 text-[12px] leading-[1.6] text-signal-muted">
           This discards <strong>{{ deviceLabel }}</strong
           >'s saved name, output port and tuning defaults. It's recoverable in that replugging the
           hardware re-detects it as a fresh, unconfigured device — but nothing about how it was set

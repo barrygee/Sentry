@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * The muted, wide-tracked subsection label that divides a card grid
- * (Sentinel `.settings-group-label` — "ALERTS", "DATA SOURCES", …). Spans the
- * full grid row so the cards beneath it read as one band.
+ * The band label above a section, in Sentinel's section-title treatment
+ * (`.sdr-ef-settings-toggle-title`): 9px Barlow 700, uppercase, 0.18em, white.
+ * The same step its own CONTROLS/SETTINGS headings use.
  *
  * Rendered as a real heading by default so the grid beneath it is reachable
  * as a section by screen-reader users; pass `level="none"` for a purely
@@ -20,7 +20,7 @@ withDefaults(
 <template>
   <component
     :is="level === 'none' ? 'p' : `h${level}`"
-    class="col-span-full m-0 font-sans text-[10px] uppercase tracking-group text-signal-muted"
+    class="m-0 font-sans text-[9px] font-bold uppercase tracking-control text-white"
   >
     <slot />
   </component>

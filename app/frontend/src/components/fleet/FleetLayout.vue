@@ -2,30 +2,22 @@
 import GroupLabel from '@/components/base/GroupLabel.vue'
 
 /**
- * The page shell, laid out on Sentinel's gutters: 44px of page padding at `md`
- * and up, and a generous bottom gutter so the last card never sits flush
- * against the viewport edge.
+ * The devices section: its band label and the stack beneath it.
  *
- * A single column. This was a two-column rack with the USB topology tree in a
- * 320px left rail; the tree was removed, and with it the only reason for the
- * second column — the device grid already reflows from one to three columns on
- * its own, so it takes the full width at every breakpoint.
+ * Page padding and the centred measure live in `FleetView`, on the one wrapper
+ * that also holds the notices and conflict banners — otherwise those would run
+ * full-bleed while the cards sat centred, which read as two different pages.
  *
- * The "Devices" band label uses the muted group-label style rather than a
- * second large heading: in this vocabulary a page carries exactly one 21px
- * title (the wordmark in `FleetHeader`) and everything below it is a band
- * label. It is also the skip link's destination, so it is visible rather than
- * screen-reader-only — an operator can see where focus landed.
+ * The band label is the skip link's destination, so it is visible rather than
+ * screen-reader-only: an operator can see where focus landed.
  */
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col px-5 pb-16 pt-[26px] md:px-gutter md:pb-[110px]">
-    <section aria-labelledby="devices-heading" class="flex flex-col gap-3">
-      <GroupLabel id="devices-heading" :level="2" tabindex="-1" class="outline-none">
-        Devices
-      </GroupLabel>
-      <slot name="devices" />
-    </section>
-  </div>
+  <section aria-labelledby="devices-heading" class="flex flex-col gap-3">
+    <GroupLabel id="devices-heading" :level="2" tabindex="-1" class="outline-none">
+      Devices
+    </GroupLabel>
+    <slot name="devices" />
+  </section>
 </template>

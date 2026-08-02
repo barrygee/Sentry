@@ -39,7 +39,7 @@ defineProps<{
       :disabled="disabled"
       :aria-label="label"
     />
-    <span class="font-sans text-[10px] uppercase tracking-control text-signal-muted">
+    <span class="font-sans text-[9px] uppercase tracking-control text-signal-muted">
       {{ label }}
     </span>
   </label>

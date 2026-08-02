@@ -1,37 +1,36 @@
 <script setup lang="ts">
-import SectionHeading from '@/components/base/SectionHeading.vue'
-import type { ConnectionState } from '@/composables/useServerSentEvents'
-
-import ConnectionPill from './ConnectionPill.vue'
+import LogoMark from '@/components/base/LogoMark.vue'
 
 /**
- * The console's title bar, in Sentinel's heading style: the wordmark as a 21px
- * uppercase heading preceded by the accent dot, sitting directly on the page
- * ground with a generous top gutter and no rule beneath it — the card grid
- * below provides its own separation, so a border here would just add a line
- * the layout doesn't have.
+ * The console's title bar: Sentinel's ⊙ mark and wordmark, nothing else.
  *
- * The header used to also carry an "N / M streaming" counter. It was removed:
- * every device card already states its own state, so the counter was a summary
- * of what is visible immediately below it. `ConnectionPill` stays, because it
- * reports something no card can — whether the SSE stream is live, and so
- * whether those states are current or frozen.
+ * Both are matched to Sentinel's `assets/logo.svg` rather than approximated.
+ * That file sets "SENTINEL" in **Inter 500 at -1.5% tracking** — not Barlow,
+ * which is the app's face everywhere else — and converts it to paths so it
+ * needs no font at runtime. Sentry's wordmark has to say something different,
+ * so it stays live text and vendors the one Inter weight (`assets/fonts.css`).
+ *
+ * The sizes below are derived from that artboard, not eyeballed. At the 26px
+ * mark height Sentinel renders (`#nav` in its `template.css`), the artboard
+ * scales by 26/34.9, so its 22.5-unit cap height lands at 16.8px on screen.
+ * Inter's cap height is 1490/2048 em, giving a 23px font size. The 8px gap is
+ * its 11.35-unit gap between the ring's outer edge and the wordmark's start,
+ * at that same scale.
+ *
+ * The header carried an "N / M streaming" counter, a "SDR Fleet Manager"
+ * subtitle and a live-connection pill. All three are gone at the owner's
+ * request. Note the consequence: nothing on the page now reports whether the
+ * SSE stream is alive, so a stalled console looks identical to a healthy one.
  */
-defineProps<{
-  connection: ConnectionState
-}>()
 </script>
 
 <template>
-  <header
-    class="flex flex-wrap items-center justify-between gap-4 bg-ground-page px-5 pb-2 pt-6 md:px-gutter md:pt-[34px]"
-  >
-    <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-      <SectionHeading :level="1">Sentry</SectionHeading>
-      <p class="font-sans text-[10px] uppercase tracking-group text-signal-muted">
-        SDR Fleet Manager
-      </p>
-    </div>
-    <ConnectionPill :connection="connection" />
+  <header class="flex h-[68px] shrink-0 items-center gap-2 bg-ground-page px-5 md:px-gutter">
+    <LogoMark :size="26" />
+    <h1
+      class="m-0 font-wordmark text-[23px] font-medium uppercase leading-none tracking-wordmark text-white"
+    >
+      Sentry
+    </h1>
   </header>
 </template>

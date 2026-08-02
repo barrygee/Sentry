@@ -78,7 +78,7 @@ defineExpose({
     >
       <label
         :for="fieldId"
-        class="flex shrink-0 select-none items-center px-3 font-sans text-[9px] uppercase tracking-heading text-signal-muted"
+        class="flex shrink-0 select-none items-center px-3 font-sans text-[9px] uppercase tracking-control text-signal-muted"
       >
         {{ label }}
       </label>
@@ -95,7 +95,9 @@ defineExpose({
         @blur="emit('blur')"
       />
     </div>
-    <p v-if="hint && !error" :id="hintId" class="text-xs text-signal-muted">{{ hint }}</p>
-    <p v-if="error" :id="errorId" class="text-xs text-signal-danger" role="alert">{{ error }}</p>
+    <p v-if="hint && !error" :id="hintId" class="text-[11px] text-signal-muted">{{ hint }}</p>
+    <p v-if="error" :id="errorId" class="text-[11px] text-signal-danger" role="alert">
+      {{ error }}
+    </p>
   </div>
 </template>
