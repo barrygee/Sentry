@@ -3,7 +3,7 @@ import { computed, nextTick, ref, useId } from 'vue'
 
 import type { PortConstraints } from '@/api/client'
 import BaseField from '@/components/base/BaseField.vue'
-import JackPair from '@/components/device/JackPair.vue'
+import DataCell from '@/components/base/DataCell.vue'
 import { validatePortClientSide } from '@/utils/portValidation'
 
 /**
@@ -12,12 +12,12 @@ import { validatePortClientSide } from '@/utils/portValidation'
  * renders in the same message slot as the client-side check (architecture
  * §9.4 forms rule).
  *
- * The device card's header already renders the committed jack pair as the
- * device's live identity, so this field only renders its own preview jack
- * pair — clearly labelled "Pending" — while the draft differs from
- * `committedIqPort`. That keeps the two `JackPair` instances from reading as
- * accidental duplication: one is what the device *is*, the other is what
- * you are *about to assign*, and it disappears once they agree.
+ * The relay's two ports are shown beside the input as a readout rather than
+ * described in hint text underneath it: "the relay listens on P and P+2" made
+ * the operator do the arithmetic, where `1250 / 1252` simply states it. It
+ * tracks the *draft* value, so it updates as the field is typed into and
+ * doubles as the preview of what is about to be assigned — which is why the
+ * separate "Pending" jack pair this component used to render is gone.
  */
 const modelValue = defineModel<number | null>({ required: true })
 
@@ -26,17 +26,12 @@ const props = withDefaults(
     constraints: PortConstraints | null
     serverError?: string | null
     ownReservedPorts?: number[]
-    portSuggestion?: number | null
     disabled?: boolean
-    /** The device's currently-committed IQ port, or `null` when unconfigured. */
-    committedIqPort?: number | null
   }>(),
   {
     serverError: null,
     ownReservedPorts: () => [],
-    portSuggestion: null,
     disabled: false,
-    committedIqPort: null,
   },
 )
 
@@ -52,9 +47,12 @@ const textValue = computed<string>({
 
 const clientError = ref<string | null>(null)
 const fieldRef = ref<InstanceType<typeof BaseField> | null>(null)
-const pendingPreviewId = `${useId()}-pending-preview`
+const relayPortsId = `${useId()}-relay-ports`
 
-const isDraftPending = computed(() => modelValue.value !== props.committedIqPort)
+/** `P / P+2`, from the draft so it tracks what is being typed, or an em dash while empty. */
+const relayPortsSummary = computed(() =>
+  modelValue.value === null ? '—' : `${modelValue.value} / ${modelValue.value + 2}`,
+)
 
 function validateAndCommit(): void {
   if (modelValue.value === null) {
@@ -80,26 +78,22 @@ function validateAndCommit(): void {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
+  <!-- `w-full` so the readout sits beside the input rather than being
+       squeezed onto its own row: the parent stacks its fields with
+       `items-start`, which otherwise shrink-wraps this row to the input. -->
+  <div class="flex w-full flex-wrap items-start gap-8">
     <BaseField
       ref="fieldRef"
       v-model="textValue"
-      label="Output port (P)"
+      label="Output port"
       type="number"
       input-mode="numeric"
-      :hint="portSuggestion ? `Suggested: ${portSuggestion}` : 'The relay listens on P and P+2'"
       :error="clientError ?? props.serverError"
       :disabled="props.disabled"
-      :described-by="isDraftPending ? pendingPreviewId : null"
+      :described-by="relayPortsId"
+      class="w-full max-w-[220px]"
       @blur="validateAndCommit"
     />
-    <div v-if="isDraftPending" :id="pendingPreviewId" class="flex items-center gap-2">
-      <span class="font-sans text-[9px] uppercase tracking-control text-signal-warn">Pending</span>
-      <JackPair
-        compact
-        :iq-port="modelValue"
-        :control-port="modelValue !== null ? modelValue + 2 : null"
-      />
-    </div>
+    <DataCell :id="relayPortsId" label="Relay listens on" :value="relayPortsSummary" />
   </div>
 </template>

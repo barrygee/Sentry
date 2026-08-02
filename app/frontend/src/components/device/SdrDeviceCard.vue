@@ -156,7 +156,8 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
             <BaseToggle
               v-if="device.record_id !== null"
               :model-value="device.enabled"
-              :label="`Enabled — ${device.name || device.device_id}`"
+              :label="device.enabled ? 'Disable SDR' : 'Enable SDR'"
+              :accessible-name="`${device.enabled ? 'Disable SDR' : 'Enable SDR'} — ${device.name || device.device_id}`"
               @update:model-value="commitEnabled"
             />
           </div>
@@ -212,8 +213,6 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
           v-model="portDraft"
           :constraints="fleetStore.constraints"
           :own-reserved-ports="ownReservedPorts"
-          :committed-iq-port="device.output?.iq_port ?? null"
-          class="w-full max-w-[220px]"
           @commit="commitPort"
         />
       </div>

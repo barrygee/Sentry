@@ -20,8 +20,6 @@ const fleetStore = useFleetStore()
 const { announcePolite, announceAssertive } = useLiveAnnouncer()
 useFleetStream()
 
-const portSuggestion = ref<number | null>(null)
-
 // Locally dismissed conflict banners, keyed by serial — dismissing hides the
 // summary banner without touching each affected card's own
 // `NeedsIdentificationNotice`, and reappears if the underlying conflict
@@ -58,7 +56,6 @@ onMounted(async () => {
   try {
     const devicesResponse = await apiClient.listDevices()
     fleetStore.setConstraints(devicesResponse.constraints)
-    portSuggestion.value = devicesResponse.port_suggestion
   } catch {
     // The SSE `snapshot` still populates the fleet even if this convenience
     // fetch fails; port constraints simply stay advisory-only until it does.
