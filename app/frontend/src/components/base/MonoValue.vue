@@ -14,7 +14,7 @@ withDefaults(
 </script>
 
 <template>
-  <span class="font-tabular text-ink-primary">
+  <span class="font-tabular">
     {{ value }}<span v-if="unit" class="ml-0.5 text-signal-muted">{{ unit }}</span>
   </span>
 </template>

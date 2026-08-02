@@ -1,18 +1,19 @@
 <script setup lang="ts">
+import DataCell from '@/components/base/DataCell.vue'
 import MonoValue from '@/components/base/MonoValue.vue'
 
 /**
- * The signature "Patch Bay" element (architecture §9.5): the IQ port `P`
- * and control port `P+2` rendered as a pair of etched jacks. Appears on the
- * device card, in the topology lug, and on the Sentinel-endpoint card —
- * this is the one component all three compose rather than duplicate.
+ * The signature "Patch Bay" element (architecture §9.5): the IQ port `P` and
+ * control port `P+2` rendered as a pair of readouts.
  *
- * The IQ/CTRL legends are neutral, not accent-coloured. On the light theme
- * the accent is fill-only (1.18:1 as text), and an accent *fill* behind two
- * legends repeated on every card would shout — so these follow Sentinel's own
- * treatment of the same element, `.settings-location-label`, which keeps its
- * inline legend a plain muted grey and lets the accent live on controls.
- * `PortLug` carries the accent in the topology tree instead.
+ * Laid out as Sentinel's telemetry cells — caption above value, no fill behind
+ * either — rather than the boxed jacks it once drew. A `<dl>` still, so the
+ * port numbers stay programmatically associated with their captions; `DataCell`
+ * takes `dt`/`dd` so composing it does not cost that.
+ *
+ * The captions are neutral rather than accent-coloured: the accent belongs to
+ * device state and to controls, and repeating it on every card would spend it
+ * on chrome.
  */
 withDefaults(
   defineProps<{
@@ -25,37 +26,12 @@ withDefaults(
 </script>
 
 <template>
-  <!-- Sentinel's labelled-input shell turned into a readout: one flat, square
-       surface split by hairline gaps, the legend inside the fill rather than
-       floating above it. -->
-  <dl class="m-0 flex items-stretch gap-px overflow-hidden rounded-rack bg-ground-hairline">
-    <div
-      class="flex flex-col items-center bg-ground-raised px-3 py-1.5"
-      :class="compact ? 'px-2 py-1' : ''"
-    >
-      <dt
-        class="font-sans text-[9px] uppercase tracking-control text-signal-muted"
-        aria-hidden="true"
-      >
-        IQ
-      </dt>
-      <dd class="m-0 text-sm">
-        <span class="sr-only">IQ port </span><MonoValue :value="iqPort ?? '—'" />
-      </dd>
-    </div>
-    <div
-      class="flex flex-col items-center bg-ground-raised px-3 py-1.5"
-      :class="compact ? 'px-2 py-1' : ''"
-    >
-      <dt
-        class="font-sans text-[9px] uppercase tracking-control text-signal-muted"
-        aria-hidden="true"
-      >
-        CTRL
-      </dt>
-      <dd class="m-0 text-sm">
-        <span class="sr-only">control port </span><MonoValue :value="controlPort ?? '—'" />
-      </dd>
-    </div>
+  <dl class="m-0 flex items-start" :class="compact ? 'gap-6' : 'gap-8'">
+    <DataCell label="IQ" label-tag="dt" value-tag="dd">
+      <span class="sr-only">IQ port </span><MonoValue :value="iqPort ?? '—'" />
+    </DataCell>
+    <DataCell label="CTRL" label-tag="dt" value-tag="dd">
+      <span class="sr-only">control port </span><MonoValue :value="controlPort ?? '—'" />
+    </DataCell>
   </dl>
 </template>
