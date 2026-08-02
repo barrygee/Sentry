@@ -211,7 +211,8 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
     </div>
 
     <div v-if="isEditable" class="flex flex-col gap-2">
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <!-- Stacked, not side by side: one field per row reads as a form. -->
+      <div class="flex flex-col gap-3">
         <DeviceNameField v-model="nameDraft" @commit="commitName" />
         <PortAssignmentField
           v-model="portDraft"

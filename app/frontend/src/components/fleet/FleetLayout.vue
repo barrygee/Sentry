@@ -1,23 +1,22 @@
 <script setup lang="ts">
-import GroupLabel from '@/components/base/GroupLabel.vue'
-
 /**
- * The devices section: its band label and the stack beneath it.
+ * The devices section: the stack, and nothing above it.
  *
- * Page padding and the centred measure live in `FleetView`, on the one wrapper
- * that also holds the notices and conflict banners — otherwise those would run
- * full-bleed while the cards sat centred, which read as two different pages.
+ * The visible "Devices" band label was removed — the cards are the only thing
+ * on the page, so a label naming them said nothing an operator did not already
+ * see. The heading survives as screen-reader-only text because two things
+ * still depend on it: it is the skip link's destination (`App.vue`), and it is
+ * this section's accessible name via `aria-labelledby`. Deleting the element
+ * would break both, so it is hidden rather than removed.
  *
- * The band label is the skip link's destination, so it is visible rather than
- * screen-reader-only: an operator can see where focus landed.
+ * Page padding and the centred measure live in `FleetView`, on the wrapper
+ * shared with the notices and conflict banners.
  */
 </script>
 
 <template>
-  <section aria-labelledby="devices-heading" class="flex flex-col gap-3">
-    <GroupLabel id="devices-heading" :level="2" tabindex="-1" class="outline-none">
-      Devices
-    </GroupLabel>
+  <section aria-labelledby="devices-heading" class="flex flex-col">
+    <h2 id="devices-heading" tabindex="-1" class="sr-only outline-none">Devices</h2>
     <slot name="devices" />
   </section>
 </template>
