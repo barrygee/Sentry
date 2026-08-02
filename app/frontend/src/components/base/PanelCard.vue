@@ -79,7 +79,7 @@ const spanClass = computed(() => SPAN_CLASSES[props.span])
         <component
           :is="labelLevel === 'none' ? 'span' : `h${labelLevel}`"
           v-if="label"
-          class="m-0 font-condensed text-[13px] font-semibold uppercase tracking-label text-ink-primary"
+          class="m-0 font-sans text-[13px] font-medium uppercase tracking-label text-ink-primary"
         >
           {{ label }}
         </component>

@@ -31,7 +31,7 @@ withDefaults(
       [manufacturer, product].filter(Boolean).join(' ')
     }}</span>
     <span v-if="serial" class="flex items-baseline gap-1.5">
-      <span class="font-condensed text-[9px] font-semibold uppercase tracking-heading">SN</span>
+      <span class="font-sans text-[9px] uppercase tracking-heading">SN</span>
       <MonoValue :value="serial" />
     </span>
   </p>

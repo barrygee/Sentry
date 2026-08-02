@@ -148,7 +148,7 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
         <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div class="flex flex-wrap items-center gap-2">
             <h3
-              class="m-0 font-condensed text-[13px] font-semibold uppercase tracking-label text-ink-primary"
+              class="m-0 font-sans text-[13px] font-medium uppercase tracking-label text-ink-primary"
             >
               {{ device.name || device.device_id }}
             </h3>
@@ -197,25 +197,19 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
            value in tabular mono, rather than a run of inline text. -->
       <dl v-if="device.tuner" class="m-0 flex flex-wrap gap-px">
         <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
-          <dt class="font-condensed text-[10px] uppercase tracking-legend text-signal-muted">
-            Center
-          </dt>
+          <dt class="font-sans text-[10px] uppercase tracking-legend text-signal-muted">Center</dt>
           <dd class="m-0 text-sm">
             <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
           </dd>
         </div>
         <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
-          <dt class="font-condensed text-[10px] uppercase tracking-legend text-signal-muted">
-            Rate
-          </dt>
+          <dt class="font-sans text-[10px] uppercase tracking-legend text-signal-muted">Rate</dt>
           <dd class="m-0 text-sm">
             <MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" />
           </dd>
         </div>
         <div class="flex items-baseline gap-2 bg-ground-raised px-3 py-1.5">
-          <dt class="font-condensed text-[10px] uppercase tracking-legend text-signal-muted">
-            Gain
-          </dt>
+          <dt class="font-sans text-[10px] uppercase tracking-legend text-signal-muted">Gain</dt>
           <dd class="m-0 text-sm">
             <!-- No unit when the tuner is in AGC: the value is a mode, not a
                  measurement, and "AGC dB" reads as nonsense. -->

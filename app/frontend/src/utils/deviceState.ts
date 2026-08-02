@@ -33,8 +33,8 @@ export const DEVICE_STATE_META: Record<DeviceState, DeviceStateMeta> = {
   streaming: {
     label: 'Streaming',
     glyph: '●',
-    textColorClass: 'text-signal-ok',
-    stripeBorderColorClass: 'border-l-signal-ok',
+    textColorClass: 'text-signal-accent',
+    stripeBorderColorClass: 'border-l-signal-accent',
   },
   degraded: {
     label: 'Degraded',

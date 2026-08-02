@@ -19,19 +19,16 @@ defineProps<{
 
 <template>
   <label class="inline-flex min-h-[44px] cursor-pointer select-none items-center gap-3">
-    <!-- Off, the track is the same near-white as the surfaces around it, so it
-         carries a `signal.faint` border (3.33:1 on a card) to keep the control's
-         own boundary discernible — WCAG 2.2 AA 1.4.11. On, the solid accent
-         fill is boundary enough and the border goes transparent. -->
+    <!-- The off track is Sentinel's control fill, which reads clearly against
+         the darker panel behind it, so no border is needed to give the control
+         a boundary (unlike the light theme, where every surface was near-white). -->
     <span
-      class="relative inline-flex h-[25px] w-[46px] shrink-0 items-center rounded-rack border transition-colors"
-      :class="
-        modelValue ? 'border-transparent bg-signal-accent' : 'border-signal-faint bg-ground-raised'
-      "
+      class="relative inline-flex h-[25px] w-[46px] shrink-0 items-center rounded-rack transition-colors"
+      :class="modelValue ? 'bg-signal-accent' : 'bg-ground-raised'"
     >
       <span
-        class="absolute top-[2px] h-[19px] w-[19px] rounded-rack transition-[left,background-color]"
-        :class="modelValue ? 'left-[23px] bg-ink-on-accent' : 'left-[2px] bg-signal-muted'"
+        class="absolute top-[3px] h-[19px] w-[19px] rounded-rack transition-[left,background-color]"
+        :class="modelValue ? 'left-[24px] bg-ink-on-accent' : 'left-[3px] bg-signal-muted'"
       />
     </span>
     <input
@@ -42,9 +39,7 @@ defineProps<{
       :disabled="disabled"
       :aria-label="label"
     />
-    <span
-      class="font-condensed text-[10px] font-semibold uppercase tracking-control text-signal-muted"
-    >
+    <span class="font-sans text-[10px] uppercase tracking-control text-signal-muted">
       {{ label }}
     </span>
   </label>

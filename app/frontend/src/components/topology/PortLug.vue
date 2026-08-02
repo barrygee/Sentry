@@ -17,7 +17,7 @@ defineProps<{ portNumber: number }>()
 <template>
   <span
     aria-hidden="true"
-    class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-rack bg-ground-raised font-mono text-[9px] font-mono-tabular text-signal-muted"
+    class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-rack bg-ground-raised text-[9px] font-tabular text-signal-muted"
   >
     {{ portNumber }}
   </span>

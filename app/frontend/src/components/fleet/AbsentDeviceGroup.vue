@@ -29,7 +29,7 @@ defineEmits<{
 <template>
   <details class="group mt-2 rounded-rack border border-dashed border-signal-faint/60">
     <summary
-      class="flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack px-card py-3 font-condensed text-[10px] font-semibold uppercase tracking-group text-signal-muted transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden"
+      class="flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack px-card py-3 font-sans text-[10px] uppercase tracking-group text-signal-muted transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden"
     >
       <span aria-hidden="true" class="transition-transform group-open:rotate-90">▶</span>
       Absent devices — configuration kept ({{ devices.length }})

@@ -26,12 +26,9 @@ const meta = computed(() => DEVICE_STATE_META[props.state])
 
 <template>
   <span class="inline-flex items-center gap-1.5">
-    <span
-      aria-hidden="true"
-      class="font-mono text-[10px] leading-none"
-      :class="meta.textColorClass"
-      >{{ meta.glyph }}</span
-    >
+    <span aria-hidden="true" class="text-[10px] leading-none" :class="meta.textColorClass">{{
+      meta.glyph
+    }}</span>
     <span :class="visuallyHiddenLabel ? 'sr-only' : ''">{{ meta.label }}</span>
   </span>
 </template>

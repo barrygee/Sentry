@@ -24,7 +24,7 @@ withDefaults(
 <template>
   <component
     :is="`h${level}`"
-    class="flex items-center gap-3 font-condensed text-[21px] font-semibold uppercase leading-none tracking-heading text-ink-primary"
+    class="flex items-center gap-3 font-sans text-[21px] font-normal uppercase leading-none tracking-heading text-ink-primary"
   >
     <span aria-hidden="true" class="h-1.5 w-1.5 shrink-0 rounded-full" :class="dotClass" />
     <slot />
