@@ -5,16 +5,20 @@ import type { ConnectionState } from '@/composables/useServerSentEvents'
 import ConnectionPill from './ConnectionPill.vue'
 
 /**
- * The console's title bar, in Sentinel's settings-heading style: the wordmark
- * as a 21px uppercase heading preceded by the accent dot, sitting directly on
- * the page ground with a generous top gutter and no rule beneath it — the
- * card grid below provides its own separation, so a border here would just
- * add a line the settings layout doesn't have.
+ * The console's title bar, in Sentinel's heading style: the wordmark as a 21px
+ * uppercase heading preceded by the accent dot, sitting directly on the page
+ * ground with a generous top gutter and no rule beneath it — the card grid
+ * below provides its own separation, so a border here would just add a line
+ * the layout doesn't have.
+ *
+ * The header used to also carry an "N / M streaming" counter. It was removed:
+ * every device card already states its own state, so the counter was a summary
+ * of what is visible immediately below it. `ConnectionPill` stays, because it
+ * reports something no card can — whether the SSE stream is live, and so
+ * whether those states are current or frozen.
  */
 defineProps<{
   connection: ConnectionState
-  streamingCount: number
-  deviceCount: number
 }>()
 </script>
 
@@ -28,14 +32,6 @@ defineProps<{
         SDR Fleet Manager
       </p>
     </div>
-    <div class="flex items-center gap-3">
-      <p class="font-sans text-[10px] uppercase tracking-control text-signal-muted">
-        <span class="font-tabular text-signal-ok">{{ streamingCount }}</span>
-        <span aria-hidden="true" class="px-1">/</span>
-        <span class="font-tabular">{{ deviceCount }}</span>
-        <span class="pl-2">streaming</span>
-      </p>
-      <ConnectionPill :connection="connection" />
-    </div>
+    <ConnectionPill :connection="connection" />
   </header>
 </template>

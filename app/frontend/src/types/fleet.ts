@@ -1,4 +1,4 @@
-import type { DeviceStatus, HealthResponse } from '@/api/client'
+import type { HealthResponse } from '@/api/client'
 
 /**
  * SSE payload shapes that are documented in architecture §7.3 but are not
@@ -28,16 +28,5 @@ export interface NoticeItem extends NoticeEvent {
 }
 
 export type ConnectionState = 'connecting' | 'live' | 'reconnecting' | 'offline'
-
-/** A node in the USB topology tree derived from `DeviceStatus.usb.port_chain`. */
-export interface TopologyNode {
-  /** Stable identity for the node: the USB path prefix it represents, e.g. "1-1.4". */
-  path: string
-  /** True when this node is a hub (has children) rather than a dongle leaf. */
-  isHub: boolean
-  /** The device occupying this node, when it is a leaf. */
-  device: DeviceStatus | null
-  children: TopologyNode[]
-}
 
 export type HealthSnapshot = HealthResponse

@@ -9,14 +9,7 @@ import {
   type SerialFlashAccepted,
 } from '@/api/client'
 import { useLiveAnnouncer } from '@/composables/useLiveAnnouncer'
-import type {
-  ConnectionState,
-  HealthSnapshot,
-  NoticeEvent,
-  NoticeItem,
-  TopologyNode,
-} from '@/types/fleet'
-import { buildTopologyTree } from '@/utils/topology'
+import type { ConnectionState, HealthSnapshot, NoticeEvent, NoticeItem } from '@/types/fleet'
 
 const MAX_NOTICES = 50
 
@@ -83,18 +76,12 @@ export const useFleetStore = defineStore('fleet', {
     unidentifiedDevices(): DeviceStatus[] {
       return this.devices.filter((device) => device.needs_identification)
     },
-    topologyTree(): { roots: TopologyNode[]; unplaced: DeviceStatus[] } {
-      return buildTopologyTree(this.devices)
-    },
     portsInUse(): number[] {
       return this.devices
         .flatMap((device) =>
           device.output ? [device.output.iq_port, device.output.control_port] : [],
         )
         .sort((a, b) => a - b)
-    },
-    streamingCount(): number {
-      return this.devices.filter((device) => device.state === 'streaming').length
     },
     hasErrors(): boolean {
       return this.devices.some((device) => device.state === 'error')

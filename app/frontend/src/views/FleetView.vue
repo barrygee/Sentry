@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiClient } from '@/api/client'
 import EmptyState from '@/components/base/EmptyState.vue'
@@ -12,7 +12,6 @@ import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
 import ForgetDeviceDialog from '@/components/device/ForgetDeviceDialog.vue'
 import SerialConflictBanner from '@/components/serial/SerialConflictBanner.vue'
 import SerialFlashDialog from '@/components/serial/SerialFlashDialog.vue'
-import UsbTopologyTree from '@/components/topology/UsbTopologyTree.vue'
 import { useFleetStream } from '@/composables/useFleetStream'
 import { useLiveAnnouncer } from '@/composables/useLiveAnnouncer'
 import { useFleetStore } from '@/stores/fleet'
@@ -66,21 +65,6 @@ onMounted(async () => {
   }
 })
 
-function focusDeviceCard(deviceId: string): void {
-  void nextTick(() => {
-    document.getElementById(`device-card-${deviceId}`)?.focus()
-  })
-}
-
-// `UsbTopologyTree` resolves the exact sentence itself (it's the only place
-// that knows the destination node's label, or that focus went to the
-// empty-state panel instead of a tree node) — announced every time,
-// matching that a real focus move always happened, rather than only when
-// the tree emptied.
-function announceFocusRecovered(message: string): void {
-  announcePolite(message)
-}
-
 // Announce plug/unplug and state transitions (architecture §9.4) by
 // diffing each snapshot against the previous one's `(present, state)` pair.
 const previousDeviceSnapshot = new Map<string, { present: boolean; state: string }>()
@@ -121,11 +105,7 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
 
 <template>
   <div class="flex min-h-full flex-col">
-    <FleetHeader
-      :connection="fleetStore.connection"
-      :streaming-count="fleetStore.streamingCount"
-      :device-count="fleetStore.devices.length"
-    />
+    <FleetHeader :connection="fleetStore.connection" />
     <NoticeList />
     <ul
       v-if="visibleConflictGroups.length"
@@ -142,13 +122,6 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
       </li>
     </ul>
     <FleetLayout>
-      <template #topology>
-        <UsbTopologyTree
-          :roots="fleetStore.topologyTree.roots"
-          @activate="focusDeviceCard"
-          @focus-recovered="announceFocusRecovered"
-        />
-      </template>
       <template #devices>
         <EmptyState
           v-if="!hasDevices"
