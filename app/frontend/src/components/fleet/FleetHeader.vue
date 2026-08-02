@@ -30,7 +30,11 @@ import LogoMark from '@/components/base/LogoMark.vue'
 </script>
 
 <template>
-  <header class="flex h-[68px] shrink-0 items-center justify-center gap-2 bg-ground-page px-5">
+  <!-- Extra clearance above the lockup so it sits away from the top of the
+       viewport rather than tight against it. Sentinel's own 68px nav bar is
+       pinned to the top edge and needs none; this page has nothing above the
+       mark, so it can breathe. -->
+  <header class="flex shrink-0 items-center justify-center gap-2 bg-ground-page px-5 pb-6 pt-12">
     <LogoMark :size="26" />
     <h1
       class="m-0 font-wordmark text-[23px] font-medium uppercase leading-none tracking-wordmark text-white"

@@ -99,11 +99,6 @@ function validateAndCommit(): void {
       class="w-[76px]"
       @blur="validateAndCommit"
     />
-    <DataCell
-      :id="relayPortsId"
-      label="Relay listens on"
-      :value="relayPortsSummary"
-      hint="Samples on the first port, tuning on the second"
-    />
+    <DataCell :id="relayPortsId" label="Relay listens on" :value="relayPortsSummary" />
   </div>
 </template>
