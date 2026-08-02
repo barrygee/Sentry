@@ -107,7 +107,7 @@ watch(
         aria-modal="true"
         :aria-labelledby="labelledBy"
         tabindex="-1"
-        class="flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-rack border border-ground-hairline bg-ground-panel p-card outline-none"
+        class="flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-rack bg-ground-panel p-card outline-none"
         @keydown="onKeydown"
       >
         <slot />

@@ -211,14 +211,18 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
     </div>
 
     <div v-if="isEditable" class="flex flex-col gap-2">
-      <!-- Stacked, not side by side: one field per row reads as a form. -->
-      <div class="flex flex-col gap-3">
-        <DeviceNameField v-model="nameDraft" @commit="commitName" />
+      <!-- Stacked, not side by side: one field per row reads as a form. Each
+           is capped near the length of what it holds — a 64-char name and a
+           4-digit port — rather than stretched to the card's full width, which
+           left an input several times wider than any value it can contain. -->
+      <div class="flex flex-col items-start gap-3">
+        <DeviceNameField v-model="nameDraft" class="w-full max-w-[340px]" @commit="commitName" />
         <PortAssignmentField
           v-model="portDraft"
           :constraints="fleetStore.constraints"
           :own-reserved-ports="ownReservedPorts"
           :committed-iq-port="device.output?.iq_port ?? null"
+          class="w-full max-w-[220px]"
           @commit="commitPort"
         />
       </div>

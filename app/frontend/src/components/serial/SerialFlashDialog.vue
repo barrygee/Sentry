@@ -147,14 +147,14 @@ const statusRegionVisible = computed(
 // (see the comment above), so they carry `NoticeBox`'s look as class strings
 // rather than rendering a `NoticeBox` — swapping the component in and out is
 // exactly the remount this design avoids.
-const NOTICE_BOX_CLASSES = 'rounded-rack border px-4 py-3 text-[12px] leading-[1.6]'
+const NOTICE_BOX_CLASSES = 'rounded-rack px-4 py-3 text-[12px] leading-[1.6]'
 const statusRegionClasses = computed(() =>
   phase.value === 'succeeded'
-    ? `${NOTICE_BOX_CLASSES} border-signal-ok/50 bg-signal-ok/10 text-signal-ok`
+    ? `${NOTICE_BOX_CLASSES} bg-signal-ok/[0.12] text-signal-ok`
     : 'text-[12px] leading-[1.6] text-signal-muted',
 )
 const alertMessage = computed(() => (phase.value === 'failed' ? (outcomeMessage.value ?? '') : ''))
-const alertRegionClasses = `${NOTICE_BOX_CLASSES} border-signal-danger/50 bg-signal-danger/10 text-signal-danger`
+const alertRegionClasses = `${NOTICE_BOX_CLASSES} bg-signal-danger/[0.12] text-signal-danger`
 
 /** Maps a thrown `ApiError`'s machine code to an operator-facing sentence — never surfaces a raw code. */
 function humanizeFlashError(error: unknown): string {

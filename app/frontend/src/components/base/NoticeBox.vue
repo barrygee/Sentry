@@ -3,9 +3,8 @@ import { computed } from 'vue'
 
 /**
  * The inset, tinted callout used for every warning, error and inline
- * explanation (Sentinel `.settings-connectivity-warning`): a translucent wash
- * of its tone, a matching 1px border, 12px/16px of padding and the one soft
- * radius the settings vocabulary allows besides the status chip.
+ * explanation: a translucent wash of its tone carrying matching text, with no
+ * border — the wash alone separates it from the surface behind.
  *
  * The caller supplies `role` explicitly rather than this component inferring
  * it from `tone` — whether a message should interrupt a screen-reader user
@@ -25,11 +24,11 @@ const props = withDefaults(
 )
 
 const TONE_CLASSES = {
-  danger: 'border-signal-danger/40 bg-signal-danger/[0.12] text-signal-danger',
-  warn: 'border-signal-warn/40 bg-signal-warn/[0.12] text-signal-warn',
-  info: 'border-signal-info/40 bg-signal-info/[0.12] text-signal-info',
-  ok: 'border-signal-ok/40 bg-signal-ok/[0.12] text-signal-ok',
-  neutral: 'border-ground-hairline bg-white/[0.04] text-signal-muted',
+  danger: 'bg-signal-danger/[0.12] text-signal-danger',
+  warn: 'bg-signal-warn/[0.12] text-signal-warn',
+  info: 'bg-signal-info/[0.12] text-signal-info',
+  ok: 'bg-signal-ok/[0.12] text-signal-ok',
+  neutral: 'bg-white/[0.04] text-signal-muted',
 } as const satisfies Record<NoticeTone, string>
 
 const toneClass = computed(() => TONE_CLASSES[props.tone])
@@ -38,7 +37,7 @@ const toneClass = computed(() => TONE_CLASSES[props.tone])
 <template>
   <div
     :role="props.role ?? undefined"
-    class="flex flex-col gap-2 rounded-rack border px-4 py-3 text-[12px] leading-[1.6]"
+    class="flex flex-col gap-2 rounded-rack px-4 py-3 text-[12px] leading-[1.6]"
     :class="toneClass"
   >
     <slot />

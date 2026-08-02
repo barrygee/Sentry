@@ -13,7 +13,7 @@ withDefaults(defineProps<{ title: string; detail?: string | null }>(), { detail:
 
 <template>
   <div
-    class="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-rack border border-dashed border-ground-hairline bg-ground-panel px-6 py-10 text-center"
+    class="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-rack bg-ground-panel px-6 py-10 text-center"
   >
     <p class="font-sans text-[9px] uppercase tracking-control text-signal-muted">
       {{ title }}

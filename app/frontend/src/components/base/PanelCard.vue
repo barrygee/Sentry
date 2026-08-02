@@ -4,9 +4,9 @@
  * fill, 22px of padding, and a stack of an optional label/description block
  * above whatever control the caller slots in.
  *
- * Sentinel separates its surfaces with a hairline border rather than a shadow,
- * which reads as nothing on a near-black ground; the same separation here
- * comes from the panel fill sitting one step above the page plus that border.
+ * Borderless: the card is separated from the page by its fill alone, sitting
+ * one step above the black ground. Sentinel's own panels work the same way —
+ * flat fills, no outlines.
  *
  * The card title uses Sentinel's condensed station-name treatment (Barlow
  * Condensed, uppercase, lightly tracked) — the closest thing in its dark
@@ -39,10 +39,7 @@ withDefaults(
 </script>
 
 <template>
-  <component
-    :is="as"
-    class="flex list-none flex-col items-stretch gap-4 border border-ground-hairline bg-ground-panel p-card"
-  >
+  <component :is="as" class="flex list-none flex-col items-stretch gap-4 bg-ground-panel p-card">
     <div v-if="label || description || $slots.header" class="flex flex-col gap-1.5">
       <slot name="header">
         <component
