@@ -46,7 +46,6 @@ function validateAndCommit(): void {
     ref="fieldRef"
     v-model="modelValue"
     label="Name"
-    hint="1-64 characters"
     :error="clientError ?? props.serverError"
     :disabled="props.disabled"
     @blur="validateAndCommit"

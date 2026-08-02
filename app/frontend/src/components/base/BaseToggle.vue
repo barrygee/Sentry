@@ -33,6 +33,9 @@ withDefaults(
 
 <template>
   <label class="inline-flex min-h-[44px] cursor-pointer select-none items-center gap-3">
+    <span class="font-sans text-[9px] uppercase tracking-control text-signal-muted">
+      {{ label }}
+    </span>
     <!-- The off track is Sentinel's control fill, which reads clearly against
          the darker panel behind it, so no border is needed to give the control
          a boundary (unlike the light theme, where every surface was near-white). -->
@@ -53,8 +56,5 @@ withDefaults(
       :disabled="disabled"
       :aria-label="accessibleName ?? label"
     />
-    <span class="font-sans text-[9px] uppercase tracking-control text-signal-muted">
-      {{ label }}
-    </span>
   </label>
 </template>

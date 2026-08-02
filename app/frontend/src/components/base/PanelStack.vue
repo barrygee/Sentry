@@ -15,7 +15,7 @@ withDefaults(defineProps<{ as?: 'div' | 'ul' }>(), { as: 'div' })
 </script>
 
 <template>
-  <component :is="as" class="m-0 flex list-none flex-col gap-3 p-0">
+  <component :is="as" class="m-0 flex list-none flex-col gap-4 p-0">
     <slot />
   </component>
 </template>

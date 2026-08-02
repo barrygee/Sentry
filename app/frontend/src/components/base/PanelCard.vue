@@ -39,7 +39,7 @@ withDefaults(
 </script>
 
 <template>
-  <component :is="as" class="flex list-none flex-col items-stretch gap-4 bg-ground-panel p-card">
+  <component :is="as" class="flex list-none flex-col items-stretch gap-6 bg-ground-panel p-card">
     <div v-if="label || description || $slots.header" class="flex flex-col gap-1.5">
       <slot name="header">
         <component
