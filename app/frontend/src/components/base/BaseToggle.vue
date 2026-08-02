@@ -4,17 +4,31 @@
  * `enabled` flag is edited. Native checkbox semantics under the hood so it
  * is keyboard-operable (Space toggles) without any custom key handling.
  *
- * Square track and thumb, matching Sentinel's settings switch
- * (`BaseToggleSwitch`) rather than the usual pill: 46x25 track, 19px thumb,
- * accent fill when on with a dark thumb, raised fill when off. The caption
- * beside it uses the 10px control-tracking legend Sentinel pairs with it.
+ * Square track and thumb, matching Sentinel's switch rather than the usual
+ * pill: 46x25 track, 19px thumb, accent fill when on with a dark thumb, raised
+ * fill when off. The caption beside it uses the 9px legend step.
  */
 const modelValue = defineModel<boolean>({ required: true })
 
-defineProps<{
-  label: string
-  disabled?: boolean
-}>()
+withDefaults(
+  defineProps<{
+    /** Visible caption beside the switch. */
+    label: string
+    /**
+     * Accessible name, when it must differ from the visible caption. It MUST
+     * still contain `label` verbatim (WCAG 2.5.3 Label in Name) — the point is
+     * to *add* disambiguating context, not to replace the visible text.
+     *
+     * Needed because several cards each render a switch whose visible caption
+     * is identical ("Enable SDR"); without the device name appended, a screen
+     * reader user tabbing the page hears the same name repeatedly with nothing
+     * to tell the switches apart. Defaults to `label`.
+     */
+    accessibleName?: string | null
+    disabled?: boolean
+  }>(),
+  { accessibleName: null, disabled: false },
+)
 </script>
 
 <template>
@@ -37,7 +51,7 @@ defineProps<{
       role="switch"
       class="sr-only"
       :disabled="disabled"
-      :aria-label="label"
+      :aria-label="accessibleName ?? label"
     />
     <span class="font-sans text-[9px] uppercase tracking-control text-signal-muted">
       {{ label }}

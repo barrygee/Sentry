@@ -2,28 +2,27 @@
 import { computed } from 'vue'
 
 /**
- * The small tinted status chip (Sentinel `.tle-status-badge`): 10px uppercase
- * Barlow on a translucent wash of its own tone. The one element in the
- * settings vocabulary that keeps a radius, so it reads as a chip rather than
- * a miniature card.
+ * A short uppercase status label: 9px Barlow 700 at 0.18em, coloured by tone.
  *
- * Tinted tone on a 12% wash of itself — this is exactly Sentinel's active
- * segmented option (`rgba(200,255,0,.12)` behind `#c8ff00`). Every tone's text
- * colour is verified >=4.5:1 against Sentry's grounds (see
- * `tailwind.config.ts`); the wash sits behind it at 12% alpha, which lightens
- * the effective background by too little to matter.
+ * Unfilled. It was a tinted chip — a 12% wash of its own tone, matching
+ * Sentinel's active segmented option — but a fill behind the device state read
+ * as a third coloured surface on a card that already carries the state as a
+ * glyph. It is now the label alone, as the rest of the card is.
+ *
+ * Every tone's text colour is verified >=4.5:1 against Sentry's grounds (see
+ * `tailwind.config.ts`), which the fill's removal only improves.
  */
 export type StatusBadgeTone = 'neutral' | 'accent' | 'ok' | 'warn' | 'danger' | 'info'
 
 const props = withDefaults(defineProps<{ tone?: StatusBadgeTone }>(), { tone: 'neutral' })
 
 const TONE_CLASSES = {
-  neutral: 'bg-white/[0.08] text-signal-muted',
-  accent: 'bg-signal-accent/[0.12] text-signal-accent',
-  ok: 'bg-signal-ok/[0.12] text-signal-ok',
-  warn: 'bg-signal-warn/[0.12] text-signal-warn',
-  danger: 'bg-signal-danger/[0.15] text-signal-danger',
-  info: 'bg-signal-info/[0.12] text-signal-info',
+  neutral: 'text-signal-muted',
+  accent: 'text-signal-accent',
+  ok: 'text-signal-ok',
+  warn: 'text-signal-warn',
+  danger: 'text-signal-danger',
+  info: 'text-signal-info',
 } as const satisfies Record<StatusBadgeTone, string>
 
 const toneClass = computed(() => TONE_CLASSES[props.tone])
@@ -31,7 +30,7 @@ const toneClass = computed(() => TONE_CLASSES[props.tone])
 
 <template>
   <span
-    class="inline-flex items-center gap-1.5 rounded-chip px-2 py-[3px] font-sans text-[9px] font-bold uppercase tracking-control"
+    class="inline-flex items-center gap-1.5 font-sans text-[9px] font-bold uppercase tracking-control"
     :class="toneClass"
   >
     <slot />

@@ -68,6 +68,13 @@ export default {
           panel: '#0a0d14',
           /** `--color-button-bg` — control fills, slider tracks, input rows. */
           raised: '#26292e',
+          /**
+           * Input fill (Sentinel `--color-search-field-bg`). A translucent black
+           * scrim rather than a fixed hex, exactly as Sentinel defines it, so a
+           * field always reads one consistent step *darker* than whichever
+           * surface hosts it instead of being pinned to one panel's grey.
+           */
+          field: 'rgba(0, 0, 0, 0.32)',
           /** `--color-border`. */
           hairline: 'rgba(255, 255, 255, 0.08)',
         },
@@ -111,8 +118,6 @@ export default {
          * squares the whole console in one place.
          */
         rack: '0px',
-        /** Small status chips only. */
-        chip: '4px',
       },
       /**
        * Tracking widens as type gets smaller — Sentinel's dark chrome runs its
@@ -147,8 +152,13 @@ export default {
         gutter: '44px',
       },
       maxWidth: {
-        /** The device stack's measure (Sentinel's 860px for its wide settings controls). */
-        stack: '860px',
+        /**
+         * The device stack's measure. Was 860px (Sentinel's width for its wide
+         * settings controls), narrowed 40% at the owner's request — a card holds
+         * a handful of short readouts and two small inputs, and did not need the
+         * width of a settings document.
+         */
+        stack: '516px',
       },
     },
   },

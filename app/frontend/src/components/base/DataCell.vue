@@ -11,12 +11,12 @@
  * labels and documented in `tailwind.config.ts`.
  *
  * `labelTag`/`valueTag` exist so a caller can keep real markup semantics —
- * `JackPair` renders its pairs inside a `<dl>` and passes `dt`/`dd`, which a
- * hardcoded `<span>` would have quietly thrown away.
+ * `DeviceIdentitySummary` renders its pairs inside a `<dl>` and passes
+ * `dt`/`dd`, which a hardcoded `<span>` would have quietly thrown away.
  */
 withDefaults(
   defineProps<{
-    /** The caption, e.g. "IQ". Rendered uppercase by CSS. */
+    /** The caption, e.g. "Serial number". Rendered uppercase by CSS. */
     label: string
     /** Plain-text value. Ignored when the default slot supplies richer content. */
     value?: string | number | null

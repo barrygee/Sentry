@@ -14,13 +14,12 @@ import { useFleetStore } from '@/stores/fleet'
 import DeviceAbsentNotice from './DeviceAbsentNotice.vue'
 import DeviceIdentitySummary from './DeviceIdentitySummary.vue'
 import DeviceStatusBadge from './DeviceStatusBadge.vue'
-import JackPair from './JackPair.vue'
 import NeedsIdentificationNotice from './NeedsIdentificationNotice.vue'
 
 /**
  * One rack unit (architecture §9.5 layout): the composed, single-purpose
  * device presentation — it holds no formatting logic of its own, only
- * layout over `DeviceStatusBadge`, `JackPair`, `MonoValue` and the two
+ * layout over `DeviceStatusBadge`, `DataCell`, `MonoValue` and the two
  * inline-editable form fields. This is the component `UsbTopologyTree`
  * moves focus to on Enter/Space (architecture §9.4).
  *
@@ -156,7 +155,8 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
             <BaseToggle
               v-if="device.record_id !== null"
               :model-value="device.enabled"
-              :label="`Enabled — ${device.name || device.device_id}`"
+              :label="device.enabled ? 'Disable SDR' : 'Enable SDR'"
+              :accessible-name="`${device.enabled ? 'Disable SDR' : 'Enable SDR'} — ${device.name || device.device_id}`"
               @update:model-value="commitEnabled"
             />
           </div>
@@ -179,14 +179,10 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
     />
 
     <div class="flex flex-wrap items-start gap-8">
-      <JackPair
-        :iq-port="device.output?.iq_port ?? null"
-        :control-port="device.output?.control_port ?? null"
-      />
       <!-- Sentinel's telemetry cells (`BaseDataCell`): caption above value,
            no fill behind either. -->
       <dl v-if="device.tuner" class="m-0 flex flex-wrap items-start gap-8">
-        <DataCell label="Center" label-tag="dt" value-tag="dd">
+        <DataCell label="Center frequency" label-tag="dt" value-tag="dd">
           <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
         </DataCell>
         <DataCell label="Rate" label-tag="dt" value-tag="dd">
@@ -212,8 +208,6 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
           v-model="portDraft"
           :constraints="fleetStore.constraints"
           :own-reserved-ports="ownReservedPorts"
-          :committed-iq-port="device.output?.iq_port ?? null"
-          class="w-full max-w-[220px]"
           @commit="commitPort"
         />
       </div>

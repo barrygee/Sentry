@@ -6,12 +6,11 @@ import StatusDot from '@/components/base/StatusDot.vue'
 import type { DeviceState } from '@/components/base/StatusDot.vue'
 
 /**
- * A device's state as a Sentinel-style status chip (`.tle-status-badge`) —
- * the tinted-wash chip rather than an outlined pill. The wash stays neutral
- * rather than tracking the state's own colour: the state colour is already
- * carried by `StatusDot`'s glyph inside the chip and by the card's left
- * stripe, and a third coloured surface for the same fact made the card read
- * as three competing alerts.
+ * A device's state, as an unfilled label beside a coloured glyph.
+ *
+ * The label's own tone stays neutral rather than tracking the state's colour:
+ * `StatusDot` already carries that in the glyph, and colouring the word too
+ * would say the same thing twice.
  */
 
 const props = withDefaults(
