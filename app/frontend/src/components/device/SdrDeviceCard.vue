@@ -202,7 +202,7 @@ const isForgettable = computed(() => !props.device.present && props.device.recor
            is capped near the length of what it holds — a 64-char name and a
            4-digit port — rather than stretched to the card's full width, which
            left an input several times wider than any value it can contain. -->
-      <div class="flex flex-col items-start gap-3">
+      <div class="flex flex-col items-start gap-5">
         <DeviceNameField v-model="nameDraft" class="w-full max-w-[340px]" @commit="commitName" />
         <PortAssignmentField
           v-model="portDraft"
