@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
  * The rail's show/hide control, matching Sentinel's footer side-panel button
- * (`#map-sidebar-btn`): a 36px-tall, rail-width icon button whose glyph is
- * white at 60% opacity, brightening to full on hover.
+ * (`#map-sidebar-btn`): a 36px-tall, rail-width icon button at 60% opacity,
+ * brightening to full on hover.
  *
- * It carries the rail's own dark fill rather than a transparent background,
- * which is what lets one treatment serve both states: while the rail is shown
- * the button is indistinguishable from the column it sits at the foot of, and
- * once the rail is hidden the same chip remains legible against the light
- * canvas — a white-on-transparent button would simply vanish there.
+ * It has a fill only while the rail is shown — the rail's own dark tone, so
+ * the button is indistinguishable from the column it sits at the foot of.
+ * Once the rail is hidden the fill goes with it and the glyph sits directly on
+ * the page canvas, which means it also has to invert: a white mark would
+ * disappear on that light ground, so it switches to `ink.primary` (4.2:1 at
+ * this opacity, clearing the 3:1 a non-text mark needs).
  *
  * It is positioned by its parent (`App.vue`) rather than living inside
  * `NavRail`, because it has to survive the rail being hidden; see that file.
@@ -30,7 +31,8 @@ defineEmits<{ toggle: [] }>()
 <template>
   <button
     type="button"
-    class="flex h-9 w-12 shrink-0 items-center justify-center bg-ground-rail text-ink-inverse opacity-60 transition-opacity hover:opacity-100"
+    class="flex h-9 w-12 shrink-0 items-center justify-center opacity-60 transition-opacity hover:opacity-100"
+    :class="expanded ? 'bg-ground-rail text-ink-inverse' : 'text-ink-primary'"
     :aria-expanded="expanded"
     :aria-controls="controls"
     :aria-label="expanded ? 'Hide sidebar' : 'Show sidebar'"
