@@ -8,9 +8,8 @@
  * one step above the black ground. Sentinel's own panels work the same way —
  * flat fills, no outlines.
  *
- * The card title uses Sentinel's condensed station-name treatment (Barlow
- * Condensed, uppercase, lightly tracked) — the closest thing in its dark
- * chrome to "the name of the thing this panel is about".
+ * The card title is Sentinel's settings-card treatment: 15px Barlow 600,
+ * uppercase, lightly tracked, above a plain description line.
  *
  * Earlier versions carried grid-span props and a 3px semantic left stripe.
  * Both are gone: the stack is a single column so spans mean nothing, and the
@@ -45,11 +44,11 @@ withDefaults(
         <component
           :is="labelLevel === 'none' ? 'span' : `h${labelLevel}`"
           v-if="label"
-          class="m-0 font-condensed text-[14px] font-normal uppercase tracking-readout text-ink-primary"
+          class="m-0 font-sans text-[15px] font-semibold uppercase tracking-label text-ink-primary"
         >
           {{ label }}
         </component>
-        <p v-if="description" class="m-0 text-[12px] leading-[1.6] text-signal-muted">
+        <p v-if="description" class="m-0 text-[13px] leading-[1.55] text-signal-muted">
           {{ description }}
         </p>
       </slot>

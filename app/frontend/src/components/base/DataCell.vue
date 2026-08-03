@@ -35,13 +35,13 @@ withDefaults(
   <div class="flex min-w-0 flex-col gap-1">
     <component
       :is="labelTag"
-      class="font-sans text-[9px] font-bold uppercase tracking-control text-white"
+      class="font-sans text-[9px] font-bold uppercase tracking-control text-ink-primary"
     >
       {{ label }}
     </component>
     <component
       :is="valueTag"
-      class="m-0 whitespace-nowrap font-sans text-[12px] font-normal leading-[24px] tracking-data text-white"
+      class="m-0 whitespace-nowrap font-sans text-[12px] font-normal leading-[24px] tracking-data text-ink-primary"
     >
       <slot>{{ value }}</slot>
     </component>

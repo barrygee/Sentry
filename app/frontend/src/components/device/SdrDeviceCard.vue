@@ -5,7 +5,6 @@ import type { DeviceStatus } from '@/api/client'
 import BaseToggle from '@/components/base/BaseToggle.vue'
 import DataCell from '@/components/base/DataCell.vue'
 import MonoValue from '@/components/base/MonoValue.vue'
-import PanelCard from '@/components/base/PanelCard.vue'
 import DeviceNameField from '@/components/forms/DeviceNameField.vue'
 import PortAssignmentField from '@/components/forms/PortAssignmentField.vue'
 import { useFleetStore } from '@/stores/fleet'
@@ -21,8 +20,8 @@ import NeedsIdentificationNotice from './NeedsIdentificationNotice.vue'
  * inline-editable form fields. This is the component `UsbTopologyTree`
  * moves focus to on Enter/Space (architecture §9.4).
  *
- * Rendered as a `PanelCard`, one per row of the centred device stack, with the
- * device's name as the card title and its make/model line beneath.
+ * One row inside the devices card: a light fill a step below the card itself,
+ * holding the device's status, its editable fields and its read-only identity.
  */
 const props = defineProps<{ device: DeviceStatus }>()
 
@@ -125,29 +124,26 @@ const identitySerial = computed(
 </script>
 
 <template>
-  <PanelCard
+  <article
     :id="`device-card-${device.device_id}`"
-    as="article"
     tabindex="-1"
-    class="outline-none"
+    class="flex flex-col gap-6 rounded-rack bg-ground-raised p-card outline-none"
   >
     <!-- Row 1 — identity and the one control that changes what the device is
          doing right now. -->
-    <template #header>
-      <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <div class="flex flex-wrap items-center gap-3">
-          <h3 class="sr-only">{{ device.name || device.device_id }}</h3>
-          <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
-        </div>
-        <BaseToggle
-          v-if="device.record_id !== null"
-          :model-value="device.enabled"
-          :label="device.enabled ? 'Disable SDR' : 'Enable SDR'"
-          :accessible-name="`${device.enabled ? 'Disable SDR' : 'Enable SDR'} — ${device.name || device.device_id}`"
-          @update:model-value="commitEnabled"
-        />
+    <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <h3 class="sr-only">{{ device.name || device.device_id }}</h3>
+        <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
       </div>
-    </template>
+      <BaseToggle
+        v-if="device.record_id !== null"
+        :model-value="device.enabled"
+        :label="device.enabled ? 'Disable SDR' : 'Enable SDR'"
+        :accessible-name="`${device.enabled ? 'Disable SDR' : 'Enable SDR'} — ${device.name || device.device_id}`"
+        @update:model-value="commitEnabled"
+      />
+    </div>
 
     <NeedsIdentificationNotice
       v-if="device.needs_identification"
@@ -216,5 +212,5 @@ const identitySerial = computed(
         </template>
       </dl>
     </div>
-  </PanelCard>
+  </article>
 </template>

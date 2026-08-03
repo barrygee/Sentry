@@ -28,7 +28,7 @@ const TONE_CLASSES = {
   warn: 'bg-signal-warn/[0.12] text-signal-warn',
   info: 'bg-signal-info/[0.12] text-signal-info',
   ok: 'bg-signal-ok/[0.12] text-signal-ok',
-  neutral: 'bg-white/[0.04] text-signal-muted',
+  neutral: 'bg-ground-raised text-signal-muted',
 } as const satisfies Record<NoticeTone, string>
 
 const toneClass = computed(() => TONE_CLASSES[props.tone])

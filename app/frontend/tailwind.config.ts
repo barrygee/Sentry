@@ -60,44 +60,52 @@ export default {
   theme: {
     extend: {
       colors: {
-        /** Surfaces. Sentinel's own, unmodified. */
+        /** Surfaces. Sentinel's settings panel, plus its app chrome for the header and rail. */
         ground: {
-          /** `--color-bg`. */
-          page: '#000000',
-          /**
-           * Card surface. Lifted from Sentinel's `#0a0d14` SDR-panel value,
-           * which sat 1.08:1 against the black page — technically a different
-           * colour, visually not one. At 1.37:1 a card now reads as a distinct
-           * surface. The greys on top are white-at-alpha so they lift with it:
-           * muted text still clears 4.9:1 and body text 12.7:1.
-           */
-          panel: '#20252f',
-          /** `--color-border`. */
-          hairline: 'rgba(255, 255, 255, 0.08)',
+          /** Body canvas (Sentinel `#settings-panel`). */
+          page: '#f6f6f4',
+          /** Card surface (Sentinel `.settings-item`). */
+          panel: '#ffffff',
+          /** Row fill inside a card — a step below the card, above the canvas. */
+          raised: '#f4f4f2',
+          /** Input fill (Sentinel's `#e8eaed`). */
+          field: '#e8eaed',
+          /** Hairline dividers (Sentinel's rgba(16,19,29,.08), flattened). */
+          hairline: '#e5e5e2',
+          /** Top bar (Sentinel `#nav`). */
+          header: '#000000',
+          /** Left icon rail (Sentinel `#settings-sidebar`). */
+          rail: '#10131d',
         },
-        /** Type colours. Sentinel writes every grey as white-at-alpha rather than a flat hex, so these do too — they then composite correctly on any surface. */
+        /** Type colours. */
         ink: {
-          /** `--color-text`. */
-          primary: 'rgba(255, 255, 255, 0.9)',
+          /** Body and heading text (Sentinel's rgba(16,19,29,.92), flattened). */
+          primary: '#23262f',
           /** Text on a solid `signal.accent` fill. */
           'on-accent': '#0a0c10',
+          /** Text on the black header and dark rail. */
+          inverse: '#ffffff',
         },
-        /** Semantic tones, every one a value Sentinel uses. */
+        /**
+         * Semantic tones. Named for meaning rather than hue — on this palette
+         * the tone that means "lime" is an olive, because lime is 1.18:1 on
+         * white and can only ever be a fill.
+         */
         signal: {
-          /** `--color-accent`. */
+          /** The lime accent. FILL and decorative marks only — never text or a border. */
           accent: '#c8ff00',
-          /** Streaming / success. The accent — Sentry's healthy chain is Sentinel's live indicator. */
-          ok: '#c8ff00',
-          /** Degraded. Sentinel's warning amber (`SpaceFilter`, `SpacePasses`). */
-          warn: '#ffb000',
-          /** Error and destructive actions. Sentinel's red. */
-          danger: '#ff5050',
-          /** Starting / connecting. Sentinel's blue (`SdrWaterfall` trace). */
-          info: '#00aaff',
-          /** Secondary text: field labels, button text, descriptions. Sentinel's control-label grey. */
-          muted: 'rgba(255, 255, 255, 0.5)',
-          /** Non-text: idle-state glyphs. */
-          faint: 'rgba(255, 255, 255, 0.4)',
+          /** Streaming / success. The text-safe form of the accent. */
+          ok: '#4a7200',
+          /** Degraded, and warning surfaces. */
+          warn: '#8a5a00',
+          /** Error and destructive actions. */
+          danger: '#b8352a',
+          /** Starting / connecting, and structural chrome. */
+          info: '#0c6a84',
+          /** Secondary text: descriptions, captions, idle-state labels. */
+          muted: '#66686e',
+          /** Non-text: idle-state marks. */
+          faint: '#8a8d92',
         },
       },
       fontFamily: {
@@ -149,17 +157,8 @@ export default {
         gutter: '44px',
       },
       maxWidth: {
-        /**
-         * The device stack's measure.
-         *
-         * 860px originally (Sentinel's width for its wide settings controls),
-         * then 516px, then this. The current value is not a taste call: the
-         * three-row card layout needs a 621px card for its five read-only cells
-         * to share one line (measured, not estimated), and 700px is that plus
-         * the 40px page gutter and headroom for a longer model string than the
-         * test fixtures carry.
-         */
-        stack: '700px',
+        /** The settings body's measure — stops a card sprawling on a wide display. */
+        console: '1480px',
       },
     },
   },

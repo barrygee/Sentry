@@ -50,11 +50,11 @@ defineEmits<{ click: [MouseEvent] }>()
 
 const variantClasses = {
   primary:
-    'bg-signal-accent font-bold text-ink-on-accent hover:bg-[#d8ff33] disabled:bg-white/[0.08] disabled:text-signal-muted',
+    'bg-signal-accent font-bold text-ink-on-accent hover:bg-[#d8ff33] disabled:bg-ink-primary/[0.06] disabled:text-signal-muted',
   ghost:
-    'bg-white/[0.08] font-bold text-signal-muted hover:bg-white/[0.1] hover:text-white disabled:bg-white/[0.04] disabled:text-signal-muted',
+    'bg-ink-primary/[0.06] font-bold text-ink-primary hover:bg-ink-primary/[0.12] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   danger:
-    'bg-signal-danger/[0.15] font-bold text-signal-danger hover:bg-signal-danger/25 disabled:bg-white/[0.04] disabled:text-signal-muted',
+    'bg-signal-danger/[0.10] font-bold text-signal-danger hover:bg-signal-danger/[0.18] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   quiet:
     'bg-transparent px-0 font-bold text-ink-primary hover:text-signal-danger disabled:text-signal-muted disabled:hover:text-signal-muted',
 } as const satisfies Record<'primary' | 'ghost' | 'danger' | 'quiet', string>

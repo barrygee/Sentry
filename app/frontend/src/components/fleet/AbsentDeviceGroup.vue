@@ -23,12 +23,11 @@ import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
 defineProps<{ devices: DeviceStatus[] }>()
 defineEmits<{
   'request-serial-flash': [deviceId: string]
-  'request-forget-device': [deviceId: string]
 }>()
 </script>
 
 <template>
-  <details class="group mt-2 rounded-rack bg-white/[0.03]">
+  <details class="group mt-2 rounded-rack bg-ground-raised">
     <summary
       class="flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack px-card py-3 font-sans text-[9px] uppercase tracking-control text-signal-muted transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden"
     >
@@ -46,7 +45,6 @@ defineEmits<{
           :key="device.device_id"
           :device="device"
           @request-serial-flash="$emit('request-serial-flash', $event)"
-          @request-forget-device="$emit('request-forget-device', $event)"
         />
       </PanelStack>
     </div>

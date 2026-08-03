@@ -22,7 +22,7 @@ export type StatusBadgeTone = 'neutral' | 'accent' | 'ok' | 'warn' | 'danger' | 
 const props = withDefaults(defineProps<{ tone?: StatusBadgeTone }>(), { tone: 'neutral' })
 
 const TONE_CLASSES = {
-  neutral: 'text-white',
+  neutral: 'text-ink-primary',
   accent: 'text-signal-accent',
   ok: 'text-signal-ok',
   warn: 'text-signal-warn',
