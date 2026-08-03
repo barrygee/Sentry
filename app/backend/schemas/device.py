@@ -20,6 +20,11 @@ DeviceState = Literal[
 IdentityKind = Literal["serial", "usb"]
 """Which persistence-key tier a device is currently keyed by (ADR-0003)."""
 
+DeviceVisibility = Literal["public", "private"]
+"""Whether a device is published in the Sentinel-consumed `GET /api/v1/sdrs`
+export ("public") or omitted from it entirely ("private"). New devices start
+private — publishing is a deliberate per-device act, never a default."""
+
 # librtlsdr-supported sample rates (architecture §7.5). Any other value is a
 # 400 validation_error; rates above 2_400_000 are accepted but the service
 # layer raises a `notice` warning about USB sample drops on a Pi.
@@ -155,11 +160,16 @@ class DeviceStatus(BaseModel):
     needs_identification: bool
     name: str
     description: str
+    notes: str = Field(default="", description="The operator's free-text notes")
+    antenna: str = Field(default="", description="Operator-recorded antenna")
     state: DeviceState
     state_since: int = Field(description="Unix ms this state began")
     state_reason: str | None = Field(default=None, description="Machine code, non-null in error")
     present: bool
     enabled: bool
+    visibility: DeviceVisibility = Field(
+        default="private", description="Whether this device is published in GET /api/v1/sdrs"
+    )
     usb: UsbInfo | None = Field(default=None, description="Null when the device is absent")
     usb_last_known: UsbLastKnownInfo | None = Field(
         default=None, description="Populated instead of `usb` for an absent configured device"
@@ -195,9 +205,14 @@ class DeviceRecord(BaseModel):
     identity_key: str
     name: str
     description: str
+    notes: str = Field(default="", description="The operator's free-text notes")
+    antenna: str = Field(default="", description="Operator-recorded antenna")
     output_port: int | None = None
     control_port: int | None = None
     enabled: bool
+    visibility: DeviceVisibility = Field(
+        default="private", description="Whether this device is published in GET /api/v1/sdrs"
+    )
     center_hz: int | None = None
     sample_rate: int | None = None
     gain_db: float | None = None
@@ -253,8 +268,18 @@ class DevicePatch(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=64)
     description: str | None = Field(default=None, max_length=256)
+    notes: str | None = Field(
+        default=None, max_length=2000, description="The operator's free-text notes; '' clears it"
+    )
+    antenna: str | None = Field(
+        default=None, max_length=120, description="Operator-recorded antenna; '' clears it"
+    )
     output_port: int | None = Field(default=None, ge=1024, le=65533)
     enabled: bool | None = None
+    visibility: DeviceVisibility | None = Field(
+        default=None,
+        description="'public' publishes this device in GET /api/v1/sdrs; 'private' omits it",
+    )
     center_hz: int | None = Field(default=None, ge=24_000_000, le=1_766_000_000)
     sample_rate: int | None = None
     gain_db: float | None = Field(default=None, ge=0.0, le=50.0)
@@ -275,6 +300,40 @@ class DevicePatch(BaseModel):
         if not re.match(DEVICE_NAME_PATTERN, stripped):
             raise ValueError("name may contain only letters, digits, spaces and _ . - ( ) /")
         return stripped
+
+    @field_validator("notes")
+    @classmethod
+    def _clean_notes(cls, value: str | None) -> str | None:
+        """Strip surrounding whitespace and reject control characters except newlines.
+
+        Notes are multi-line free text, so `\\n` is legitimate; every other C0
+        control character is not, and stripping them here keeps values that
+        would render as invisible junk (or confuse a terminal reading the API
+        directly) out of the database. `""` is preserved as a real value — it
+        is how the UI clears a note — and is never conflated with "field
+        omitted", which is `None`.
+        """
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if any(character < " " and character != "\n" for character in cleaned):
+            raise ValueError("notes may not contain control characters other than newlines")
+        return cleaned
+
+    @field_validator("antenna")
+    @classmethod
+    def _clean_antenna(cls, value: str | None) -> str | None:
+        """Strip surrounding whitespace and reject every control character.
+
+        Unlike `notes` this is a single-line label, so a newline is rejected
+        along with the rest of the C0 range. `""` clears the field.
+        """
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if any(character < " " for character in cleaned):
+            raise ValueError("antenna may not contain control characters")
+        return cleaned
 
     @field_validator("sample_rate")
     @classmethod

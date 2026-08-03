@@ -79,6 +79,19 @@
         "additionalProperties": false,
         "description": "`PATCH /api/devices/{device_id}` request body \u2014 all fields optional, one required.\n\n`extra=\"forbid\"` rejects unknown fields outright rather than silently\nignoring operator typos (architecture \u00a712.12).",
         "properties": {
+          "antenna": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Operator-recorded antenna; '' clears it",
+            "title": "Antenna"
+          },
           "bias_tee": {
             "anyOf": [
               {
@@ -179,6 +192,19 @@
             ],
             "title": "Name"
           },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The operator's free-text notes; '' clears it",
+            "title": "Notes"
+          },
           "output_port": {
             "anyOf": [
               {
@@ -215,6 +241,22 @@
               }
             ],
             "title": "Sample Rate"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "public",
+                  "private"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "'public' publishes this device in GET /api/v1/sdrs; 'private' omits it",
+            "title": "Visibility"
           }
         },
         "title": "DevicePatch",
@@ -223,6 +265,12 @@
       "DeviceRecord": {
         "description": "One device's configuration-centric record \u2014 `GET /api/devices` item and PATCH response.",
         "properties": {
+          "antenna": {
+            "default": "",
+            "description": "Operator-recorded antenna",
+            "title": "Antenna",
+            "type": "string"
+          },
           "bias_tee": {
             "anyOf": [
               {
@@ -344,6 +392,12 @@
             "title": "Needs Identification",
             "type": "boolean"
           },
+          "notes": {
+            "default": "",
+            "description": "The operator's free-text notes",
+            "title": "Notes",
+            "type": "string"
+          },
           "output_port": {
             "anyOf": [
               {
@@ -401,6 +455,16 @@
           "updated_at": {
             "title": "Updated At",
             "type": "integer"
+          },
+          "visibility": {
+            "default": "private",
+            "description": "Whether this device is published in GET /api/v1/sdrs",
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Visibility",
+            "type": "string"
           }
         },
         "required": [
@@ -427,6 +491,12 @@
       "DeviceStatus": {
         "description": "One device's realtime status \u2014 the `GET /api/status` and SSE payload shape.",
         "properties": {
+          "antenna": {
+            "default": "",
+            "description": "Operator-recorded antenna",
+            "title": "Antenna",
+            "type": "string"
+          },
           "clients": {
             "anyOf": [
               {
@@ -480,6 +550,12 @@
           "needs_identification": {
             "title": "Needs Identification",
             "type": "boolean"
+          },
+          "notes": {
+            "default": "",
+            "description": "The operator's free-text notes",
+            "title": "Notes",
+            "type": "string"
           },
           "output": {
             "anyOf": [
@@ -580,6 +656,16 @@
               }
             ],
             "description": "Populated instead of `usb` for an absent configured device"
+          },
+          "visibility": {
+            "default": "private",
+            "description": "Whether this device is published in GET /api/v1/sdrs",
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Visibility",
+            "type": "string"
           }
         },
         "required": [
@@ -896,6 +982,12 @@
             "description": "Sentry's gain_auto",
             "title": "Agc"
           },
+          "antenna": {
+            "default": "",
+            "description": "The operator-recorded antenna, or empty",
+            "title": "Antenna",
+            "type": "string"
+          },
           "available": {
             "description": "Display-only: grey out rather than hide when false",
             "title": "Available",
@@ -932,6 +1024,12 @@
           },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "description": "The operator's free-text notes for this device",
+            "title": "Notes",
             "type": "string"
           },
           "port": {
@@ -995,6 +1093,7 @@
             "type": "integer"
           },
           "sdrs": {
+            "description": "Only devices the operator marked public; private ones are omitted",
             "items": {
               "$ref": "#/components/schemas/SdrExportItem"
             },
@@ -1469,7 +1568,7 @@
         ]
       },
       "patch": {
-        "description": "Upsert one device's configuration; creates the row on first call for a detected device.\n\nValidation order mirrors architecture \u00a77.5's response list: the device\nmust be known and identified before any conflict is checked, the proposed\nport is validated through the full six-rule `PortAllocatorService`\n(returning its specific rejection code, not a generic one), then the name\nis checked for a case-insensitive collision, and only then is the mutation\napplied \u2014 `DeviceConflictError` from the repository's unique indexes is\nstill caught as the last line of defence against a concurrent-request\nrace (architecture \u00a76.1).",
+        "description": "Upsert one device's configuration; creates the row on first call for a detected device.\n\nValidation order mirrors architecture \u00a77.5's response list: the device\nmust be known and identified before any conflict is checked, the proposed\nport is validated through the full six-rule `PortAllocatorService`\n(returning its specific rejection code, not a generic one), then the name\nis checked for a case-insensitive collision, and only then is the mutation\napplied. When `output_port` is set, the whole validate-then-apply sequence\nruns under `_port_allocation_lock` \u2014 the sole guard against a P/P+2\n*adjacency* race between two concurrent requests (see that lock's\ndocstring); `DeviceConflictError` from the repository's unique index is\nstill caught separately as a defence against an *identical*-port race,\nwhich the lock also happens to prevent but which existed as a fallback\nbefore the lock did.",
         "operationId": "patch_device_api_devices__device_id__patch",
         "parameters": [
           {
@@ -1527,7 +1626,7 @@
     },
     "/api/devices/{device_id}/serial": {
       "post": {
-        "description": "Begin the guarded EEPROM serial-flash flow; the outcome arrives via SSE `notice`.\n\n`request.confirm`'s `Literal[True]` and `request.serial`'s allow-list\npattern are already enforced by Pydantic before this handler runs\n(architecture \u00a77.6 guards 1-2). This handler enforces guards 3-4 (serial\nuniqueness, device idleness) plus the per-device lock, then hands the\nactual guarded flash (charset re-check, per-device asyncio lock, list-argv\nexec) to `EepromService.flash_serial()` as a background task \u2014 the\nendpoint itself never performs the flash inline, matching the 202\ncontract.",
+        "description": "Begin the guarded EEPROM serial-flash flow; the outcome arrives via SSE `notice`.\n\n`request.confirm`'s `Literal[True]` and `request.serial`'s allow-list\npattern are already enforced by Pydantic before this handler runs\n(architecture \u00a77.6 guards 1-2). This handler enforces guards 3-4 (serial\nuniqueness, device idleness), then **synchronously** reserves the\nper-device/per-serial lock via `EepromService.begin_flash()` before\ndispatching \u2014 a separate `is_locked()` check followed by `create_task()`\nis not atomic (two concurrent requests could both observe \"not locked\"),\nso the reservation itself must happen inline in this handler, not inside\nthe task it starts. The actual guarded flash (charset re-check, pair\nstop, list-argv exec) runs in `EepromService.flash_serial()` as a\nbackground task \u2014 the endpoint itself never performs the flash inline,\nmatching the `202` contract.",
         "operationId": "flash_serial_api_devices__device_id__serial_post",
         "parameters": [
           {
@@ -1585,7 +1684,7 @@
     },
     "/api/events": {
       "get": {
-        "description": "Open an SSE stream of fleet events.\n\nThe response is `text/event-stream` and is not one flat JSON schema \u2014 the\nfrozen shape of each named event is documented in `schemas/device.py`,\n`schemas/events.py` and `schemas/health.py`. Client disconnect cancels the\nunderlying generator (Starlette's normal `StreamingResponse` behaviour),\nwhich the `finally` block above uses to release the bus subscription.",
+        "description": "Open an SSE stream of fleet events.\n\nThe response is `text/event-stream` and is not one flat JSON schema \u2014 the\nfrozen shape of each named event is documented in `schemas/device.py`,\n`schemas/events.py` and `schemas/health.py`. Client disconnect cancels the\nunderlying generator (Starlette's normal `StreamingResponse` behaviour),\nwhich the `finally` block above uses to release the bus subscription.\n\nRefuses a new connection with `503` once `MAX_SSE_SUBSCRIBERS` are\nalready open, rather than accepting an unbounded number of concurrent\nstreams (each with its own queue and heartbeat timer).",
         "operationId": "get_events_api_events_get",
         "responses": {
           "200": {
@@ -1681,7 +1780,7 @@
     },
     "/api/status": {
       "get": {
-        "description": "Return the realtime per-SDR view \u2014 identical payload to the SSE `snapshot` event.",
+        "description": "Return the realtime per-SDR view \u2014 identical payload to the SSE `snapshot` event.\n\nThe registry cannot know the publishable host, so it emits `output.host=\"\"`;\nit is overlaid here (architecture \u00a77.7) so consumers of this endpoint get the\nsame reachable address `/api/v1/sdrs` reports.",
         "operationId": "get_status_api_status_get",
         "responses": {
           "200": {
@@ -1703,7 +1802,7 @@
     },
     "/api/v1/sdrs": {
       "get": {
-        "description": "Return every configured device mapped onto Sentinel's `SdrRadio` field names.",
+        "description": "Return every *public* configured device, mapped onto Sentinel's `SdrRadio` field names.\n\nDevices left `private` are omitted from `sdrs` entirely \u2014 see\n`_build_sdr_export`.",
         "operationId": "get_sdrs_v1_api_v1_sdrs_get",
         "parameters": [
           {
@@ -1749,7 +1848,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "The Sentinel-consumed SDR export (versioned)",
+        "summary": "The Sentinel-consumed export of public SDRs (versioned)",
         "tags": [
           "sdrs"
         ]

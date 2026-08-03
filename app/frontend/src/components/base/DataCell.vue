@@ -6,11 +6,17 @@
  * Matches Sentinel's `BaseDataCell` (its POSITION / ORBITAL telemetry cells):
  * a 4px-gap column above a value.
  *
- * The caption is white and bold, and tracked at 0.18em rather than Sentinel's
- * 0.14em for this cell: a card row mixes these readouts with editable fields,
- * and two caption treatments sitting side by side read as an inconsistency
- * rather than as a distinction. Sentinel's own caption is
- * `rgba(255,255,255,.35)`, which is 3.18:1 here and fails AA regardless.
+ * The caption is 11px/600 at 0.1em — Sentinel's `.settings-item-label`
+ * treatment, pulled down from its 13px because a device box stacks far more
+ * captions than a settings card does, and at full size they competed with the
+ * values they label — and the value takes its `.settings-item-desc` size of
+ * 12.5px. Both are a marked step up from the
+ * 10px legend this used to use.
+ *
+ * The value keeps `ink.primary` rather than `.settings-item-desc`'s muted
+ * grey: there that step carries explanatory prose beneath a title, whereas
+ * here it carries the device's actual data, which should not be the dimmest
+ * thing in the box.
  *
  * `labelTag`/`valueTag` exist so a caller can keep real markup semantics —
  * `DeviceIdentitySummary` renders its pairs inside a `<dl>` and passes
@@ -32,16 +38,16 @@ withDefaults(
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-1">
+  <div class="flex min-w-0 flex-col gap-1.5">
     <component
       :is="labelTag"
-      class="font-sans text-[10px] font-semibold uppercase tracking-control text-ink-primary"
+      class="font-sans text-[11px] font-semibold uppercase tracking-label text-ink-primary"
     >
       {{ label }}
     </component>
     <component
       :is="valueTag"
-      class="m-0 whitespace-nowrap font-sans text-[12px] font-normal leading-[24px] tracking-readout text-ink-primary"
+      class="m-0 whitespace-nowrap font-sans text-[12.5px] font-normal leading-[24px] tracking-readout text-ink-primary"
     >
       <slot>{{ value }}</slot>
     </component>

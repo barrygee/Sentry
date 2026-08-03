@@ -101,8 +101,20 @@ export default {
           accent: '#c8ff00',
           /** Streaming / success. The text-safe form of the accent. */
           ok: '#436800',
-          /** Degraded, and warning surfaces. */
+          /**
+           * Degraded. TEXT only — this is the text-safe form of the warning
+           * hue, dark enough to read on a white card (7.97:1 at worst).
+           */
           warn: '#7d5200',
+          /**
+           * Warning FILL only — never text. A true yellow rather than
+           * Sentinel's amber `#ffb000`, which read as orange at this size. As
+           * a fill it carries `ink.on-accent` at 14.6:1; as text on a white
+           * card it would be 1.4:1, which is why the two warning tones are
+           * separate tokens rather than one. The dark `warn` above used to do
+           * both jobs and read as brown when used as a surface.
+           */
+          'warn-fill': '#ffdd00',
           /**
            * Error and destructive actions. Saturated deliberately: the earlier
            * `#b8352a` read as dusty pink once laid under its own tint, and
@@ -160,8 +172,13 @@ export default {
         group: '0.22em',
       },
       spacing: {
-        /** Card interior padding (Sentinel `.settings-item`). */
-        card: '22px',
+        /**
+         * Card interior padding. Sentinel's `.settings-item` uses 22px; the
+         * boxes here carry more content than one of its settings rows — two
+         * switches, four editable fields and a notes area — and needed more
+         * breathing room between that content and the box edge.
+         */
+        card: '30px',
         /** Page gutter at `md` and up (Sentinel's 44px `#settings-body` padding). */
         gutter: '44px',
       },
@@ -169,7 +186,7 @@ export default {
         /**
          * The body's measure. Sized from the widest thing a device box holds:
          * its five read-only cells need 621px on one line (measured), plus the
-         * box's own 22px padding either side, plus slack for a longer model
+         * box's own 30px padding either side, plus slack for a longer model
          * string than the fixtures carry. Boxes are this wide at every viewport
          * rather than stretching to the page, so a fleet reads as a consistent
          * column instead of as bands whose length depends on the window.

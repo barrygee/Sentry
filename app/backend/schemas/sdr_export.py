@@ -40,6 +40,8 @@ class SdrExportItem(BaseModel):
     port: int = Field(description="The relay's IQ port P")
     control_port: int = Field(description="P + 2, sent for verification only")
     description: str
+    notes: str = Field(default="", description="The operator's free-text notes for this device")
+    antenna: str = Field(default="", description="The operator-recorded antenna, or empty")
     enabled: bool
     bandwidth: int | None = Field(default=None, description="Sentry's sample_rate")
     rf_gain: float | None = Field(default=None, description="Sentry's gain_db; null when AGC")
@@ -59,4 +61,6 @@ class SdrExportResponse(BaseModel):
     control_port_offset: int = Field(
         default=2, description="Sentinel already computes port + this offset"
     )
-    sdrs: tuple[SdrExportItem, ...]
+    sdrs: tuple[SdrExportItem, ...] = Field(
+        description="Only devices the operator marked public; private ones are omitted"
+    )

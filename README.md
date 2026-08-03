@@ -296,20 +296,22 @@ consumer holds the ownership token on the control channel.
 
 ### Sentinel
 
-Sentinel discovers the whole fleet from one endpoint:
+Sentinel discovers the fleet from one endpoint:
 
 ```
 GET http://<PI_IP>:8000/api/v1/sdrs
 ```
 
-which returns one record per dongle, shaped to drop straight into Sentinel's
-radio configuration:
+which returns one record per **public** dongle, shaped to drop straight into
+Sentinel's radio configuration:
 
 | Field              | Meaning                                                |
 | ------------------ | ------------------------------------------------------ |
 | `name`             | The name you set in the UI                             |
 | `host`, `port`     | Where to connect for IQ (`port` is `P`)                |
-| `description`      | Free-text notes                                        |
+| `description`      | The device's free-text description                     |
+| `notes`            | The operator's notes for the device                    |
+| `antenna`          | The antenna feeding it                                 |
 | `enabled`          | Whether Sentry is serving it                           |
 | `bandwidth`        | Sample rate, Hz                                        |
 | `rf_gain`          | Gain in dB, or `null` when the tuner is in AGC         |
@@ -318,6 +320,25 @@ radio configuration:
 
 The control channel is at `port + 2`, exactly as for a single dongle, so
 Sentinel's existing connection path needs no changes.
+
+#### Choosing which dongles to publish
+
+Each device card has a **Private** switch. It decides one thing: whether that
+dongle appears in `GET /api/v1/sdrs`.
+
+- **Switched on (private)** — omitted from the export entirely. No query
+  parameter brings it back.
+- **Switched off** — listed in the export, so any Sentinel that queries this
+  Sentry can see it and connect to it.
+
+So a Sentry running four dongles can offer any two of them to other Sentinel
+instances and keep the rest to itself. Newly configured devices start private,
+and devices that existed before this feature stay private until you switch them
+off — publishing hands out a reachable IQ endpoint, so it is always a
+deliberate choice.
+
+Every field on a published device goes into the export, including its notes and
+antenna.
 
 ---
 
@@ -329,10 +350,10 @@ Sentinel's existing connection path needs no changes.
 | `GET /api/status`               | Full JSON snapshot of every device                                                 |
 | `GET /api/events`               | SSE stream — `snapshot`, `device_changed`, `device_removed`, `health`, `notice`    |
 | `GET /api/devices`              | Device configuration, including unconfigured ones                                  |
-| `PATCH /api/devices/{id}`       | Set name, output port, enabled, tuning defaults                                    |
+| `PATCH /api/devices/{id}`       | Set name, output port, enabled, visibility, notes, antenna, tuning defaults        |
 | `DELETE /api/devices/{id}`      | Forget an absent device's configuration                                            |
 | `POST /api/devices/{id}/serial` | Write a unique serial via `rtl_eeprom`                                             |
-| `GET /api/v1/sdrs`              | The fleet, for Sentinel                                                            |
+| `GET /api/v1/sdrs`              | The public dongles, for Sentinel                                                   |
 
 `/api/health` deliberately stays healthy while an individual dongle is degraded —
 otherwise a single wedged dongle would restart the container and take the healthy

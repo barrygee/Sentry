@@ -326,6 +326,22 @@ function patchIsSatisfiedBy(patch: DevicePatch, device: DeviceStatus): boolean {
   ) {
     return false
   }
+  if (
+    patch.visibility !== undefined &&
+    patch.visibility !== null &&
+    device.visibility !== patch.visibility
+  ) {
+    return false
+  }
+  // `''` is a real value for both of these (it clears the field), so they are
+  // compared against `undefined`/`null` only — a `!patch.notes` shortcut would
+  // treat "cleared" as "not patched" and leave the pending patch stuck.
+  if (patch.antenna !== undefined && patch.antenna !== null && device.antenna !== patch.antenna) {
+    return false
+  }
+  if (patch.notes !== undefined && patch.notes !== null && device.notes !== patch.notes) {
+    return false
+  }
   return true
 }
 
@@ -334,6 +350,9 @@ function applyOptimisticPatch(device: DeviceStatus, patch: DevicePatch): DeviceS
     ...device,
     name: patch.name ?? device.name,
     enabled: patch.enabled ?? device.enabled,
+    visibility: patch.visibility ?? device.visibility,
+    antenna: patch.antenna ?? device.antenna,
+    notes: patch.notes ?? device.notes,
   }
 }
 
@@ -348,6 +367,23 @@ function describePatchForAnnouncement(patch: DevicePatch): string {
   }
   if (patch.enabled !== undefined && patch.enabled !== null) {
     parts.push(patch.enabled ? 'enabled' : 'disabled')
+  }
+  if (patch.visibility !== undefined && patch.visibility !== null) {
+    // Says what the setting *does*, not just its name — "set to private" would
+    // leave the operator to guess what the export contains.
+    parts.push(
+      patch.visibility === 'private'
+        ? 'made private, no longer published to Sentinel'
+        : 'published to Sentinel',
+    )
+  }
+  if (patch.antenna !== undefined && patch.antenna !== null) {
+    parts.push(patch.antenna === '' ? 'antenna cleared' : `antenna set to "${patch.antenna}"`)
+  }
+  if (patch.notes !== undefined && patch.notes !== null) {
+    // The note itself is not read out: it can run to 2000 characters, and a
+    // polite live region is the wrong place for an essay.
+    parts.push(patch.notes === '' ? 'notes cleared' : 'notes saved')
   }
   return parts.length > 0 ? `Saved — ${parts.join(', ')}.` : 'Device saved.'
 }

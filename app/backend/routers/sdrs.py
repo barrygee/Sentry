@@ -2,6 +2,10 @@
 
 This is the only surface a separately-deployed Sentinel consumes, so it is
 additive-only within a major version and never changed to suit the UI.
+
+It publishes only the devices the operator has marked **public**. A Sentry
+with four dongles can therefore offer any subset of them to other Sentinel
+instances, keeping the rest off the list entirely.
 """
 
 from __future__ import annotations
@@ -80,6 +84,8 @@ def _map_to_export_item(record: DeviceRecord) -> SdrExportItem:
         port=record.output_port or 0,
         control_port=record.control_port or 0,
         description=description,
+        notes=record.notes,
+        antenna=record.antenna,
         enabled=record.enabled,
         bandwidth=record.sample_rate,
         rf_gain=None if record.gain_auto else record.gain_db,
@@ -103,6 +109,15 @@ async def _build_sdr_export(
     Only devices with a persisted row (`record_id is not None`, i.e.
     *configured*) are exported — a merely-detected dongle is not yet part of
     Sentinel's radio list (architecture §7.7).
+
+    **Private devices are omitted entirely**, not merely flagged. Sentry may
+    run more dongles than its operator wants to share, so each device carries
+    a `visibility` the operator sets per device in the UI; anything left
+    `private` (the default) never reaches this list, in any query-parameter
+    combination. There is deliberately no `include_private` escape hatch —
+    the export is the one surface an arbitrary Sentinel consumes, so a
+    parameter that could reveal a withheld device's IQ endpoint would defeat
+    the point of the toggle.
     """
     response.headers[API_VERSION_HEADER] = str(SDR_EXPORT_API_VERSION)
     host = _resolve_host(request, settings)
@@ -110,6 +125,8 @@ async def _build_sdr_export(
     items: list[SdrExportItem] = []
     for record in device_registry.list_records():
         if record.record_id is None:
+            continue
+        if record.visibility != "public":
             continue
         if not include_disabled and not record.enabled:
             continue
@@ -131,7 +148,7 @@ async def _build_sdr_export(
     "/v1/sdrs",
     response_model=SdrExportResponse,
     status_code=status.HTTP_200_OK,
-    summary="The Sentinel-consumed SDR export (versioned)",
+    summary="The Sentinel-consumed export of public SDRs (versioned)",
 )
 async def get_sdrs_v1(
     response: Response,
@@ -142,7 +159,11 @@ async def get_sdrs_v1(
     settings: Settings = Depends(get_settings_dependency),
     clock: Clock = Depends(get_clock),
 ) -> SdrExportResponse:
-    """Return every configured device mapped onto Sentinel's `SdrRadio` field names."""
+    """Return every *public* configured device, mapped onto Sentinel's `SdrRadio` field names.
+
+    Devices left `private` are omitted from `sdrs` entirely — see
+    `_build_sdr_export`.
+    """
     return await _build_sdr_export(
         request, response, device_registry, settings, clock, include_disabled, available_only
     )

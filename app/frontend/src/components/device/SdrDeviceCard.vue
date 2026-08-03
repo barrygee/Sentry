@@ -5,12 +5,15 @@ import type { DeviceStatus } from '@/api/client'
 import BaseToggle from '@/components/base/BaseToggle.vue'
 import DataCell from '@/components/base/DataCell.vue'
 import MonoValue from '@/components/base/MonoValue.vue'
+import DeviceAntennaField from '@/components/forms/DeviceAntennaField.vue'
 import DeviceNameField from '@/components/forms/DeviceNameField.vue'
+import DeviceNotesField from '@/components/forms/DeviceNotesField.vue'
 import PortAssignmentField from '@/components/forms/PortAssignmentField.vue'
 import { useFleetStore } from '@/stores/fleet'
 
 import DeviceAbsentNotice from './DeviceAbsentNotice.vue'
 import DeviceStatusBadge from './DeviceStatusBadge.vue'
+import DeviceVisibilityToggle from './DeviceVisibilityToggle.vue'
 import NeedsIdentificationNotice from './NeedsIdentificationNotice.vue'
 
 /**
@@ -34,6 +37,8 @@ const fleetStore = useFleetStore()
 
 const nameDraft = ref(props.device.name)
 const portDraft = ref<number | null>(props.device.output?.iq_port ?? null)
+const antennaDraft = ref(props.device.antenna)
+const notesDraft = ref(props.device.notes)
 
 watch(
   () => props.device.name,
@@ -48,6 +53,22 @@ watch(
   (nextPort) => {
     if (fleetStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
       portDraft.value = nextPort
+    }
+  },
+)
+watch(
+  () => props.device.antenna,
+  (nextAntenna) => {
+    if (fleetStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
+      antennaDraft.value = nextAntenna
+    }
+  },
+)
+watch(
+  () => props.device.notes,
+  (nextNotes) => {
+    if (fleetStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
+      notesDraft.value = nextNotes
     }
   },
 )
@@ -94,6 +115,21 @@ function commitEnabled(enabled: boolean): void {
   void fleetStore.patchDevice(props.device.device_id, { enabled })
 }
 
+function commitVisibility(visibility: 'public' | 'private'): void {
+  void fleetStore.patchDevice(props.device.device_id, { visibility })
+}
+
+// Antenna and notes are only ever offered on a device that already has a
+// persisted row, so — unlike name and port — they never need the combined
+// first-configuration PATCH above and can always be committed alone.
+function commitAntenna(antenna: string): void {
+  void fleetStore.patchDevice(props.device.device_id, { antenna })
+}
+
+function commitNotes(notes: string): void {
+  void fleetStore.patchDevice(props.device.device_id, { notes })
+}
+
 const isEditable = computed(() => !props.device.needs_identification)
 const ownReservedPorts = computed(() =>
   props.device.output ? [props.device.output.iq_port, props.device.output.control_port] : [],
@@ -137,13 +173,17 @@ const identitySerial = computed(
         <h3 class="sr-only">{{ device.name || device.device_id }}</h3>
         <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
       </div>
-      <BaseToggle
-        v-if="device.record_id !== null"
-        :model-value="device.enabled"
-        :label="device.enabled ? 'Disable SDR' : 'Enable SDR'"
-        :accessible-name="`${device.enabled ? 'Disable SDR' : 'Enable SDR'} — ${device.name || device.device_id}`"
-        @update:model-value="commitEnabled"
-      />
+      <!-- Both switches sit together on the right: one controls whether the
+           device runs, the other whether anyone else is told about it. -->
+      <div v-if="device.record_id !== null" class="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <DeviceVisibilityToggle :device="device" @commit="commitVisibility" />
+        <BaseToggle
+          :model-value="device.enabled"
+          :label="device.enabled ? 'Disable SDR' : 'Enable SDR'"
+          :accessible-name="`${device.enabled ? 'Disable SDR' : 'Enable SDR'} — ${device.name || device.device_id}`"
+          @update:model-value="commitEnabled"
+        />
+      </div>
     </div>
 
     <NeedsIdentificationNotice
@@ -213,5 +253,18 @@ const identitySerial = computed(
         </template>
       </dl>
     </div>
+
+    <!-- Antenna and notes each get their own line below the aligned grid,
+         rather than a track inside it. Antenna follows the read-only band
+         (…rate, gain) so the tuning story reads in one block and the two
+         operator-written fields sit together underneath it; notes needs the
+         whole card width, which a `max-content` track cannot give it.
+         Only offered once a row exists — a lone antenna or notes PATCH on an
+         unconfigured device would be rejected, since a first configuration
+         must carry both name and port together. -->
+    <template v-if="isEditable && device.record_id !== null">
+      <DeviceAntennaField v-model="antennaDraft" class="w-[240px]" @commit="commitAntenna" />
+      <DeviceNotesField v-model="notesDraft" @commit="commitNotes" />
+    </template>
   </article>
 </template>

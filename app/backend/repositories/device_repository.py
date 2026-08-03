@@ -61,8 +61,11 @@ def _row_from_model(model: SdrDeviceModel) -> PersistedDeviceRow:
         identity_key=model.identity_key,
         name=model.name,
         description=model.description,
+        notes=model.notes,
+        antenna=model.antenna,
         output_port=model.output_port,
         enabled=model.enabled,
+        visibility=model.visibility,  # type: ignore[arg-type]  # CHECK constraint enforces the literal
         center_hz=model.center_hz,
         sample_rate=model.sample_rate,
         gain_db=model.gain_db,
@@ -93,8 +96,11 @@ def _apply_row_to_model(row: PersistedDeviceRow, model: SdrDeviceModel) -> None:
     model.identity_key = row.identity_key
     model.name = row.name
     model.description = row.description
+    model.notes = row.notes
+    model.antenna = row.antenna
     model.output_port = row.output_port
     model.enabled = row.enabled
+    model.visibility = row.visibility
     model.center_hz = row.center_hz
     model.sample_rate = row.sample_rate
     model.gain_db = row.gain_db

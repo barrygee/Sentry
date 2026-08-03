@@ -13,6 +13,11 @@
  * The single button is still rendered, and still marked current, rather than
  * hidden until there are two: a rail that appears the day a second view lands
  * would move every page's content sideways at that moment.
+ *
+ * The rail knows nothing about being shown or hidden: `App.vue` owns that
+ * state and the button that flips it, because the button has to outlive the
+ * rail it hides (Sentinel can put the equivalent control in its footer; Sentry
+ * has no footer).
  */
 interface RailDestination {
   /** Stable key, also the button's `aria-controls` target when views exist. */
@@ -27,7 +32,7 @@ const activeKey = 'sdrs'
 </script>
 
 <template>
-  <nav aria-label="Views" class="w-12 shrink-0 bg-ground-rail">
+  <nav aria-label="Views" class="flex w-12 shrink-0 flex-col bg-ground-rail">
     <ul class="m-0 flex list-none flex-col p-0">
       <li v-for="destination in DESTINATIONS" :key="destination.key">
         <button

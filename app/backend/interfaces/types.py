@@ -92,8 +92,11 @@ class PersistedDeviceRow:
     identity_key: str
     name: str
     description: str
+    notes: str
+    antenna: str
     output_port: int
     enabled: bool
+    visibility: Literal["public", "private"]
     center_hz: int | None
     sample_rate: int | None
     gain_db: float | None

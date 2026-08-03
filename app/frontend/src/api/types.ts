@@ -55,9 +55,13 @@ export interface paths {
      *     port is validated through the full six-rule `PortAllocatorService`
      *     (returning its specific rejection code, not a generic one), then the name
      *     is checked for a case-insensitive collision, and only then is the mutation
-     *     applied — `DeviceConflictError` from the repository's unique indexes is
-     *     still caught as the last line of defence against a concurrent-request
-     *     race (architecture §6.1).
+     *     applied. When `output_port` is set, the whole validate-then-apply sequence
+     *     runs under `_port_allocation_lock` — the sole guard against a P/P+2
+     *     *adjacency* race between two concurrent requests (see that lock's
+     *     docstring); `DeviceConflictError` from the repository's unique index is
+     *     still caught separately as a defence against an *identical*-port race,
+     *     which the lock also happens to prevent but which existed as a fallback
+     *     before the lock did.
      */
     patch: operations['patch_device_api_devices__device_id__patch']
     trace?: never
@@ -78,11 +82,15 @@ export interface paths {
      *     `request.confirm`'s `Literal[True]` and `request.serial`'s allow-list
      *     pattern are already enforced by Pydantic before this handler runs
      *     (architecture §7.6 guards 1-2). This handler enforces guards 3-4 (serial
-     *     uniqueness, device idleness) plus the per-device lock, then hands the
-     *     actual guarded flash (charset re-check, per-device asyncio lock, list-argv
-     *     exec) to `EepromService.flash_serial()` as a background task — the
-     *     endpoint itself never performs the flash inline, matching the 202
-     *     contract.
+     *     uniqueness, device idleness), then **synchronously** reserves the
+     *     per-device/per-serial lock via `EepromService.begin_flash()` before
+     *     dispatching — a separate `is_locked()` check followed by `create_task()`
+     *     is not atomic (two concurrent requests could both observe "not locked"),
+     *     so the reservation itself must happen inline in this handler, not inside
+     *     the task it starts. The actual guarded flash (charset re-check, pair
+     *     stop, list-argv exec) runs in `EepromService.flash_serial()` as a
+     *     background task — the endpoint itself never performs the flash inline,
+     *     matching the `202` contract.
      */
     post: operations['flash_serial_api_devices__device_id__serial_post']
     delete?: never
@@ -107,6 +115,10 @@ export interface paths {
      *     `schemas/events.py` and `schemas/health.py`. Client disconnect cancels the
      *     underlying generator (Starlette's normal `StreamingResponse` behaviour),
      *     which the `finally` block above uses to release the bus subscription.
+     *
+     *     Refuses a new connection with `503` once `MAX_SSE_SUBSCRIBERS` are
+     *     already open, rather than accepting an unbounded number of concurrent
+     *     streams (each with its own queue and heartbeat timer).
      */
     get: operations['get_events_api_events_get']
     put?: never
@@ -173,6 +185,10 @@ export interface paths {
     /**
      * Realtime per-SDR status
      * @description Return the realtime per-SDR view — identical payload to the SSE `snapshot` event.
+     *
+     *     The registry cannot know the publishable host, so it emits `output.host=""`;
+     *     it is overlaid here (architecture §7.7) so consumers of this endpoint get the
+     *     same reachable address `/api/v1/sdrs` reports.
      */
     get: operations['get_status_api_status_get']
     put?: never
@@ -191,8 +207,11 @@ export interface paths {
       cookie?: never
     }
     /**
-     * The Sentinel-consumed SDR export (versioned)
-     * @description Return every configured device mapped onto Sentinel's `SdrRadio` field names.
+     * The Sentinel-consumed export of public SDRs (versioned)
+     * @description Return every *public* configured device, mapped onto Sentinel's `SdrRadio` field names.
+     *
+     *     Devices left `private` are omitted from `sdrs` entirely — see
+     *     `_build_sdr_export`.
      */
     get: operations['get_sdrs_v1_api_v1_sdrs_get']
     put?: never
@@ -247,6 +266,11 @@ export interface components {
      *     ignoring operator typos (architecture §12.12).
      */
     DevicePatch: {
+      /**
+       * Antenna
+       * @description Operator-recorded antenna; '' clears it
+       */
+      antenna?: string | null
       /** Bias Tee */
       bias_tee?: boolean | null
       /** Center Hz */
@@ -263,18 +287,34 @@ export interface components {
       gain_db?: number | null
       /** Name */
       name?: string | null
+      /**
+       * Notes
+       * @description The operator's free-text notes; '' clears it
+       */
+      notes?: string | null
       /** Output Port */
       output_port?: number | null
       /** Ppm Correction */
       ppm_correction?: number | null
       /** Sample Rate */
       sample_rate?: number | null
+      /**
+       * Visibility
+       * @description 'public' publishes this device in GET /api/v1/sdrs; 'private' omits it
+       */
+      visibility?: ('public' | 'private') | null
     }
     /**
      * DeviceRecord
      * @description One device's configuration-centric record — `GET /api/devices` item and PATCH response.
      */
     DeviceRecord: {
+      /**
+       * Antenna
+       * @description Operator-recorded antenna
+       * @default
+       */
+      antenna: string
       /**
        * Bias Tee
        * @description Bias-T power, nullable
@@ -318,6 +358,12 @@ export interface components {
       name: string
       /** Needs Identification */
       needs_identification: boolean
+      /**
+       * Notes
+       * @description The operator's free-text notes
+       * @default
+       */
+      notes: string
       /** Output Port */
       output_port?: number | null
       /** Ppm Correction */
@@ -335,12 +381,25 @@ export interface components {
       state: 'detected' | 'configured' | 'starting' | 'streaming' | 'degraded' | 'stopped' | 'error'
       /** Updated At */
       updated_at: number
+      /**
+       * Visibility
+       * @description Whether this device is published in GET /api/v1/sdrs
+       * @default private
+       * @enum {string}
+       */
+      visibility: 'public' | 'private'
     }
     /**
      * DeviceStatus
      * @description One device's realtime status — the `GET /api/status` and SSE payload shape.
      */
     DeviceStatus: {
+      /**
+       * Antenna
+       * @description Operator-recorded antenna
+       * @default
+       */
+      antenna: string
       clients?: components['schemas']['ClientCounts'] | null
       /** Description */
       description: string
@@ -364,6 +423,12 @@ export interface components {
       name: string
       /** Needs Identification */
       needs_identification: boolean
+      /**
+       * Notes
+       * @description The operator's free-text notes
+       * @default
+       */
+      notes: string
       /** @description Null for an unconfigured device */
       output?: components['schemas']['OutputInfo'] | null
       /** Present */
@@ -395,6 +460,13 @@ export interface components {
       usb?: components['schemas']['UsbInfo'] | null
       /** @description Populated instead of `usb` for an absent configured device */
       usb_last_known?: components['schemas']['UsbLastKnownInfo'] | null
+      /**
+       * Visibility
+       * @description Whether this device is published in GET /api/v1/sdrs
+       * @default private
+       * @enum {string}
+       */
+      visibility: 'public' | 'private'
     }
     /**
      * DevicesListResponse
@@ -530,6 +602,12 @@ export interface components {
        */
       agc?: boolean | null
       /**
+       * Antenna
+       * @description The operator-recorded antenna, or empty
+       * @default
+       */
+      antenna: string
+      /**
        * Available
        * @description Display-only: grey out rather than hide when false
        */
@@ -552,6 +630,12 @@ export interface components {
       host: string
       /** Name */
       name: string
+      /**
+       * Notes
+       * @description The operator's free-text notes for this device
+       * @default
+       */
+      notes: string
       /**
        * Port
        * @description The relay's IQ port P
@@ -591,7 +675,10 @@ export interface components {
       control_port_offset: number
       /** Generated At */
       generated_at: number
-      /** Sdrs */
+      /**
+       * Sdrs
+       * @description Only devices the operator marked public; private ones are omitted
+       */
       sdrs: components['schemas']['SdrExportItem'][]
       source: components['schemas']['SdrExportSource']
     }
