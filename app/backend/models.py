@@ -50,12 +50,31 @@ class SdrDeviceModel(Base):
     description: Mapped[str] = mapped_column(nullable=False, default="", server_default="")
     """Free-text note, exported to Sentinel. Empty string, never NULL."""
 
+    notes: Mapped[str] = mapped_column(nullable=False, default="", server_default="")
+    """The operator's free-text notes — siting problems, who owns the dongle, what
+    still needs fixing. Longer and more free-form than `description`, and like it,
+    exported to Sentinel for any device the operator publishes. Empty string,
+    never NULL."""
+
+    antenna: Mapped[str] = mapped_column(nullable=False, default="", server_default="")
+    """Operator-recorded antenna description, e.g. "Discone, loft". Exported to
+    Sentinel alongside the rest of the device. Empty string, never NULL."""
+
     output_port: Mapped[int] = mapped_column(nullable=False)
     """The relay's public IQ port `P`; `P + 2` is implicitly reserved for the
     NDJSON control channel (architecture §8) and is never stored separately."""
 
     enabled: Mapped[bool] = mapped_column(nullable=False, default=True, server_default="1")
     """Whether the supervisor should run this device's rtl_tcp+relay pair."""
+
+    visibility: Mapped[str] = mapped_column(
+        nullable=False, default="private", server_default="private"
+    )
+    """Whether this device is published in `GET /api/v1/sdrs`: "public" lists it
+    for any Sentinel that queries the export, "private" omits it entirely.
+    Defaults to "private" so a newly configured dongle is never published by an
+    operator who simply never visited the toggle — sharing is opt-in, since
+    what the export hands out is a reachable IQ endpoint, not just a name."""
 
     center_hz: Mapped[int | None] = mapped_column(nullable=True)
     """Startup tuning frequency in Hz. NULL defers to the relay's built-in default."""
@@ -129,5 +148,9 @@ class SdrDeviceModel(Base):
         CheckConstraint(
             "length(name) BETWEEN 1 AND 64",
             name="ck_sdr_devices_name_length",
+        ),
+        CheckConstraint(
+            "visibility IN ('public', 'private')",
+            name="ck_sdr_devices_visibility",
         ),
     )

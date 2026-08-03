@@ -52,6 +52,9 @@ EXAMPLE_DEVICE_STATUS = DeviceStatus(
     state_reason=None,
     present=True,
     enabled=True,
+    # This example device is the one that appears in the export example below,
+    # so it must not be private — a private device is never in that list.
+    visibility="public",
     usb=EXAMPLE_USB_INFO,
     output=OutputInfo(host="192.168.1.45", iq_port=1234, control_port=1236),
     tuner=TunerInfo(
@@ -86,6 +89,7 @@ EXAMPLE_DEVICE_RECORD = DeviceRecord(
     output_port=1234,
     control_port=1236,
     enabled=True,
+    visibility="public",
     center_hz=1090000000,
     sample_rate=2400000,
     gain_db=40.2,
@@ -122,6 +126,8 @@ EXAMPLE_SDR_EXPORT_ITEM = SdrExportItem(
     port=1234,
     control_port=1236,
     description="RTL2838UHIDIR @ USB 1-1.4.2",
+    notes="Feeder cable due for replacement.",
+    antenna="Discone, roof mast",
     enabled=True,
     bandwidth=2400000,
     rf_gain=40.2,

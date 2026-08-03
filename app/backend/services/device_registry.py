@@ -35,6 +35,7 @@ from app.backend.schemas.device import (
     DeviceRecord,
     DeviceState,
     DeviceStatus,
+    DeviceVisibility,
     OutputInfo,
     ProcessInfo,
     TunerInfo,
@@ -126,8 +127,11 @@ class _DeviceEntry:
     needs_identification: bool
     name: str
     description: str
+    notes: str
+    antenna: str
     output_port: int | None
     enabled: bool
+    visibility: DeviceVisibility
     center_hz: int | None
     sample_rate: int | None
     gain_db: float | None
@@ -276,8 +280,14 @@ class DeviceRegistry:
                     needs_identification=True,
                     name="Unidentified SDR",
                     description="",
+                    notes="",
+                    antenna="",
                     output_port=None,
                     enabled=False,
+                    # Matches the `sdr_devices.visibility` column default: a
+                    # device is never published to Sentinel until an operator
+                    # says so.
+                    visibility="private",
                     center_hz=None,
                     sample_rate=None,
                     gain_db=None,
@@ -326,11 +336,16 @@ class DeviceRegistry:
                     needs_identification=False,
                     name="",
                     description="",
+                    notes="",
+                    antenna="",
                     output_port=None,
                     # Matches the `sdr_devices.enabled` column's own default
                     # (architecture §6.1) — an operator's first PATCH need not
                     # repeat `enabled: true` for the device to actually run.
                     enabled=True,
+                    # Unlike `enabled`, this does *not* mirror a "convenient"
+                    # default — see the column docstring; publishing is opt-in.
+                    visibility="private",
                     center_hz=None,
                     sample_rate=None,
                     gain_db=None,
@@ -452,12 +467,15 @@ class DeviceRegistry:
             identity_key=identity_key,
             name=str(patch.get("name", entry.name)),
             description=str(patch.get("description", entry.description)),
+            notes=str(patch.get("notes", entry.notes)),
+            antenna=str(patch.get("antenna", entry.antenna)),
             # `was_first_configuration` guarantees `output_port_value` is a
             # real int by this point (never None) — the guard above already
             # rejected a first PATCH omitting it, so there is no `or 0`
             # fallback left to silently fabricate a value.
             output_port=int(cast(int, output_port_value)),
             enabled=bool(patch.get("enabled", entry.enabled)),
+            visibility=cast(DeviceVisibility, patch.get("visibility", entry.visibility)),
             center_hz=cast("int | None", patch.get("center_hz", entry.center_hz)),
             sample_rate=cast("int | None", patch.get("sample_rate", entry.sample_rate)),
             gain_db=cast("float | None", patch.get("gain_db", entry.gain_db)),
@@ -481,8 +499,11 @@ class DeviceRegistry:
         entry.record_id = updated_row.id
         entry.name = updated_row.name
         entry.description = updated_row.description
+        entry.notes = updated_row.notes
+        entry.antenna = updated_row.antenna
         entry.output_port = updated_row.output_port
         entry.enabled = updated_row.enabled
+        entry.visibility = updated_row.visibility
         entry.center_hz = updated_row.center_hz
         entry.sample_rate = updated_row.sample_rate
         entry.gain_db = updated_row.gain_db
@@ -564,8 +585,11 @@ class DeviceRegistry:
             identity_key=new_serial,
             name=entry.name,
             description=entry.description,
+            notes=entry.notes,
+            antenna=entry.antenna,
             output_port=entry.output_port,
             enabled=entry.enabled,
+            visibility=entry.visibility,
             center_hz=entry.center_hz,
             sample_rate=entry.sample_rate,
             gain_db=entry.gain_db,
@@ -702,8 +726,11 @@ class DeviceRegistry:
             needs_identification=False,
             name=row.name,
             description=row.description,
+            notes=row.notes,
+            antenna=row.antenna,
             output_port=row.output_port,
             enabled=row.enabled,
+            visibility=row.visibility,
             center_hz=row.center_hz,
             sample_rate=row.sample_rate,
             gain_db=row.gain_db,
@@ -795,11 +822,14 @@ class DeviceRegistry:
             needs_identification=entry.needs_identification,
             name=entry.name,
             description=entry.description,
+            notes=entry.notes,
+            antenna=entry.antenna,
             state=entry.state,
             state_since=entry.state_since,
             state_reason=entry.state_reason,
             present=entry.present,
             enabled=entry.enabled,
+            visibility=entry.visibility,
             usb=usb,
             usb_last_known=usb_last_known,
             output=output,
@@ -818,9 +848,12 @@ class DeviceRegistry:
             identity_key=entry.identity_key,
             name=entry.name,
             description=entry.description,
+            notes=entry.notes,
+            antenna=entry.antenna,
             output_port=entry.output_port,
             control_port=(entry.output_port + 2) if entry.output_port is not None else None,
             enabled=entry.enabled,
+            visibility=entry.visibility,
             center_hz=entry.center_hz,
             sample_rate=entry.sample_rate,
             gain_db=entry.gain_db,

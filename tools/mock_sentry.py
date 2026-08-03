@@ -82,6 +82,9 @@ _STABLE_DEVICE = DeviceStatus(
     needs_identification=False,
     name="AIS SDR",
     description="Roof, 162 MHz",
+    notes="Feeder cable due for replacement — intermittent below 150 MHz.",
+    antenna="Discone, roof mast",
+    visibility="public",
     state="streaming",
     state_since=STARTED_AT_MS,
     state_reason=None,
@@ -203,6 +206,9 @@ _PRESENT_RTLSDR_V4 = DeviceStatus(
     needs_identification=False,
     name="RTL-SDR-V4",
     description="Roof, replugged after the hub swap",
+    notes="",
+    antenna="1090 collinear, loft",
+    visibility="private",
     state="configured",
     state_since=STARTED_AT_MS,
     state_reason=None,
@@ -511,9 +517,12 @@ async def mock_list_devices() -> DevicesListResponse:
             identity_key=device.identity_key,
             name=device.name,
             description=device.description,
+            notes=device.notes,
+            antenna=device.antenna,
             output_port=device.output.iq_port if device.output else None,
             control_port=device.output.control_port if device.output else None,
             enabled=device.enabled,
+            visibility=device.visibility,
             center_hz=device.tuner.center_hz if device.tuner else None,
             sample_rate=device.tuner.sample_rate if device.tuner else None,
             gain_db=device.tuner.gain_db if device.tuner else None,
@@ -550,13 +559,39 @@ async def mock_list_devices() -> DevicesListResponse:
     )
 
 
+# The `DevicePatch` fields that live directly on `DeviceStatus` under the same
+# name, so a mock PATCH can apply them to the fleet by copying them across.
+# `output_port` and the tuner fields are deliberately excluded: they land on the
+# nested `output`/`tuner` objects, and the mock has never needed to model that.
+_PATCHABLE_STATUS_FIELDS = ("name", "description", "notes", "antenna", "enabled", "visibility")
+
+
 @app.patch("/api/devices/{device_id}", response_model=DeviceRecord)
 async def mock_patch_device(device_id: str, patch: DevicePatch) -> DeviceRecord:
-    """Echo an accepted PATCH back as the resulting record, for optimistic-UI testing."""
+    """Apply an accepted PATCH to the mock fleet, then echo back the resulting record.
+
+    The patch is applied to `_fleet_state` (and broadcast as `device_changed`)
+    rather than only echoed, because the frontend clears a pending optimistic
+    patch by comparing the *streamed* device against what it sent. Echoing
+    alone left every committed edit pending until something else happened to
+    republish the device, which made a toggle look like it had sprung back.
+    """
+    updated_fields = patch.model_dump(exclude_unset=True)
+    device = _fleet_state.devices.get(device_id)
+    if device is not None:
+        applied = {
+            field: value
+            for field, value in updated_fields.items()
+            if field in _PATCHABLE_STATUS_FIELDS and value is not None
+        }
+        if applied:
+            device = device.model_copy(update=applied)
+            _fleet_state.devices[device_id] = device
+            _broadcast("device_changed", json.loads(device.model_dump_json()))
+
     devices_response = await mock_list_devices()
     for record in devices_response.devices:
         if record.device_id == device_id:
-            updated_fields = patch.model_dump(exclude_unset=True)
             return record.model_copy(update=updated_fields)
     return devices_response.devices[0]
 
@@ -665,6 +700,10 @@ async def mock_sdrs(
     response.headers[API_VERSION_HEADER] = str(SDR_EXPORT_API_VERSION)
     items = []
     for device in _fleet_state.devices.values():
+        # Mirrors the real router: a private device is never published, in any
+        # query-parameter combination.
+        if device.visibility != "public":
+            continue
         if not device.enabled and not include_disabled:
             continue
         if available_only and not device.present:
@@ -679,6 +718,8 @@ async def mock_sdrs(
                 port=device.output.iq_port,
                 control_port=device.output.control_port,
                 description=device.description,
+                notes=device.notes,
+                antenna=device.antenna,
                 enabled=device.enabled,
                 bandwidth=device.tuner.sample_rate if device.tuner else None,
                 rf_gain=device.tuner.gain_db
