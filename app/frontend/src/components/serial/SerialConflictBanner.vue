@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BaseButton from '@/components/base/BaseButton.vue'
+import ConfirmIconAction from '@/components/base/ConfirmIconAction.vue'
 import NoticeBox from '@/components/base/NoticeBox.vue'
 
 /**
@@ -43,10 +44,15 @@ defineEmits<{ dismiss: []; 'request-serial-flash': [deviceId: string] }>()
           </li>
         </ul>
       </div>
-      <BaseButton variant="ghost" class="shrink-0 self-start" @click="$emit('dismiss')">
-        Dismiss
-        <span class="sr-only">serial conflict for {{ serial }}</span>
-      </BaseButton>
+      <ConfirmIconAction
+        class="self-start"
+        :accessible-name="`Dismiss serial conflict for ${serial}`"
+        confirm-accessible-name="Confirm dismiss serial conflict"
+        cancel-accessible-name="Cancel dismissing serial conflict"
+        armed-announcement="Confirm dismissing this serial conflict, or cancel."
+        cancelled-announcement="Dismissing serial conflict cancelled."
+        @confirm="$emit('dismiss')"
+      />
     </div>
   </NoticeBox>
 </template>
