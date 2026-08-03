@@ -35,7 +35,7 @@
  */
 const props = withDefaults(
   defineProps<{
-    variant?: 'primary' | 'ghost' | 'danger' | 'quiet' | 'inverse'
+    variant?: 'primary' | 'ghost' | 'danger' | 'quiet' | 'inverse' | 'on-bright'
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
   }>(),
@@ -58,7 +58,16 @@ const variantClasses = {
   quiet:
     'bg-transparent px-0 font-bold text-ink-primary hover:text-signal-danger disabled:text-signal-muted disabled:hover:text-signal-muted',
   inverse: 'bg-white/20 text-white hover:bg-white/30 disabled:bg-white/10 disabled:text-white/60',
-} as const satisfies Record<'primary' | 'ghost' | 'danger' | 'quiet' | 'inverse', string>
+  // For a button sitting on a BRIGHT fill (the yellow `warn` notice), where
+  // `inverse`'s white-on-translucent-white would all but disappear: a solid
+  // dark slab instead, 11.3:1 against the yellow so its edges are unmistakably
+  // a control, carrying white text at 14:1.
+  'on-bright':
+    'bg-ink-primary text-white hover:bg-ink-primary/[0.88] disabled:bg-ink-primary/40 disabled:text-white/70',
+} as const satisfies Record<
+  'primary' | 'ghost' | 'danger' | 'quiet' | 'inverse' | 'on-bright',
+  string
+>
 </script>
 
 <template>

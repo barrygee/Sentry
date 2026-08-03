@@ -19,7 +19,7 @@ defineEmits<{ 'request-serial-flash': [] }>()
       Needs identification — this dongle's factory serial isn't unique enough to remember it across
       reboots.
     </p>
-    <BaseButton variant="inverse" class="self-start" @click="$emit('request-serial-flash')">
+    <BaseButton variant="on-bright" class="self-start" @click="$emit('request-serial-flash')">
       Give this dongle a unique serial
     </BaseButton>
   </NoticeBox>

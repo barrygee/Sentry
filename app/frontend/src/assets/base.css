@@ -17,6 +17,19 @@
     height: 100%;
   }
 
+  /* The app is a fixed shell: the header and the left rail stay put and only
+     the device list scrolls, inside its own `<main>` (see `App.vue`). The page
+     itself must therefore never scroll — without this the whole shell could be
+     scrolled away, taking the header and the rail (and the rail's show/hide
+     control) off screen, which is exactly what a fixed chrome is meant to
+     prevent. Belt and braces with the shell's own `overflow-hidden`: this one
+     is what actually guarantees it, since it removes the viewport scrollport
+     rather than relying on every descendant staying inside its box. */
+  html,
+  body {
+    overflow: hidden;
+  }
+
   body {
     margin: 0;
     background-color: theme('colors.ground.page');
