@@ -4,9 +4,11 @@
  * `enabled` flag is edited. Native checkbox semantics under the hood so it
  * is keyboard-operable (Space toggles) without any custom key handling.
  *
- * Square track and thumb, matching Sentinel's switch rather than the usual
- * pill: 46x25 track, 19px thumb, accent fill when on with a dark thumb, raised
- * fill when off. The caption beside it uses the 9px legend step.
+ * Square track and thumb, matching Sentinel's switch geometry rather than the
+ * usual pill: 46x25 track, 19px thumb. The tones are inverted from Sentinel's,
+ * though — a black track throughout, with the thumb carrying the state in
+ * accent lime when on and muted grey when off, rather than the whole track
+ * filling with lime. The caption beside it uses the 9px legend step.
  */
 const modelValue = defineModel<boolean>({ required: true })
 
@@ -36,16 +38,20 @@ withDefaults(
     <span class="font-sans text-[9px] uppercase tracking-control text-signal-muted">
       {{ label }}
     </span>
-    <!-- The off track is Sentinel's control fill, which reads clearly against
-         the darker panel behind it, so no border is needed to give the control
-         a boundary (unlike the light theme, where every surface was near-white). -->
+    <!-- Black track, accent thumb — the inverse of Sentinel's switch, which
+         fills the whole track with lime when on.
+
+         The track is unbordered and near-invisible against the card, so the
+         thumb is what identifies the control and carries its state: lime at
+         17.8:1 when on, muted grey at 7.2:1 when off. WCAG 2.2 AA 1.4.11 asks
+         that the visual information needed to identify a component clears
+         3:1 — the thumb does that on its own; the track never did. -->
     <span
-      class="relative inline-flex h-[25px] w-[46px] shrink-0 items-center rounded-rack transition-colors"
-      :class="modelValue ? 'bg-signal-accent' : 'bg-ground-raised'"
+      class="relative inline-flex h-[25px] w-[46px] shrink-0 items-center rounded-rack bg-ground-page"
     >
       <span
         class="absolute top-[3px] h-[19px] w-[19px] rounded-rack transition-[left,background-color]"
-        :class="modelValue ? 'left-[24px] bg-ink-on-accent' : 'left-[3px] bg-signal-muted'"
+        :class="modelValue ? 'left-[24px] bg-signal-accent' : 'left-[3px] bg-signal-muted'"
       />
     </span>
     <input

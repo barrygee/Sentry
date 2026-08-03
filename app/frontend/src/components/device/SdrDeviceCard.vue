@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, useId, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import type { DeviceStatus } from '@/api/client'
-import BaseButton from '@/components/base/BaseButton.vue'
 import BaseToggle from '@/components/base/BaseToggle.vue'
 import DataCell from '@/components/base/DataCell.vue'
 import MonoValue from '@/components/base/MonoValue.vue'
@@ -12,7 +11,6 @@ import PortAssignmentField from '@/components/forms/PortAssignmentField.vue'
 import { useFleetStore } from '@/stores/fleet'
 
 import DeviceAbsentNotice from './DeviceAbsentNotice.vue'
-import DeviceIdentitySummary from './DeviceIdentitySummary.vue'
 import DeviceStatusBadge from './DeviceStatusBadge.vue'
 import NeedsIdentificationNotice from './NeedsIdentificationNotice.vue'
 
@@ -30,8 +28,6 @@ const props = defineProps<{ device: DeviceStatus }>()
 
 const emit = defineEmits<{
   'request-serial-flash': [deviceId: string]
-  /** Only ever raised for an absent, configured device (`FleetView` renders the control accordingly). */
-  'request-forget-device': [deviceId: string]
 }>()
 
 const fleetStore = useFleetStore()
@@ -110,44 +106,21 @@ const needsBothFieldsToConfigure = computed(
 
 // `usb` and `usb_last_known` are mutually exclusive (architecture §7.2): a
 // present device reports the former, an absent configured one the latter.
-// Falling back across both lets `DeviceIdentitySummary` stay ignorant of
-// which state the card is in.
+// Falling back across both means the card renders the same identity fields
+// whether the dongle is plugged in or a remembered ghost.
 const identityManufacturer = computed(
   () => props.device.usb?.manufacturer ?? props.device.usb_last_known?.manufacturer ?? null,
 )
 const identityProduct = computed(
   () => props.device.usb?.product ?? props.device.usb_last_known?.product ?? null,
 )
+
+/** Make and model as one string, or "Unknown" — many dongles report neither. */
+const identityModel = computed(
+  () => [identityManufacturer.value, identityProduct.value].filter(Boolean).join(' ') || 'Unknown',
+)
 const identitySerial = computed(
   () => props.device.usb?.serial ?? props.device.usb_last_known?.serial ?? null,
-)
-
-/**
- * Whether this device has configuration there is anything to forget. The
- * control is rendered for any such device, but only *enabled* when the dongle
- * is also unplugged — see `forgetBlockedReason`.
- */
-const hasSavedConfiguration = computed(() => props.device.record_id !== null)
-
-/**
- * Why the forget control is disabled, or `null` when it is usable.
- *
- * The server refuses `DELETE` for a plugged-in device (`409 device_present`),
- * so the button previously just did not render while present — leaving an
- * operator to conclude the product cannot remove an SDR at all, since the only
- * place the control ever appeared was inside the collapsed absent-devices
- * group. It is now always shown, and says why it is unavailable.
- *
- * The rule is not merely a safety interlock: Sentry re-detects hardware by
- * hotplug and keys unidentified dongles by USB topology path, so deleting a
- * *present* device's row would see it reappear as a fresh, unconfigured device
- * within the second. "Forget" can only mean "discard its settings" while the
- * hardware is attached, which is not what the word promises.
- */
-const forgetBlockedHintId = `${useId()}-forget-blocked`
-
-const forgetBlockedReason = computed(() =>
-  props.device.present ? 'Unplug this dongle to forget its configuration.' : null,
 )
 </script>
 
@@ -158,31 +131,20 @@ const forgetBlockedReason = computed(() =>
     tabindex="-1"
     class="outline-none"
   >
+    <!-- Row 1 — identity and the one control that changes what the device is
+         doing right now. -->
     <template #header>
-      <div class="flex flex-col gap-1.5">
-        <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <h3
-              class="m-0 font-condensed text-[14px] font-normal uppercase tracking-readout text-ink-primary"
-            >
-              {{ device.name || device.device_id }}
-            </h3>
-            <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
-          </div>
-          <div class="flex items-center gap-3">
-            <BaseToggle
-              v-if="device.record_id !== null"
-              :model-value="device.enabled"
-              :label="device.enabled ? 'Disable SDR' : 'Enable SDR'"
-              :accessible-name="`${device.enabled ? 'Disable SDR' : 'Enable SDR'} — ${device.name || device.device_id}`"
-              @update:model-value="commitEnabled"
-            />
-          </div>
+      <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <h3 class="sr-only">{{ device.name || device.device_id }}</h3>
+          <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
         </div>
-        <DeviceIdentitySummary
-          :manufacturer="identityManufacturer"
-          :product="identityProduct"
-          :serial="identitySerial"
+        <BaseToggle
+          v-if="device.record_id !== null"
+          :model-value="device.enabled"
+          :label="device.enabled ? 'Disable SDR' : 'Enable SDR'"
+          :accessible-name="`${device.enabled ? 'Disable SDR' : 'Enable SDR'} — ${device.name || device.device_id}`"
+          @update:model-value="commitEnabled"
         />
       </div>
     </template>
@@ -196,32 +158,11 @@ const forgetBlockedReason = computed(() =>
       :last-topology-path="device.usb_last_known?.topology_path ?? null"
     />
 
-    <div class="flex flex-wrap items-start gap-8">
-      <!-- Sentinel's telemetry cells (`BaseDataCell`): caption above value,
-           no fill behind either. -->
-      <dl v-if="device.tuner" class="m-0 flex flex-wrap items-start gap-8">
-        <DataCell label="Center frequency" label-tag="dt" value-tag="dd">
-          <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
-        </DataCell>
-        <DataCell label="Rate" label-tag="dt" value-tag="dd">
-          <MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" />
-        </DataCell>
-        <DataCell label="Gain" label-tag="dt" value-tag="dd">
-          <!-- No unit when the tuner is in AGC: the value is a mode, not a
-               measurement, and "AGC dB" reads as nonsense. -->
-          <MonoValue v-if="device.tuner.gain_auto" value="AGC" />
-          <MonoValue v-else :value="device.tuner.gain_db.toFixed(1)" unit="dB" />
-        </DataCell>
-      </dl>
-    </div>
-
-    <div v-if="isEditable" class="flex flex-col gap-2">
-      <!-- Stacked, not side by side: one field per row reads as a form. Each
-           is capped near the length of what it holds — a 64-char name and a
-           4-digit port — rather than stretched to the card's full width, which
-           left an input several times wider than any value it can contain. -->
-      <div class="flex flex-col items-start gap-5">
-        <DeviceNameField v-model="nameDraft" class="w-full max-w-[340px]" @commit="commitName" />
+    <!-- Row 2 — the editable fields, and the relay ports they determine. Wraps
+         to as many lines as the viewport needs. -->
+    <div v-if="isEditable" class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-start gap-x-8 gap-y-5">
+        <DeviceNameField v-model="nameDraft" class="w-[220px]" @commit="commitName" />
         <PortAssignmentField
           v-model="portDraft"
           :constraints="fleetStore.constraints"
@@ -235,27 +176,29 @@ const forgetBlockedReason = computed(() =>
       </p>
     </div>
 
-    <!-- Destructive action, last and quiet. It only opens a confirmation
-         dialog — that dialog is where the danger styling belongs — so the
-         trigger has no business competing with the enable switch at the top of
-         the card. Disabled while the dongle is plugged in, with the reason
-         beside it rather than floating under the header. -->
-    <div v-if="hasSavedConfiguration" class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-      <BaseButton
-        variant="quiet"
-        :disabled="forgetBlockedReason !== null"
-        :aria-describedby="forgetBlockedReason ? forgetBlockedHintId : undefined"
-        @click="emit('request-forget-device', device.device_id)"
-      >
-        Forget device
-      </BaseButton>
-      <p
-        v-if="forgetBlockedReason"
-        :id="forgetBlockedHintId"
-        class="m-0 text-[11px] leading-[1.5] text-signal-muted"
-      >
-        {{ forgetBlockedReason }}
-      </p>
-    </div>
+    <!-- Row 3 — what the hardware is and what it is currently tuned to.
+         Read-only, and one list rather than two so all five cells share a
+         single wrap context: as two adjacent lists the tuner group broke to
+         its own line as a block, whatever the width. -->
+    <dl class="m-0 flex flex-wrap items-start gap-x-8 gap-y-5">
+      <DataCell label="Model" label-tag="dt" value-tag="dd" :value="identityModel" />
+      <DataCell v-if="identitySerial" label="Serial number" label-tag="dt" value-tag="dd">
+        <MonoValue :value="identitySerial" />
+      </DataCell>
+      <template v-if="device.tuner">
+        <DataCell label="Center frequency" label-tag="dt" value-tag="dd">
+          <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
+        </DataCell>
+        <DataCell label="Rate" label-tag="dt" value-tag="dd">
+          <MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" />
+        </DataCell>
+        <DataCell label="Gain" label-tag="dt" value-tag="dd">
+          <!-- No unit when the tuner is in AGC: the value is a mode, not a
+               measurement, and "AGC dB" reads as nonsense. -->
+          <MonoValue v-if="device.tuner.gain_auto" value="AGC" />
+          <MonoValue v-else :value="device.tuner.gain_db.toFixed(1)" unit="dB" />
+        </DataCell>
+      </template>
+    </dl>
   </PanelCard>
 </template>

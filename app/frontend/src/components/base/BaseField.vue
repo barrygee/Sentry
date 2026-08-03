@@ -12,9 +12,16 @@ import { computed, ref, useId } from 'vue'
  * its own flat, square input, with the accent underline drawn inside the input
  * on focus and a red one while invalid.
  *
- * The input matches Sentinel's search field (`.bfp-input-wrap`/`.bfp-input`):
- * a `rgba(0,0,0,.32)` scrim, 40px tall, white 14px text at 0.1em with an accent
- * caret. One deliberate difference — Sentinel uppercases its search text, which
+ * The input has no fill of its own and no padding, so it reads as a value on
+ * the card rather than a box sitting on it, and its text starts on the same
+ * vertical line as the label above. Its weight matches the read-only values it
+ * sits beside, so an editable field and a fixed one differ only by being
+ * editable.
+ *
+ * Its 4px label gap and 24px line box are shared with `DataCell` — that pairing
+ * is what lets a field and a readout on the same row align on their text rather
+ * than merely starting at the same height. 24px is also the WCAG 2.2 AA target
+ * minimum, which the old 40px box cleared comfortably and this one only meets. One deliberate difference — Sentinel uppercases its search text, which
  * suits a filter keyword but would misrepresent a device name the operator
  * typed, so the value keeps its own casing here.
  *
@@ -78,7 +85,7 @@ defineExpose({
          Sentinel draws it — 12.34:1 on this fill. -->
     <label
       :for="fieldId"
-      class="mb-2 block select-none font-sans text-[9px] uppercase tracking-control text-white"
+      class="mb-1 block select-none font-sans text-[9px] uppercase tracking-control text-white"
     >
       {{ label }}
     </label>
@@ -91,7 +98,7 @@ defineExpose({
       :disabled="disabled"
       :aria-invalid="error ? 'true' : undefined"
       :aria-describedby="resolvedDescribedBy"
-      class="min-h-[44px] w-full min-w-0 rounded-rack border-none bg-ground-field px-3 text-[14px] font-tabular tracking-label text-white caret-signal-accent outline-none transition-shadow focus:shadow-[inset_0_-2px_0_theme(colors.signal.accent)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-[40px]"
+      class="min-h-[24px] w-full min-w-0 rounded-rack border-none bg-transparent px-0 text-[12px] font-semibold leading-[24px] font-tabular tracking-label text-white caret-signal-accent outline-none transition-shadow focus:shadow-[inset_0_-2px_0_theme(colors.signal.accent)] disabled:cursor-not-allowed disabled:opacity-40"
       :class="error ? 'shadow-[inset_0_-2px_0_theme(colors.signal.danger)]' : ''"
       @blur="emit('blur')"
     />
