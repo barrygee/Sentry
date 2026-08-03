@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import BaseButton from '@/components/base/BaseButton.vue'
+import ConfirmIconAction from '@/components/base/ConfirmIconAction.vue'
 import NoticeBox, { type NoticeTone } from '@/components/base/NoticeBox.vue'
 import { useFleetStore } from '@/stores/fleet'
 import type { NoticeLevel } from '@/types/fleet'
@@ -48,14 +48,15 @@ function toneFor(level: NoticeLevel): NoticeTone {
       <NoticeBox :tone="toneFor(notice.level)" :role="roleFor(notice.level)">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <p class="m-0">{{ notice.message }}</p>
-          <BaseButton
-            variant="ghost"
-            class="shrink-0 self-start"
-            @click="fleetStore.dismissNotice(notice.id)"
-          >
-            Dismiss
-            <span class="sr-only">notice: {{ notice.message }}</span>
-          </BaseButton>
+          <ConfirmIconAction
+            class="self-start"
+            :accessible-name="`Dismiss notice: ${notice.message}`"
+            confirm-accessible-name="Confirm dismiss notice"
+            cancel-accessible-name="Cancel dismissing notice"
+            armed-announcement="Confirm dismissing this notice, or cancel."
+            cancelled-announcement="Dismissing notice cancelled."
+            @confirm="fleetStore.dismissNotice(notice.id)"
+          />
         </div>
       </NoticeBox>
     </li>
