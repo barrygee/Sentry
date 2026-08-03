@@ -41,13 +41,13 @@ withDefaults(
     <!-- Black track, accent thumb — the inverse of Sentinel's switch, which
          fills the whole track with lime when on.
 
-         The track carries a hairline ring: black on the near-black card is
-         about 1.1:1, so without it the control has no discernible boundary at
-         all (WCAG 2.2 AA 1.4.11). The ring is a control boundary rather than
-         decorative chrome, which is why it survives the card's otherwise
-         borderless treatment. -->
+         The track is unbordered and near-invisible against the card, so the
+         thumb is what identifies the control and carries its state: lime at
+         17.8:1 when on, muted grey at 7.2:1 when off. WCAG 2.2 AA 1.4.11 asks
+         that the visual information needed to identify a component clears
+         3:1 — the thumb does that on its own; the track never did. -->
     <span
-      class="relative inline-flex h-[25px] w-[46px] shrink-0 items-center rounded-rack bg-ground-page ring-1 ring-inset ring-white/10"
+      class="relative inline-flex h-[25px] w-[46px] shrink-0 items-center rounded-rack bg-ground-page"
     >
       <span
         class="absolute top-[3px] h-[19px] w-[19px] rounded-rack transition-[left,background-color]"
