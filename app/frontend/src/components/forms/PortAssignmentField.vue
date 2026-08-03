@@ -78,15 +78,13 @@ function validateAndCommit(): void {
 </script>
 
 <template>
-  <!-- `w-full` so the readout sits beside the input rather than being
-       squeezed onto its own row: the parent stacks its fields with
-       `items-start`, which otherwise shrink-wraps this row to the input.
+  <!-- Sizes to content, not the row: this sits beside the name field, and a
+       `w-full` here would push the pair onto separate lines at every width.
 
        The input is 76px — the measured width of its own "OUTPUT PORT" caption —
-       so the field is no wider than the thing naming it. With the 12px side
-       padding that leaves 52px of content, which still fits a five-digit port
-       (the range runs to 65535), not just the four-digit ones in normal use. -->
-  <div class="flex w-full flex-wrap items-start gap-8">
+       so the field is no wider than the thing naming it, and still fits a
+       five-digit port (the range runs to 65535). -->
+  <div class="flex flex-wrap items-start gap-x-8 gap-y-5">
     <BaseField
       ref="fieldRef"
       v-model="textValue"

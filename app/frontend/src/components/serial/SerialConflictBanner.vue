@@ -36,6 +36,14 @@ defineEmits<{ dismiss: []; 'request-serial-flash': [deviceId: string] }>()
             ({{ conflictingDevices.map((device) => device.label).join(', ') }})</span
           >. Neither can be remembered across a reboot until one is given a unique serial.
         </p>
+        <!-- What the buttons below actually do. Without this the only clue is
+             the word "flash", and the operator has to open a dialog about an
+             irreversible hardware write to find out what it means. -->
+        <p v-if="conflictingDevices.length" class="m-0 text-signal-muted">
+          Flashing writes a new permanent serial to the chosen dongle's memory chip. It stops that
+          dongle while it runs, and the dongle must be unplugged and reconnected before the new
+          serial takes effect. You'll be asked to confirm first.
+        </p>
         <ul v-if="conflictingDevices.length" class="m-0 flex list-none flex-wrap gap-2 p-0">
           <li v-for="device in conflictingDevices" :key="device.deviceId">
             <BaseButton variant="ghost" @click="$emit('request-serial-flash', device.deviceId)">

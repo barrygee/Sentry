@@ -153,12 +153,16 @@ export default {
       },
       maxWidth: {
         /**
-         * The device stack's measure. Was 860px (Sentinel's width for its wide
-         * settings controls), narrowed 40% at the owner's request — a card holds
-         * a handful of short readouts and two small inputs, and did not need the
-         * width of a settings document.
+         * The device stack's measure.
+         *
+         * 860px originally (Sentinel's width for its wide settings controls),
+         * then 516px, then this. The current value is not a taste call: the
+         * three-row card layout needs a 621px card for its five read-only cells
+         * to share one line (measured, not estimated), and 700px is that plus
+         * the 40px page gutter and headroom for a longer model string than the
+         * test fixtures carry.
          */
-        stack: '516px',
+        stack: '700px',
       },
     },
   },

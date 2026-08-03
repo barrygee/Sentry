@@ -13,8 +13,10 @@ import { computed, ref, useId } from 'vue'
  * on focus and a red one while invalid.
  *
  * The input matches Sentinel's search field (`.bfp-input-wrap`/`.bfp-input`):
- * a `rgba(0,0,0,.32)` scrim, 40px tall, white 14px text at 0.1em with an accent
- * caret. One deliberate difference — Sentinel uppercases its search text, which
+ * a `rgba(0,0,0,.32)` scrim, 40px tall, white text at 0.1em with an accent
+ * caret. It carries no horizontal padding, so the value starts on the same
+ * vertical line as the label above it — with padding the text sat indented
+ * past its own caption, which read as a misalignment rather than as inset. One deliberate difference — Sentinel uppercases its search text, which
  * suits a filter keyword but would misrepresent a device name the operator
  * typed, so the value keeps its own casing here.
  *
@@ -91,7 +93,7 @@ defineExpose({
       :disabled="disabled"
       :aria-invalid="error ? 'true' : undefined"
       :aria-describedby="resolvedDescribedBy"
-      class="min-h-[44px] w-full min-w-0 rounded-rack border-none bg-ground-field px-3 text-[14px] font-tabular tracking-label text-white caret-signal-accent outline-none transition-shadow focus:shadow-[inset_0_-2px_0_theme(colors.signal.accent)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-[40px]"
+      class="min-h-[44px] w-full min-w-0 rounded-rack border-none bg-ground-field px-0 text-[12px] font-tabular tracking-label text-white caret-signal-accent outline-none transition-shadow focus:shadow-[inset_0_-2px_0_theme(colors.signal.accent)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-[40px]"
       :class="error ? 'shadow-[inset_0_-2px_0_theme(colors.signal.danger)]' : ''"
       @blur="emit('blur')"
     />
