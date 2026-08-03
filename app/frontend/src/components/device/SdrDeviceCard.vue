@@ -158,10 +158,19 @@ const identitySerial = computed(
       :last-topology-path="device.usb_last_known?.topology_path ?? null"
     />
 
-    <!-- Row 2 — the editable fields, and the relay ports they determine. Wraps
-         to as many lines as the viewport needs. -->
-    <div v-if="isEditable" class="flex flex-col gap-3">
-      <div class="flex flex-wrap items-start gap-x-8 gap-y-5">
+    <!-- Rows 2 and 3 share one grid, so their columns line up: "Output port"
+         sits above "Serial number", "Relay listens on" above "Center
+         frequency". As two independent flex rows each column landed wherever
+         its own content ended, and nothing aligned between them.
+
+         Tracks are `max-content` rather than equal fractions — a model string
+         is far wider than a gain reading, and equal columns would have wrapped
+         the long one to make room for whitespace beside the short one. The
+         count steps down at narrower widths rather than overflowing. -->
+    <div
+      class="grid grid-cols-[repeat(2,max-content)] items-start gap-x-8 gap-y-5 sm:grid-cols-[repeat(3,max-content)] lg:grid-cols-[repeat(5,max-content)]"
+    >
+      <template v-if="isEditable">
         <DeviceNameField v-model="nameDraft" class="w-[160px]" @commit="commitName" />
         <PortAssignmentField
           v-model="portDraft"
@@ -169,36 +178,43 @@ const identitySerial = computed(
           :own-reserved-ports="ownReservedPorts"
           @commit="commitPort"
         />
-      </div>
-      <p v-if="needsBothFieldsToConfigure" class="m-0 text-[12px] leading-[1.6] text-signal-muted">
-        Configuring a new device needs both a valid name and a valid output port — nothing is saved
-        until both fields have been entered.
-      </p>
-    </div>
-
-    <!-- Row 3 — what the hardware is and what it is currently tuned to.
-         Read-only, and one list rather than two so all five cells share a
-         single wrap context: as two adjacent lists the tuner group broke to
-         its own line as a block, whatever the width. -->
-    <dl class="m-0 flex flex-wrap items-start gap-x-8 gap-y-5">
-      <DataCell label="Model" label-tag="dt" value-tag="dd" :value="identityModel" />
-      <DataCell v-if="identitySerial" label="Serial number" label-tag="dt" value-tag="dd">
-        <MonoValue :value="identitySerial" />
-      </DataCell>
-      <template v-if="device.tuner">
-        <DataCell label="Center frequency" label-tag="dt" value-tag="dd">
-          <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
-        </DataCell>
-        <DataCell label="Rate" label-tag="dt" value-tag="dd">
-          <MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" />
-        </DataCell>
-        <DataCell label="Gain" label-tag="dt" value-tag="dd">
-          <!-- No unit when the tuner is in AGC: the value is a mode, not a
-               measurement, and "AGC dB" reads as nonsense. -->
-          <MonoValue v-if="device.tuner.gain_auto" value="AGC" />
-          <MonoValue v-else :value="device.tuner.gain_db.toFixed(1)" unit="dB" />
-        </DataCell>
+        <p
+          v-if="needsBothFieldsToConfigure"
+          class="col-span-full m-0 text-[12px] leading-[1.6] text-signal-muted"
+        >
+          Configuring a new device needs both a valid name and a valid output port — nothing is
+          saved until both fields have been entered.
+        </p>
       </template>
-    </dl>
+
+      <!-- `col-start-1` starts the read-only band on a fresh row instead of
+           flowing into whatever column the fields above left free. -->
+      <dl class="contents">
+        <DataCell
+          class="col-start-1"
+          label="Model"
+          label-tag="dt"
+          value-tag="dd"
+          :value="identityModel"
+        />
+        <DataCell v-if="identitySerial" label="Serial number" label-tag="dt" value-tag="dd">
+          <MonoValue :value="identitySerial" />
+        </DataCell>
+        <template v-if="device.tuner">
+          <DataCell label="Center frequency" label-tag="dt" value-tag="dd">
+            <MonoValue :value="(device.tuner.center_hz / 1_000_000).toFixed(3)" unit="MHz" />
+          </DataCell>
+          <DataCell label="Rate" label-tag="dt" value-tag="dd">
+            <MonoValue :value="(device.tuner.sample_rate / 1_000).toFixed(0)" unit="kS/s" />
+          </DataCell>
+          <DataCell label="Gain" label-tag="dt" value-tag="dd">
+            <!-- No unit when the tuner is in AGC: the value is a mode, not a
+                 measurement, and "AGC dB" reads as nonsense. -->
+            <MonoValue v-if="device.tuner.gain_auto" value="AGC" />
+            <MonoValue v-else :value="device.tuner.gain_db.toFixed(1)" unit="dB" />
+          </DataCell>
+        </template>
+      </dl>
+    </div>
   </PanelCard>
 </template>

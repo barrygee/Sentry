@@ -78,13 +78,15 @@ function validateAndCommit(): void {
 </script>
 
 <template>
-  <!-- Sizes to content, not the row: this sits beside the name field, and a
-       `w-full` here would push the pair onto separate lines at every width.
+  <!-- `display: contents` — the wrapper dissolves so the input and the readout
+       become separate items of the card's grid, landing in their own columns
+       above "Serial number" and "Center frequency". Wrapped in a box of their
+       own they would have shared a single column and aligned with neither.
 
        The input is 76px — the measured width of its own "OUTPUT PORT" caption —
        so the field is no wider than the thing naming it, and still fits a
        five-digit port (the range runs to 65535). -->
-  <div class="flex flex-wrap items-start gap-x-8 gap-y-5">
+  <div class="contents">
     <BaseField
       ref="fieldRef"
       v-model="textValue"
