@@ -39,7 +39,7 @@ defineEmits<{ dismiss: []; 'request-serial-flash': [deviceId: string] }>()
         <!-- What the buttons below actually do. Without this the only clue is
              the word "flash", and the operator has to open a dialog about an
              irreversible hardware write to find out what it means. -->
-        <p v-if="conflictingDevices.length" class="m-0 text-signal-muted">
+        <p v-if="conflictingDevices.length" class="m-0 font-normal text-signal-muted">
           Flashing writes a new permanent serial to the chosen dongle's memory chip. It stops that
           dongle while it runs, and the dongle must be unplugged and reconnected before the new
           serial takes effect. You'll be asked to confirm first.
