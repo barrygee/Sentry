@@ -22,8 +22,10 @@ export type StatusBadgeTone = 'neutral' | 'accent' | 'ok' | 'warn' | 'danger' | 
 const props = withDefaults(defineProps<{ tone?: StatusBadgeTone }>(), { tone: 'neutral' })
 
 const TONE_CLASSES = {
-  neutral: 'text-white',
-  accent: 'text-signal-accent',
+  neutral: 'text-ink-primary',
+  // Not the raw accent: lime is 1.18:1 on this light ground and unreadable
+  // as text. `ok` is its text-safe form.
+  accent: 'text-signal-ok',
   ok: 'text-signal-ok',
   warn: 'text-signal-warn',
   danger: 'text-signal-danger',
@@ -35,7 +37,7 @@ const toneClass = computed(() => TONE_CLASSES[props.tone])
 
 <template>
   <span
-    class="inline-flex items-center gap-1.5 font-sans text-[9px] font-bold uppercase tracking-control"
+    class="inline-flex items-center gap-1.5 font-sans text-[10px] font-semibold uppercase tracking-legend"
     :class="toneClass"
   >
     <slot />

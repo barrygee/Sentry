@@ -35,7 +35,7 @@ withDefaults(
 
 <template>
   <label class="inline-flex min-h-[44px] cursor-pointer select-none items-center gap-3">
-    <span class="font-sans text-[9px] font-bold uppercase tracking-control text-white">
+    <span class="font-sans text-[10px] font-semibold uppercase tracking-control text-ink-primary">
       {{ label }}
     </span>
     <!-- Black track, accent thumb — the inverse of Sentinel's switch, which
@@ -47,11 +47,12 @@ withDefaults(
          that the visual information needed to identify a component clears
          3:1 — the thumb does that on its own; the track never did. -->
     <span
-      class="relative inline-flex h-[25px] w-[46px] shrink-0 items-center rounded-rack bg-ground-page"
+      class="relative inline-flex h-[25px] w-[46px] shrink-0 items-center rounded-rack transition-colors"
+      :class="modelValue ? 'bg-signal-accent' : 'bg-ink-primary/[0.14]'"
     >
       <span
         class="absolute top-[3px] h-[19px] w-[19px] rounded-rack transition-[left,background-color]"
-        :class="modelValue ? 'left-[24px] bg-signal-accent' : 'left-[3px] bg-signal-muted'"
+        :class="modelValue ? 'left-[24px] bg-ink-on-accent' : 'left-[3px] bg-ground-panel'"
       />
     </span>
     <input

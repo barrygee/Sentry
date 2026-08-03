@@ -5,8 +5,6 @@ import { apiClient } from '@/api/client'
 import EmptyState from '@/components/base/EmptyState.vue'
 import PanelStack from '@/components/base/PanelStack.vue'
 import AbsentDeviceGroup from '@/components/fleet/AbsentDeviceGroup.vue'
-import FleetHeader from '@/components/fleet/FleetHeader.vue'
-import FleetLayout from '@/components/fleet/FleetLayout.vue'
 import NoticeList from '@/components/fleet/NoticeList.vue'
 import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
 import ForgetDeviceDialog from '@/components/device/ForgetDeviceDialog.vue'
@@ -42,10 +40,6 @@ function openSerialFlashDialog(deviceId: string): void {
 
 function closeSerialFlashDialog(): void {
   fleetStore.closeSerialFlashDialog()
-}
-
-function openForgetDialog(deviceId: string): void {
-  fleetStore.openForgetDialog(deviceId)
 }
 
 function closeForgetDialog(): void {
@@ -102,11 +96,10 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
 
 <template>
   <div class="flex min-h-full flex-col">
-    <FleetHeader />
-    <!-- One centred measure for everything below the header — notices, conflict
-         banners and the device stack all share it, so nothing runs full-bleed
-         past the cards. -->
-    <div class="mx-auto flex w-full max-w-stack flex-col gap-6 px-5 pb-16 pt-4">
+    <!-- Sentinel's settings body gutters. No section heading above the card:
+         this console has one subject, so a title naming it would only repeat
+         the card beneath. -->
+    <div class="flex w-full max-w-content flex-col gap-6 px-5 pb-16 pt-[34px] md:px-gutter">
       <NoticeList />
       <ul
         v-if="visibleConflictGroups.length"
@@ -122,37 +115,38 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
           />
         </li>
       </ul>
-      <FleetLayout>
-        <template #devices>
+      <!-- Each device is its own white box on the canvas — no wrapping card and
+           no title above them. The heading stays in the DOM, screen-reader
+           only: it is the skip link's destination and this section's accessible
+           name, and the boxes below would otherwise be an unlabelled run. -->
+      <section aria-labelledby="devices-heading" class="flex flex-col gap-4">
+        <h2 id="devices-heading" tabindex="-1" class="sr-only outline-none">SDR devices</h2>
+        <EmptyState
+          v-if="!hasDevices"
+          title="No devices detected"
+          detail="Connect an SDR to a USB port on this Pi."
+        />
+        <template v-else>
           <EmptyState
-            v-if="!hasDevices"
-            title="No devices detected"
-            detail="Connect an SDR to a USB port on this Pi."
+            v-if="fleetStore.presentDevices.length === 0"
+            title="No devices currently plugged in"
+            detail="Every configured device below is absent — see the collapsed group beneath."
           />
-          <template v-else>
-            <EmptyState
-              v-if="fleetStore.presentDevices.length === 0"
-              title="No devices currently plugged in"
-              detail="Every configured device below is absent — see the collapsed group beneath."
-            />
-            <PanelStack v-else>
-              <SdrDeviceCard
-                v-for="device in fleetStore.presentDevices"
-                :key="device.device_id"
-                :device="device"
-                @request-serial-flash="openSerialFlashDialog"
-                @request-forget-device="openForgetDialog"
-              />
-            </PanelStack>
-            <AbsentDeviceGroup
-              v-if="fleetStore.absentConfiguredDevices.length > 0"
-              :devices="fleetStore.absentConfiguredDevices"
+          <PanelStack v-else>
+            <SdrDeviceCard
+              v-for="device in fleetStore.presentDevices"
+              :key="device.device_id"
+              :device="device"
               @request-serial-flash="openSerialFlashDialog"
-              @request-forget-device="openForgetDialog"
             />
-          </template>
+          </PanelStack>
+          <AbsentDeviceGroup
+            v-if="fleetStore.absentConfiguredDevices.length > 0"
+            :devices="fleetStore.absentConfiguredDevices"
+            @request-serial-flash="openSerialFlashDialog"
+          />
         </template>
-      </FleetLayout>
+      </section>
     </div>
     <SerialFlashDialog
       :device="fleetStore.serialFlashDialogDevice"

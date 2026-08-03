@@ -85,7 +85,7 @@ defineExpose({
          Sentinel draws it — 12.34:1 on this fill. -->
     <label
       :for="fieldId"
-      class="mb-1 block select-none font-sans text-[9px] font-bold uppercase tracking-control text-white"
+      class="mb-1 block select-none font-sans text-[10px] font-semibold uppercase tracking-control text-ink-primary"
     >
       {{ label }}
     </label>
@@ -98,7 +98,7 @@ defineExpose({
       :disabled="disabled"
       :aria-invalid="error ? 'true' : undefined"
       :aria-describedby="resolvedDescribedBy"
-      class="min-h-[24px] w-full min-w-0 rounded-rack border-none bg-transparent px-0 text-[12px] font-normal leading-[24px] font-tabular tracking-label text-white caret-signal-accent outline-none shadow-[inset_0_-1px_0_theme(colors.ground.hairline)] transition-shadow focus:shadow-[inset_0_-2px_0_theme(colors.signal.accent)] disabled:cursor-not-allowed disabled:opacity-40"
+      class="min-h-[24px] w-full min-w-0 rounded-rack border-none bg-transparent px-0 text-[12px] font-normal leading-[24px] font-tabular tracking-readout text-ink-primary caret-ink-primary outline-none shadow-[inset_0_-1px_0_theme(colors.ground.hairline)] transition-shadow focus:shadow-[inset_0_-2px_0_theme(colors.signal.accent)] disabled:cursor-not-allowed disabled:opacity-40"
       :class="error ? 'shadow-[inset_0_-2px_0_theme(colors.signal.danger)]' : ''"
       @blur="emit('blur')"
     />
