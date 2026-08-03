@@ -74,7 +74,7 @@ const ACTION_CLASSES =
       <button
         ref="confirmButton"
         type="button"
-        :class="[ACTION_CLASSES, 'text-signal-ok hover:text-signal-ok']"
+        :class="[ACTION_CLASSES, 'text-current opacity-90 hover:opacity-100']"
         :aria-label="confirmAccessibleName"
         @click="confirm"
       >
@@ -94,7 +94,7 @@ const ACTION_CLASSES =
       </button>
       <button
         type="button"
-        :class="[ACTION_CLASSES, 'text-signal-muted hover:text-signal-danger']"
+        :class="[ACTION_CLASSES, 'text-current opacity-60 hover:opacity-100']"
         :aria-label="cancelAccessibleName"
         @click="cancel"
       >
@@ -116,7 +116,7 @@ const ACTION_CLASSES =
       v-else
       ref="armButton"
       type="button"
-      :class="[ACTION_CLASSES, 'text-signal-faint hover:text-ink-primary']"
+      :class="[ACTION_CLASSES, 'text-current opacity-60 hover:opacity-100']"
       :aria-label="accessibleName"
       @click="arm"
     >

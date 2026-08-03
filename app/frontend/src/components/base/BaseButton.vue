@@ -35,7 +35,7 @@
  */
 const props = withDefaults(
   defineProps<{
-    variant?: 'primary' | 'ghost' | 'danger' | 'quiet'
+    variant?: 'primary' | 'ghost' | 'danger' | 'quiet' | 'inverse'
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
   }>(),
@@ -57,7 +57,8 @@ const variantClasses = {
     'bg-signal-danger/[0.10] text-signal-danger hover:bg-signal-danger/[0.18] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   quiet:
     'bg-transparent px-0 font-bold text-ink-primary hover:text-signal-danger disabled:text-signal-muted disabled:hover:text-signal-muted',
-} as const satisfies Record<'primary' | 'ghost' | 'danger' | 'quiet', string>
+  inverse: 'bg-white/20 text-white hover:bg-white/30 disabled:bg-white/10 disabled:text-white/60',
+} as const satisfies Record<'primary' | 'ghost' | 'danger' | 'quiet' | 'inverse', string>
 </script>
 
 <template>

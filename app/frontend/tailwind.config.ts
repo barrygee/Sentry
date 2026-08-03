@@ -110,7 +110,7 @@ export default {
            * neither could simply be copied. This clears 4.5:1 on the wash while
            * being markedly more saturated than either (0.92 vs 0.75-0.77).
            */
-          danger: '#bf1e10',
+          danger: '#d0190a',
           /** Starting / connecting, and structural chrome. */
           info: '#0c6a84',
           /** Secondary text: descriptions, captions, idle-state labels. */

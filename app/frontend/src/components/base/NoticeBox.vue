@@ -5,11 +5,13 @@ import { computed } from 'vue'
  * The inset, tinted callout used for every warning, error and inline
  * explanation: a light wash of its tone carrying matching text, with no border.
  *
- * The wash is deliberately faint (5%) and the text a step heavier than body
- * copy. On a light ground a tint always mutes the text sitting on it, and a
- * red vivid enough to look bright is too light to clear 4.5:1 at this size —
- * so the strength has to come from weight and a near-clear background rather
- * than from a brighter hue. At 12% the tone was visibly eating its own text.
+ * Each tone is a SOLID fill carrying white text, not a tint of itself. A wash
+ * is a pale ghost of a colour however it is tuned — and these are the loudest
+ * things on the page, so they should be the colour rather than a hint of it.
+ * White clears 4.5:1 on every tone (danger 5.49, warn 6.82, info 6.16, ok 6.52).
+ *
+ * `neutral` stays a light fill: it carries "this is just so you know", not an
+ * alarm, and a solid grey slab would shout as loudly as an error.
  *
  * The caller supplies `role` explicitly rather than this component inferring
  * it from `tone` — whether a message should interrupt a screen-reader user
@@ -29,10 +31,10 @@ const props = withDefaults(
 )
 
 const TONE_CLASSES = {
-  danger: 'bg-signal-danger/[0.05] text-signal-danger',
-  warn: 'bg-signal-warn/[0.05] text-signal-warn',
-  info: 'bg-signal-info/[0.05] text-signal-info',
-  ok: 'bg-signal-ok/[0.05] text-signal-ok',
+  danger: 'bg-signal-danger text-white',
+  warn: 'bg-signal-warn text-white',
+  info: 'bg-signal-info text-white',
+  ok: 'bg-signal-ok text-white',
   neutral: 'bg-ground-raised text-signal-muted',
 } as const satisfies Record<NoticeTone, string>
 

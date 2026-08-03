@@ -150,11 +150,11 @@ const statusRegionVisible = computed(
 const NOTICE_BOX_CLASSES = 'rounded-rack px-4 py-3 text-[12.5px] leading-[1.55]'
 const statusRegionClasses = computed(() =>
   phase.value === 'succeeded'
-    ? `${NOTICE_BOX_CLASSES} bg-signal-ok/[0.08] text-signal-ok`
+    ? `${NOTICE_BOX_CLASSES} bg-signal-ok text-white`
     : 'text-[12.5px] leading-[1.55] text-signal-muted',
 )
 const alertMessage = computed(() => (phase.value === 'failed' ? (outcomeMessage.value ?? '') : ''))
-const alertRegionClasses = `${NOTICE_BOX_CLASSES} bg-signal-danger/[0.08] text-signal-danger`
+const alertRegionClasses = `${NOTICE_BOX_CLASSES} bg-signal-danger text-white`
 
 /** Maps a thrown `ApiError`'s machine code to an operator-facing sentence — never surfaces a raw code. */
 function humanizeFlashError(error: unknown): string {
