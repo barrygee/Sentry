@@ -8,7 +8,14 @@
  * rather than an outline, brightening on hover. `ghost` is that neutral wash,
  * `danger` is a red one, and `primary` is the solid lime accent behind
  * near-black text (16.55:1) — Sentinel's commit-action treatment. The primary
- * hover `#d8ff33` is Sentinel's own value.
+ * hover `#d8ff33` is Sentinel's own value. `quiet` is the same legend type with
+ * no fill at all, for a secondary action that should not compete with the
+ * controls around it — on a card whose only filled elements are its inputs, a
+ * filled button reads as the loudest thing on screen regardless of its tone.
+ * It sits at body-text brightness and turns red on hover: its only use is a
+ * destructive trigger, and at rest it must be plainly distinguishable from its
+ * own disabled state, which is muted grey — two shades of grey would have left
+ * "available" and "unavailable" looking identical.
  *
  * Sentinel's own buttons are 28px tall at 9px type; Sentry's are larger
  * because these are the primary controls on a page rather than dense controls
@@ -28,7 +35,7 @@
  */
 const props = withDefaults(
   defineProps<{
-    variant?: 'primary' | 'ghost' | 'danger'
+    variant?: 'primary' | 'ghost' | 'danger' | 'quiet'
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
   }>(),
@@ -48,7 +55,9 @@ const variantClasses = {
     'bg-white/[0.08] font-bold text-signal-muted hover:bg-white/[0.1] hover:text-white disabled:bg-white/[0.04] disabled:text-signal-muted',
   danger:
     'bg-signal-danger/[0.15] font-bold text-signal-danger hover:bg-signal-danger/25 disabled:bg-white/[0.04] disabled:text-signal-muted',
-} as const satisfies Record<'primary' | 'ghost' | 'danger', string>
+  quiet:
+    'bg-transparent px-0 font-bold text-ink-primary hover:text-signal-danger disabled:text-signal-muted disabled:hover:text-signal-muted',
+} as const satisfies Record<'primary' | 'ghost' | 'danger' | 'quiet', string>
 </script>
 
 <template>

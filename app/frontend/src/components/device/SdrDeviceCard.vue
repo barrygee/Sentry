@@ -170,16 +170,6 @@ const forgetBlockedReason = computed(() =>
             <DeviceStatusBadge :state="device.state" :reason="device.state_reason ?? null" />
           </div>
           <div class="flex items-center gap-3">
-            <BaseButton
-              v-if="hasSavedConfiguration"
-              variant="danger"
-              :disabled="forgetBlockedReason !== null"
-              :title="forgetBlockedReason ?? undefined"
-              :aria-describedby="forgetBlockedReason ? forgetBlockedHintId : undefined"
-              @click="emit('request-forget-device', device.device_id)"
-            >
-              Forget device
-            </BaseButton>
             <BaseToggle
               v-if="device.record_id !== null"
               :model-value="device.enabled"
@@ -188,13 +178,6 @@ const forgetBlockedReason = computed(() =>
               @update:model-value="commitEnabled"
             />
           </div>
-          <p
-            v-if="hasSavedConfiguration && forgetBlockedReason"
-            :id="forgetBlockedHintId"
-            class="m-0 basis-full text-right text-[11px] leading-[1.5] text-signal-muted"
-          >
-            {{ forgetBlockedReason }}
-          </p>
         </div>
         <DeviceIdentitySummary
           :manufacturer="identityManufacturer"
@@ -249,6 +232,29 @@ const forgetBlockedReason = computed(() =>
       <p v-if="needsBothFieldsToConfigure" class="m-0 text-[12px] leading-[1.6] text-signal-muted">
         Configuring a new device needs both a valid name and a valid output port — nothing is saved
         until both fields have been entered.
+      </p>
+    </div>
+
+    <!-- Destructive action, last and quiet. It only opens a confirmation
+         dialog — that dialog is where the danger styling belongs — so the
+         trigger has no business competing with the enable switch at the top of
+         the card. Disabled while the dongle is plugged in, with the reason
+         beside it rather than floating under the header. -->
+    <div v-if="hasSavedConfiguration" class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+      <BaseButton
+        variant="quiet"
+        :disabled="forgetBlockedReason !== null"
+        :aria-describedby="forgetBlockedReason ? forgetBlockedHintId : undefined"
+        @click="emit('request-forget-device', device.device_id)"
+      >
+        Forget device
+      </BaseButton>
+      <p
+        v-if="forgetBlockedReason"
+        :id="forgetBlockedHintId"
+        class="m-0 text-[11px] leading-[1.5] text-signal-muted"
+      >
+        {{ forgetBlockedReason }}
       </p>
     </div>
   </PanelCard>
