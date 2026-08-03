@@ -9,6 +9,11 @@ import { computed } from 'vue'
  * as a third coloured surface on a card that already carries the state as a
  * glyph. It is now the label alone, as the rest of the card is.
  *
+ * `neutral` is white rather than grey: the device state is the only 9px
+ * uppercase label on a card that is not a field title, and left muted it read
+ * as an oversight beside them rather than as a different kind of thing. The
+ * state's own colour is carried by `StatusDot`'s glyph, so nothing is lost.
+ *
  * Every tone's text colour is verified >=4.5:1 against Sentry's grounds (see
  * `tailwind.config.ts`), which the fill's removal only improves.
  */
@@ -17,7 +22,7 @@ export type StatusBadgeTone = 'neutral' | 'accent' | 'ok' | 'warn' | 'danger' | 
 const props = withDefaults(defineProps<{ tone?: StatusBadgeTone }>(), { tone: 'neutral' })
 
 const TONE_CLASSES = {
-  neutral: 'text-signal-muted',
+  neutral: 'text-white',
   accent: 'text-signal-accent',
   ok: 'text-signal-ok',
   warn: 'text-signal-warn',
