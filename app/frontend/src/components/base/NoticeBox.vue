@@ -24,10 +24,10 @@ const props = withDefaults(
 )
 
 const TONE_CLASSES = {
-  danger: 'bg-signal-danger/[0.15] text-signal-danger',
-  warn: 'bg-signal-warn/[0.12] text-signal-warn',
-  info: 'bg-signal-info/[0.12] text-signal-info',
-  ok: 'bg-signal-ok/[0.12] text-signal-ok',
+  danger: 'bg-signal-danger/[0.08] text-signal-danger',
+  warn: 'bg-signal-warn/[0.08] text-signal-warn',
+  info: 'bg-signal-info/[0.08] text-signal-info',
+  ok: 'bg-signal-ok/[0.08] text-signal-ok',
   neutral: 'bg-ground-raised text-signal-muted',
 } as const satisfies Record<NoticeTone, string>
 
@@ -37,7 +37,7 @@ const toneClass = computed(() => TONE_CLASSES[props.tone])
 <template>
   <div
     :role="props.role ?? undefined"
-    class="flex flex-col gap-2 rounded-rack px-4 py-3 text-[12px] leading-[1.6]"
+    class="flex flex-col gap-2 rounded-rack px-4 py-3 text-[12.5px] leading-[1.55]"
     :class="toneClass"
   >
     <slot />

@@ -35,7 +35,7 @@ withDefaults(
 
 <template>
   <label class="inline-flex min-h-[44px] cursor-pointer select-none items-center gap-3">
-    <span class="font-sans text-[9px] font-bold uppercase tracking-control text-ink-primary">
+    <span class="font-sans text-[10px] font-semibold uppercase tracking-control text-ink-primary">
       {{ label }}
     </span>
     <!-- Black track, accent thumb — the inverse of Sentinel's switch, which

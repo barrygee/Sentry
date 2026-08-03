@@ -147,14 +147,14 @@ const statusRegionVisible = computed(
 // (see the comment above), so they carry `NoticeBox`'s look as class strings
 // rather than rendering a `NoticeBox` — swapping the component in and out is
 // exactly the remount this design avoids.
-const NOTICE_BOX_CLASSES = 'rounded-rack px-4 py-3 text-[12px] leading-[1.6]'
+const NOTICE_BOX_CLASSES = 'rounded-rack px-4 py-3 text-[12.5px] leading-[1.55]'
 const statusRegionClasses = computed(() =>
   phase.value === 'succeeded'
-    ? `${NOTICE_BOX_CLASSES} bg-signal-ok/[0.12] text-signal-ok`
-    : 'text-[12px] leading-[1.6] text-signal-muted',
+    ? `${NOTICE_BOX_CLASSES} bg-signal-ok/[0.08] text-signal-ok`
+    : 'text-[12.5px] leading-[1.55] text-signal-muted',
 )
 const alertMessage = computed(() => (phase.value === 'failed' ? (outcomeMessage.value ?? '') : ''))
-const alertRegionClasses = `${NOTICE_BOX_CLASSES} bg-signal-danger/[0.15] text-signal-danger`
+const alertRegionClasses = `${NOTICE_BOX_CLASSES} bg-signal-danger/[0.08] text-signal-danger`
 
 /** Maps a thrown `ApiError`'s machine code to an operator-facing sentence — never surfaces a raw code. */
 function humanizeFlashError(error: unknown): string {
@@ -195,7 +195,7 @@ function humanizeFlashError(error: unknown): string {
         <SectionHeading :id="headingId" dot-class="bg-signal-danger">
           Flash a unique serial — {{ deviceLabel }}
         </SectionHeading>
-        <p class="m-0 text-[12px] leading-[1.6] text-signal-muted">
+        <p class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">
           Writes a permanent serial to this dongle's EEPROM via
           <code class="font-mono">rtl_eeprom</code>. This is the most destructive action Sentry can
           take on hardware — an interrupted write can corrupt the device's USB descriptor.

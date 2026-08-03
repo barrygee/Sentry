@@ -100,11 +100,17 @@ export default {
           /** The lime accent. FILL and decorative marks only — never text or a border. */
           accent: '#c8ff00',
           /** Streaming / success. The text-safe form of the accent. */
-          ok: '#4a7200',
+          ok: '#436800',
           /** Degraded, and warning surfaces. */
-          warn: '#8a5a00',
-          /** Error and destructive actions. */
-          danger: '#b8352a',
+          warn: '#7d5200',
+          /**
+           * Error and destructive actions. Saturated deliberately: the earlier
+           * `#b8352a` read as dusty pink once laid under its own tint, and
+           * Sentinel's `#d94436` is worse — 2.98:1 on that tint, which is why
+           * neither could simply be copied. This clears 4.5:1 on the wash while
+           * being markedly more saturated than either (0.92 vs 0.75-0.77).
+           */
+          danger: '#bf1e10',
           /** Starting / connecting, and structural chrome. */
           info: '#0c6a84',
           /** Secondary text: descriptions, captions, idle-state labels. */
@@ -140,8 +146,6 @@ export default {
         wordmark: '-0.015em',
         /** Large readouts (Sentinel's frequency display, `0.04em`). */
         readout: '0.04em',
-        /** Data-cell values and card titles (Sentinel `.ba-data-cell-value`, its station name). */
-        data: '0.06em',
         /** Glyph-adjacent micro-labels. */
         legend: '0.08em',
         /** Card titles. */

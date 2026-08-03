@@ -83,9 +83,12 @@ function validateAndCommit(): void {
        above "Serial number" and "Center frequency". Wrapped in a box of their
        own they would have shared a single column and aligned with neither.
 
-       The input is 76px — the measured width of its own "OUTPUT PORT" caption —
-       so the field is no wider than the thing naming it, and still fits a
-       five-digit port (the range runs to 65535). -->
+       The input takes its width from the grid column, which `max-content`
+       sizes to the wider of the input and its own "OUTPUT PORT" caption. It
+       was pinned to 76px — the caption's width at the old 9px type — and the
+       10px caption then wrapped onto two lines inside it. Letting the column
+       decide keeps the field no wider than the thing naming it without
+       re-measuring every time the type changes. -->
   <div class="contents">
     <BaseField
       ref="fieldRef"
@@ -96,7 +99,6 @@ function validateAndCommit(): void {
       :error="clientError ?? props.serverError"
       :disabled="props.disabled"
       :described-by="relayPortsId"
-      class="w-[76px]"
       @blur="validateAndCommit"
     />
     <DataCell :id="relayPortsId" label="Relay listens on" :value="relayPortsSummary" />

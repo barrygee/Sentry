@@ -50,11 +50,11 @@ defineEmits<{ click: [MouseEvent] }>()
 
 const variantClasses = {
   primary:
-    'bg-signal-accent font-bold text-ink-on-accent hover:bg-[#d8ff33] disabled:bg-ink-primary/[0.06] disabled:text-signal-muted',
+    'bg-signal-accent font-bold tracking-control text-ink-on-accent hover:bg-[#d8ff33] disabled:bg-ink-primary/[0.06] disabled:text-signal-muted',
   ghost:
-    'bg-ink-primary/[0.06] font-bold text-ink-primary hover:bg-ink-primary/[0.12] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
+    'bg-ink-primary/[0.06] text-ink-primary hover:bg-ink-primary/[0.12] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   danger:
-    'bg-signal-danger/[0.10] font-bold text-signal-danger hover:bg-signal-danger/[0.18] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
+    'bg-signal-danger/[0.10] text-signal-danger hover:bg-signal-danger/[0.18] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   quiet:
     'bg-transparent px-0 font-bold text-ink-primary hover:text-signal-danger disabled:text-signal-muted disabled:hover:text-signal-muted',
 } as const satisfies Record<'primary' | 'ghost' | 'danger' | 'quiet', string>
@@ -65,7 +65,7 @@ const variantClasses = {
     :type="type"
     :disabled="disabled"
     :class="[
-      'inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-rack border-none px-[18px] font-sans text-[9px] uppercase tracking-control transition-colors disabled:cursor-not-allowed sm:min-h-[38px]',
+      'inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-rack border-none px-[18px] font-sans text-[11px] font-semibold uppercase tracking-heading transition-colors disabled:cursor-not-allowed sm:min-h-[38px]',
       variantClasses[props.variant],
     ]"
     @click="$emit('click', $event)"

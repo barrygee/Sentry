@@ -29,7 +29,7 @@ defineEmits<{
 <template>
   <details class="group mt-2 rounded-rack bg-ground-raised">
     <summary
-      class="flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack px-card py-3 font-sans text-[9px] uppercase tracking-control text-signal-muted transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden"
+      class="flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack px-card py-3 font-sans text-[10px] font-semibold uppercase tracking-control text-signal-muted transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden"
     >
       <span aria-hidden="true" class="transition-transform group-open:rotate-90">▶</span>
       Absent devices — configuration kept ({{ devices.length }})
@@ -38,7 +38,7 @@ defineEmits<{
          than every other device box on the page, and the list is supposed to
          read as one consistent column. -->
     <div class="flex flex-col gap-4 pb-card">
-      <p class="m-0 px-card text-[12px] leading-[1.6] text-signal-muted">
+      <p class="m-0 px-card text-[12.5px] leading-[1.55] text-signal-muted">
         Not currently plugged in. Replugging the hardware re-detects it; forgetting one discards its
         saved name, port and tuning defaults.
       </p>

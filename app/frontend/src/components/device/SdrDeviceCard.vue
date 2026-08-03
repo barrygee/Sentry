@@ -177,7 +177,7 @@ const identitySerial = computed(
         />
         <p
           v-if="needsBothFieldsToConfigure"
-          class="col-span-full m-0 text-[12px] leading-[1.6] text-signal-muted"
+          class="col-span-full m-0 text-[12.5px] leading-[1.55] text-signal-muted"
         >
           Configuring a new device needs both a valid name and a valid output port — nothing is
           saved until both fields have been entered.
