@@ -20,8 +20,9 @@ import NeedsIdentificationNotice from './NeedsIdentificationNotice.vue'
  * inline-editable form fields. This is the component `UsbTopologyTree`
  * moves focus to on Enter/Space (architecture §9.4).
  *
- * One row inside the devices card: a light fill a step below the card itself,
- * holding the device's status, its editable fields and its read-only identity.
+ * One device, in its own white box on the canvas: its status, its editable
+ * fields and its read-only identity. There is no wrapping card and no title —
+ * the boxes are the list.
  */
 const props = defineProps<{ device: DeviceStatus }>()
 
@@ -127,7 +128,7 @@ const identitySerial = computed(
   <article
     :id="`device-card-${device.device_id}`"
     tabindex="-1"
-    class="flex flex-col gap-6 rounded-rack bg-ground-raised p-card outline-none"
+    class="flex flex-col gap-6 rounded-rack bg-ground-panel p-card outline-none"
   >
     <!-- Row 1 — identity and the one control that changes what the device is
          doing right now. -->

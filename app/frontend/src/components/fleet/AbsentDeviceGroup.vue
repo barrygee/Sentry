@@ -34,8 +34,11 @@ defineEmits<{
       <span aria-hidden="true" class="transition-transform group-open:rotate-90">▶</span>
       Absent devices — configuration kept ({{ devices.length }})
     </summary>
-    <div class="flex flex-col gap-4 p-card pt-0">
-      <p class="m-0 text-[12px] leading-[1.6] text-signal-muted">
+    <!-- No horizontal padding on the body: it would make these boxes narrower
+         than every other device box on the page, and the list is supposed to
+         read as one consistent column. -->
+    <div class="flex flex-col gap-4 pb-card">
+      <p class="m-0 px-card text-[12px] leading-[1.6] text-signal-muted">
         Not currently plugged in. Replugging the hardware re-detects it; forgetting one discards its
         saved name, port and tuning defaults.
       </p>

@@ -3,7 +3,6 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiClient } from '@/api/client'
 import EmptyState from '@/components/base/EmptyState.vue'
-import PanelCard from '@/components/base/PanelCard.vue'
 import PanelStack from '@/components/base/PanelStack.vue'
 import AbsentDeviceGroup from '@/components/fleet/AbsentDeviceGroup.vue'
 import NoticeList from '@/components/fleet/NoticeList.vue'
@@ -100,7 +99,7 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
     <!-- Sentinel's settings body gutters. No section heading above the card:
          this console has one subject, so a title naming it would only repeat
          the card beneath. -->
-    <div class="flex w-full max-w-console flex-col gap-6 px-5 pb-16 pt-[34px] md:px-gutter">
+    <div class="flex w-full max-w-content flex-col gap-6 px-5 pb-16 pt-[34px] md:px-gutter">
       <NoticeList />
       <ul
         v-if="visibleConflictGroups.length"
@@ -116,17 +115,12 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
           />
         </li>
       </ul>
-      <!-- One card holding the whole list, as Sentinel's settings do: the card
-           is titled and described, and each device is a row inside it rather
-           than a card of its own. -->
-      <PanelCard
-        id="devices-heading"
-        as="section"
-        label="SDR devices"
-        description="RTL-SDR dongles detected on this Pi"
-        :label-level="2"
-        tabindex="-1"
-      >
+      <!-- Each device is its own white box on the canvas — no wrapping card and
+           no title above them. The heading stays in the DOM, screen-reader
+           only: it is the skip link's destination and this section's accessible
+           name, and the boxes below would otherwise be an unlabelled run. -->
+      <section aria-labelledby="devices-heading" class="flex flex-col gap-4">
+        <h2 id="devices-heading" tabindex="-1" class="sr-only outline-none">SDR devices</h2>
         <EmptyState
           v-if="!hasDevices"
           title="No devices detected"
@@ -152,7 +146,7 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
             @request-serial-flash="openSerialFlashDialog"
           />
         </template>
-      </PanelCard>
+      </section>
     </div>
     <SerialFlashDialog
       :device="fleetStore.serialFlashDialogDevice"

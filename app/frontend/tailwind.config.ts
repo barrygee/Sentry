@@ -62,8 +62,13 @@ export default {
       colors: {
         /** Surfaces. Sentinel's settings panel, plus its app chrome for the header and rail. */
         ground: {
-          /** Body canvas (Sentinel `#settings-panel`). */
-          page: '#f6f6f4',
+          /**
+           * Body canvas. Darker than Sentinel's `#f6f6f4`, which is 1.03:1
+           * against a white box — a different colour on paper, not one on
+           * screen. At 1.17:1 a box reads as sitting on the page rather than
+           * merging into it.
+           */
+          page: '#eaeae7',
           /** Card surface (Sentinel `.settings-item`). */
           panel: '#ffffff',
           /** Row fill inside a card — a step below the card, above the canvas. */
@@ -157,8 +162,15 @@ export default {
         gutter: '44px',
       },
       maxWidth: {
-        /** The settings body's measure — stops a card sprawling on a wide display. */
-        console: '1480px',
+        /**
+         * The body's measure. Sized from the widest thing a device box holds:
+         * its five read-only cells need 621px on one line (measured), plus the
+         * box's own 22px padding either side, plus slack for a longer model
+         * string than the fixtures carry. Boxes are this wide at every viewport
+         * rather than stretching to the page, so a fleet reads as a consistent
+         * column instead of as bands whose length depends on the window.
+         */
+        content: '860px',
       },
     },
   },

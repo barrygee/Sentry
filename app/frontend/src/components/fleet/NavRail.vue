@@ -12,8 +12,7 @@
  *
  * The single button is still rendered, and still marked current, rather than
  * hidden until there are two: a rail that appears the day a second view lands
- * would move every page's content sideways at that moment. The icon is
- * Sentinel's own SDR glyph from the same rail.
+ * would move every page's content sideways at that moment.
  */
 interface RailDestination {
   /** Stable key, also the button's `aria-controls` target when views exist. */
@@ -43,29 +42,25 @@ const activeKey = 'sdrs'
           :title="destination.label"
         >
           <span class="sr-only">{{ destination.label }}</span>
-          <!-- Sentinel's SDR glyph, from the same rail. -->
+          <!-- A list glyph: this destination is the list of SDRs, and the rail
+               is meant to say what each view *is*. Stroke weights and the 19px
+               box match Sentinel's own rail icons so the planned second entry
+               can sit beside it without redrawing either. -->
           <svg
             width="19"
             height="19"
             viewBox="0 0 24 24"
             fill="none"
+            stroke="currentColor"
             stroke-linecap="round"
             aria-hidden="true"
           >
-            <line x1="6" y1="9" x2="18" y2="3" stroke="currentColor" stroke-width="1.6" />
-            <rect
-              x="3"
-              y="9"
-              width="18"
-              height="12"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linejoin="miter"
-              fill="none"
-            />
-            <circle cx="16" cy="15" r="2.6" stroke="currentColor" stroke-width="1.6" />
-            <line x1="6" y1="13" x2="11" y2="13" stroke="currentColor" stroke-width="1.6" />
-            <line x1="6" y1="17" x2="11" y2="17" stroke="currentColor" stroke-width="1.6" />
+            <circle cx="5" cy="6" r="1.4" fill="currentColor" stroke="none" />
+            <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+            <circle cx="5" cy="18" r="1.4" fill="currentColor" stroke="none" />
+            <line x1="10" y1="6" x2="20" y2="6" stroke-width="1.8" />
+            <line x1="10" y1="12" x2="20" y2="12" stroke-width="1.8" />
+            <line x1="10" y1="18" x2="20" y2="18" stroke-width="1.8" />
           </svg>
         </button>
       </li>
