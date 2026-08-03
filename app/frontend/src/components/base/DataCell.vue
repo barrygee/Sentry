@@ -39,7 +39,7 @@ withDefaults(
     </component>
     <component
       :is="valueTag"
-      class="m-0 whitespace-nowrap font-sans text-[14px] font-semibold leading-[24px] tracking-data text-white"
+      class="m-0 whitespace-nowrap font-sans text-[12px] font-normal leading-[24px] tracking-data text-white"
     >
       <slot>{{ value }}</slot>
     </component>

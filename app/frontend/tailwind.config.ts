@@ -64,10 +64,14 @@ export default {
         ground: {
           /** `--color-bg`. */
           page: '#000000',
-          /** Its SDR panel surface. */
-          panel: '#0a0d14',
-          /** `--color-button-bg` — control fills, slider tracks, input rows. */
-          raised: '#26292e',
+          /**
+           * Card surface. Lifted from Sentinel's `#0a0d14` SDR-panel value,
+           * which sat 1.08:1 against the black page — technically a different
+           * colour, visually not one. At 1.37:1 a card now reads as a distinct
+           * surface. The greys on top are white-at-alpha so they lift with it:
+           * muted text still clears 4.9:1 and body text 12.7:1.
+           */
+          panel: '#20252f',
           /** `--color-border`. */
           hairline: 'rgba(255, 255, 255, 0.08)',
         },
