@@ -4,11 +4,13 @@
  * hosts it — no fill, no border.
  *
  * Matches Sentinel's `BaseDataCell` (its POSITION / ORBITAL telemetry cells):
- * a 4px-gap column, a 9px/700/0.14em uppercase caption, and a 14px/600/0.06em
- * value in white. The one deviation is the caption colour — Sentinel's
- * `rgba(255,255,255,.35)` is 3.18:1 on this card and fails AA, so `signal.muted`
- * (.5, 5.33:1) is used, the same substitution already made for its field
- * labels and documented in `tailwind.config.ts`.
+ * a 4px-gap column above a value.
+ *
+ * The caption is white and bold, and tracked at 0.18em rather than Sentinel's
+ * 0.14em for this cell: a card row mixes these readouts with editable fields,
+ * and two caption treatments sitting side by side read as an inconsistency
+ * rather than as a distinction. Sentinel's own caption is
+ * `rgba(255,255,255,.35)`, which is 3.18:1 here and fails AA regardless.
  *
  * `labelTag`/`valueTag` exist so a caller can keep real markup semantics —
  * `DeviceIdentitySummary` renders its pairs inside a `<dl>` and passes
@@ -33,7 +35,7 @@ withDefaults(
   <div class="flex min-w-0 flex-col gap-1">
     <component
       :is="labelTag"
-      class="font-sans text-[9px] font-bold uppercase tracking-caption text-signal-muted"
+      class="font-sans text-[9px] font-bold uppercase tracking-control text-white"
     >
       {{ label }}
     </component>
