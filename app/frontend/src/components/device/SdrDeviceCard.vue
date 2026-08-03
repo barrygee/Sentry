@@ -162,7 +162,7 @@ const identitySerial = computed(
          to as many lines as the viewport needs. -->
     <div v-if="isEditable" class="flex flex-col gap-3">
       <div class="flex flex-wrap items-start gap-x-8 gap-y-5">
-        <DeviceNameField v-model="nameDraft" class="w-[220px]" @commit="commitName" />
+        <DeviceNameField v-model="nameDraft" class="w-[160px]" @commit="commitName" />
         <PortAssignmentField
           v-model="portDraft"
           :constraints="fleetStore.constraints"
