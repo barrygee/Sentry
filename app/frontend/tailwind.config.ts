@@ -68,13 +68,6 @@ export default {
           panel: '#0a0d14',
           /** `--color-button-bg` — control fills, slider tracks, input rows. */
           raised: '#26292e',
-          /**
-           * Input fill (Sentinel `--color-search-field-bg`). A translucent black
-           * scrim rather than a fixed hex, exactly as Sentinel defines it, so a
-           * field always reads one consistent step *darker* than whichever
-           * surface hosts it instead of being pinned to one panel's grey.
-           */
-          field: 'rgba(0, 0, 0, 0.32)',
           /** `--color-border`. */
           hairline: 'rgba(255, 255, 255, 0.08)',
         },
