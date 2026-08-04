@@ -406,7 +406,10 @@ Rationale and the alternatives considered: ADR-0005.
 Two independently-versioned surfaces:
 
 - **Internal UI API** — `/api/health`, `/api/status`, `/api/events`, `/api/devices*`. Ships with
-  the SPA in the same image, so it is unversioned and may change freely between releases.
+  the console in the same image. That is no longer true: Sentinel drives device configuration
+  and the hotspot over these same routes (ADR-0009), so they now carry `X-Sentry-Api-Version`
+  — a single integer bumped only on a breaking change, stamped on every `/api` response
+  including errors. Additive changes do not bump it and consumers must ignore unknown fields.
 - **Consumer API** — `/api/v1/sdrs`. Consumed by a *separately deployed* Sentinel, so it is
   versioned, additive-only within a major, and never changed to suit the UI. `/api/sdrs` is a
   permanent convenience alias serving the current stable version; both responses carry

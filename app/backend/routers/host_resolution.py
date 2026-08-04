@@ -5,7 +5,9 @@
 which the service layer has access to — so every `DeviceStatus.output` it
 builds carries `host=""` and the routers overlay the real value before
 serialising. This module is that overlay, shared by `/api/status`,
-`/api/events` and `/api/v1/sdrs` so the three can never disagree.
+`/api/events`, `/api/v1/sdrs` and its `/api/sdrs` alias so they can never
+disagree — which they briefly could, when `routers/sdrs.py` carried its own
+copy of the logic with a subtly different hostname pattern.
 """
 
 from __future__ import annotations
@@ -18,7 +20,19 @@ from fastapi import Request
 from app.backend.config import Settings
 from app.backend.schemas.device import DeviceStatus
 
-# A plain hostname or IPv4 literal. Deliberately strict: see `resolve_public_host`.
+# A plain hostname or IPv4 literal: letters, digits, `-`, `.` and `_`, never
+# starting or ending with a separator. Deliberately excludes `[`/`]`/`:` (IPv6
+# literals) and anything else `Host` could in principle carry — an operator
+# relying on an IPv6 `SENTRY_ADVERTISED_HOST` is unaffected, since that setting
+# never passes through this check. See `resolve_public_host` for why it is
+# validated rather than merely parsed.
+#
+# `_` is allowed on purpose. `routers/sdrs.py` used to carry a near-identical
+# second copy of this pattern that omitted it; the copies are now one, and this
+# is the permissive of the two because a hostname containing an underscore
+# (common enough from Windows and mDNS, whatever RFC 1123 says) would otherwise
+# fail the check and silently degrade to `localhost` — an address the consumer
+# definitely cannot reach, substituted for one it probably could.
 VALID_HOSTNAME_PATTERN = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?$")
 
 
