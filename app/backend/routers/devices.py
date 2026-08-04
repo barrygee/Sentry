@@ -174,6 +174,23 @@ async def patch_device(
     which the lock also happens to prevent but which existed as a fallback
     before the lock did.
     """
+    return await apply_device_configuration(patch, device_id, device_registry, port_allocator)
+
+
+async def apply_device_configuration(
+    patch: DevicePatch,
+    device_id: str,
+    device_registry: DeviceRegistry,
+    port_allocator: PortAllocatorService,
+) -> DeviceRecord:
+    """Validate and apply one device patch, raising `HTTPException` on any rejection.
+
+    Public rather than private, and separated from the route handler, because
+    `routers/config.py` replays a whole exported configuration through exactly
+    this path. Port allocation is a six-rule check plus an adjacency lock; a
+    second implementation of it in the import path would drift from this one and
+    silently start assigning ports the real endpoint would refuse.
+    """
     current_status = device_registry.get_status(device_id)
     if current_status is None:
         raise HTTPException(

@@ -508,6 +508,76 @@ appears at all.
 
 ---
 
+## Configuration files
+
+Standing up a second Pi otherwise means retyping every device's name, port,
+antenna, notes and visibility by hand and getting all of them right. Instead,
+export from a working Sentry and import into the new one.
+
+Open the **configuration control in the top-right of the header**:
+
+- **Download configuration** saves `sentry-config.json`.
+- **Choose a configuration file…** stages a file and shows what it contains.
+  Nothing is applied until you press **Apply this configuration** — an import
+  rewrites every device's settings, which is too much to happen as a side effect
+  of a file picker closing.
+
+The same thing over the API:
+
+```bash
+curl -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+  http://<PI_IP>:8000/api/config > sentry-config.json
+
+curl -X POST http://<PI_IP>:8000/api/config \
+  -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"config\": $(cat sentry-config.json), \"apply_devices\": true}"
+```
+
+`config.example.json` in the repo root shows the shape. Prefer exporting a real
+file over hand-writing one — the format is validated on import, and an exported
+file is always correct.
+
+### What a config file does and does not carry
+
+Devices are matched by their **identity** (`serial:AIS-01`, `usb:1-1.3`), not by
+row id, so the same file describes the same physical dongles on any Pi.
+
+An import is reported entry by entry, because a partial import is the *expected*
+outcome rather than an error:
+
+- **applied** — the settings were written.
+- **skipped** — that dongle is not plugged into this Sentry yet. Plug it in and
+  import again.
+- **failed** — the settings were rejected, usually because the port is already
+  taken here. The reason is shown per entry.
+
+Entries are replayed through the same validation `PATCH /api/devices/{id}` uses,
+so an import can never write a configuration the normal endpoint would refuse.
+
+**Two things are deliberately absent, and both absences matter.**
+
+*The hotspot password.* A config file is the most copied, emailed and committed
+artefact a project has, so WiFi credentials in one would leak by default. The
+file records only whether a password was set. Importing hotspot settings writes
+the network's name, band and address but never starts it — a fresh Pi needs the
+password typed once, in the hotspot panel.
+
+*The deploy-time settings* `SENTRY_HOTSPOT_CONTROL_ENABLED` and
+`SENTRY_AUTH_TOKEN`. Those are `.env`-only because they are precisely the
+controls that require shell access to the Pi. A file that could switch on host
+WiFi control, or set the API's own credential, would hand that away to anyone
+who can reach the API — which is unauthenticated by default. The hotspot panel
+shows the exact lines to paste, with a copy button, rather than editing them.
+
+> **Not a boot-time seed.** Unlike Sentinel's `default_config.json`, dropping a
+> file next to Sentry does nothing on startup. A device's configuration can only
+> be applied once that dongle has actually been detected, and on a cold boot
+> nothing has been enumerated yet — a startup seed would silently skip every
+> entry. Import through the UI or the API once the dongles are up.
+
+---
+
 ## API
 
 | Endpoint                        | Purpose                                                                            |
@@ -528,6 +598,9 @@ appears at all.
 | `POST /api/hotspot/disable`     | Stop the hotspot                                                                   |
 | `POST /api/hotspot/confirm`     | Keep a hotspot that is on trial, and let it start on boot                          |
 | `DELETE /api/hotspot`           | Forget the hotspot, password included                                              |
+| `GET /api/config`               | Export this instance's configuration — devices and hotspot, never a password       |
+| `GET /api/config/download`      | The same payload with a `Content-Disposition` filename attached                    |
+| `POST /api/config`              | Import an exported configuration, reporting each entry's outcome                   |
 
 `/api/health` deliberately stays healthy while an individual dongle is degraded —
 otherwise a single wedged dongle would restart the container and take the healthy

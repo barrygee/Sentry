@@ -1,0 +1,55 @@
+{
+  "_comment": "Example Sentry configuration file. Export a real one from a working instance (Configuration > Download configuration, or GET /api/config) rather than hand-writing this — the shape is validated on import and an exported file is always correct. Deliberately absent: the hotspot password, and the .env-only deploy gates SENTRY_HOTSPOT_CONTROL_ENABLED and SENTRY_AUTH_TOKEN. See docs/adr/0007 for why.",
+  "version": 1,
+  "generated_at": 0,
+  "sentry_version": "0.1.0",
+  "devices": [
+    {
+      "identity_kind": "serial",
+      "identity_key": "AIS-01",
+      "name": "AIS SDR",
+      "description": "Roof, 162 MHz",
+      "notes": "Feeder cable due for replacement — intermittent below 150 MHz.",
+      "antenna": "Discone, roof mast",
+      "output_port": 1234,
+      "enabled": true,
+      "visibility": "public",
+      "center_hz": 162000000,
+      "sample_rate": 2048000,
+      "gain_db": null,
+      "gain_auto": true,
+      "ppm_correction": 0,
+      "bias_tee": null,
+      "direct_sampling": null
+    },
+    {
+      "identity_kind": "usb",
+      "identity_key": "1-1.3",
+      "name": "ADS-B 1090",
+      "description": "Loft collinear",
+      "notes": "",
+      "antenna": "1090 collinear, loft",
+      "output_port": 1240,
+      "enabled": true,
+      "visibility": "private",
+      "center_hz": 1090000000,
+      "sample_rate": 2400000,
+      "gain_db": 42.1,
+      "gain_auto": false,
+      "ppm_correction": 2,
+      "bias_tee": true,
+      "direct_sampling": null
+    }
+  ],
+  "hotspot": {
+    "ssid": "Sentry Field",
+    "hidden": true,
+    "security": "wpa2",
+    "band": "bg",
+    "channel": 0,
+    "gateway_cidr": "10.42.0.1/24",
+    "interface": null,
+    "enabled": false,
+    "passphrase_set": true
+  }
+}

@@ -30,6 +30,234 @@
         "title": "ClientCounts",
         "type": "object"
       },
+      "ConfigImportRequest": {
+        "additionalProperties": false,
+        "description": "`POST /api/config` body \u2014 a previously exported file, optionally narrowed.",
+        "properties": {
+          "apply_devices": {
+            "default": true,
+            "description": "Apply the file's device configuration",
+            "title": "Apply Devices",
+            "type": "boolean"
+          },
+          "apply_hotspot": {
+            "default": false,
+            "description": "Apply the file's hotspot settings. Off by default: it can change which network this Pi serves, and never carries a password to start it with",
+            "title": "Apply Hotspot",
+            "type": "boolean"
+          },
+          "config": {
+            "$ref": "#/components/schemas/SentryConfig"
+          }
+        },
+        "required": [
+          "config"
+        ],
+        "title": "ConfigImportRequest",
+        "type": "object"
+      },
+      "ConfigImportResult": {
+        "description": "`POST /api/config` response \u2014 a per-entry report, not just a status code.\n\nAn import is partial by nature: a port in the file may already be taken on\nthis Pi, or a dongle may not be plugged in yet. Reporting each entry lets an\noperator see exactly what landed rather than inferring it from a device list.",
+        "properties": {
+          "devices": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DeviceImportOutcome"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "devices_applied": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Devices Applied",
+            "type": "integer"
+          },
+          "devices_failed": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Devices Failed",
+            "type": "integer"
+          },
+          "devices_skipped": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Devices Skipped",
+            "type": "integer"
+          },
+          "generated_at": {
+            "default": 0,
+            "description": "Unix ms",
+            "title": "Generated At",
+            "type": "integer"
+          },
+          "hotspot_applied": {
+            "default": false,
+            "title": "Hotspot Applied",
+            "type": "boolean"
+          },
+          "hotspot_detail": {
+            "default": "",
+            "description": "Why the hotspot was not applied, when it was not",
+            "title": "Hotspot Detail",
+            "type": "string"
+          }
+        },
+        "title": "ConfigImportResult",
+        "type": "object"
+      },
+      "DeviceConfigEntry": {
+        "additionalProperties": false,
+        "description": "One device's operator-set configuration, keyed by its stable identity.\n\nDeliberately keyed by `(identity_kind, identity_key)` rather than\n`device_id` or `record_id`: the row id is local to one instance and means\nnothing on another Pi, whereas the identity is the same fact about the same\nphysical dongle wherever it is plugged in (ADR-0003).",
+        "properties": {
+          "antenna": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Antenna",
+            "type": "string"
+          },
+          "bias_tee": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Tee"
+          },
+          "center_hz": {
+            "anyOf": [
+              {
+                "maximum": 1766000000.0,
+                "minimum": 24000000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Center Hz"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 256,
+            "title": "Description",
+            "type": "string"
+          },
+          "direct_sampling": {
+            "anyOf": [
+              {
+                "enum": [
+                  0,
+                  1,
+                  2
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direct Sampling"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "gain_auto": {
+            "default": true,
+            "title": "Gain Auto",
+            "type": "boolean"
+          },
+          "gain_db": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain Db"
+          },
+          "identity_key": {
+            "title": "Identity Key",
+            "type": "string"
+          },
+          "identity_kind": {
+            "enum": [
+              "serial",
+              "usb"
+            ],
+            "title": "Identity Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "output_port": {
+            "anyOf": [
+              {
+                "maximum": 65533.0,
+                "minimum": 1024.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Port"
+          },
+          "ppm_correction": {
+            "default": 0,
+            "maximum": 200.0,
+            "minimum": -200.0,
+            "title": "Ppm Correction",
+            "type": "integer"
+          },
+          "sample_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Rate"
+          },
+          "visibility": {
+            "default": "private",
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identity_kind",
+          "identity_key",
+          "name"
+        ],
+        "title": "DeviceConfigEntry",
+        "type": "object"
+      },
       "DeviceCounts": {
         "description": "Per-state device tallies surfaced in the health snapshot.",
         "properties": {
@@ -73,6 +301,45 @@
           "needs_identification"
         ],
         "title": "DeviceCounts",
+        "type": "object"
+      },
+      "DeviceImportOutcome": {
+        "description": "What happened to one device entry during an import.",
+        "properties": {
+          "detail": {
+            "default": "",
+            "description": "Why it was skipped or how it failed",
+            "title": "Detail",
+            "type": "string"
+          },
+          "identity_key": {
+            "title": "Identity Key",
+            "type": "string"
+          },
+          "identity_kind": {
+            "enum": [
+              "serial",
+              "usb"
+            ],
+            "title": "Identity Kind",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "applied",
+              "skipped",
+              "failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identity_kind",
+          "identity_key",
+          "outcome"
+        ],
+        "title": "DeviceImportOutcome",
         "type": "object"
       },
       "DevicePatch": {
@@ -908,6 +1175,89 @@
         "title": "HotspotClientsResponse",
         "type": "object"
       },
+      "HotspotConfigEntry": {
+        "additionalProperties": false,
+        "description": "The hotspot's shape, minus its secret.\n\n`passphrase_set` is reported so an operator importing this file knows\nwhether the source instance had one, and therefore whether the destination\nwill need a password typing in before the hotspot can start. It is never\na credential and never round-trips one.",
+        "properties": {
+          "band": {
+            "default": "bg",
+            "enum": [
+              "bg",
+              "a"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "channel": {
+            "default": 0,
+            "maximum": 196.0,
+            "minimum": 0.0,
+            "title": "Channel",
+            "type": "integer"
+          },
+          "enabled": {
+            "default": false,
+            "description": "Whether the source instance had the hotspot starting on boot",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "gateway_cidr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Cidr"
+          },
+          "hidden": {
+            "default": true,
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "interface": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface"
+          },
+          "passphrase_set": {
+            "default": false,
+            "description": "Whether the source had a password stored. Never the password itself",
+            "title": "Passphrase Set",
+            "type": "boolean"
+          },
+          "security": {
+            "default": "wpa2",
+            "enum": [
+              "wpa2",
+              "wpa3"
+            ],
+            "title": "Security",
+            "type": "string"
+          },
+          "ssid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssid"
+          }
+        },
+        "title": "HotspotConfigEntry",
+        "type": "object"
+      },
       "HotspotConfigRequest": {
         "additionalProperties": false,
         "description": "`PUT /api/hotspot` body \u2014 a full replace, not a merge.\n\nDeliberately not a PATCH. Merging a partial body would let a request that\nsays nothing about `hidden` silently inherit a previous `false`, which is\nexactly the security-relevant field an operator most expects to be\nexplicit. The passphrase is the single exception, and only because omitting\nit is the mechanism that keeps the secret write-only.",
@@ -1539,6 +1889,56 @@
         "title": "SdrExportSource",
         "type": "object"
       },
+      "SentryConfig": {
+        "additionalProperties": false,
+        "description": "The whole exportable configuration of one Sentry instance.",
+        "properties": {
+          "_comment": {
+            "default": "",
+            "description": "Free-text note carried in the file and otherwise ignored",
+            "title": "Comment",
+            "type": "string"
+          },
+          "devices": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DeviceConfigEntry"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "generated_at": {
+            "default": 0,
+            "description": "Unix ms the file was exported",
+            "title": "Generated At",
+            "type": "integer"
+          },
+          "hotspot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HotspotConfigEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sentry_version": {
+            "default": "",
+            "description": "The app version that wrote it",
+            "title": "Sentry Version",
+            "type": "string"
+          },
+          "version": {
+            "default": 1,
+            "description": "Config-file format version, not the app version",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "SentryConfig",
+        "type": "object"
+      },
       "SerialFlashAccepted": {
         "description": "`202 Accepted` body; the outcome arrives later as an SSE `notice`.",
         "properties": {
@@ -2003,6 +2403,83 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/config": {
+      "get": {
+        "description": "Return the whole configuration as JSON, for import into another Sentry.",
+        "operationId": "export_config_api_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentryConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Export this instance's configuration",
+        "tags": [
+          "config"
+        ]
+      },
+      "post": {
+        "description": "Apply an exported configuration, reporting what landed and what did not.",
+        "operationId": "import_config_api_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import a configuration exported from another Sentry",
+        "tags": [
+          "config"
+        ]
+      }
+    },
+    "/api/config/download": {
+      "get": {
+        "description": "The same payload as `GET /api/config`, with a filename attached.\n\nA separate route rather than a query flag so the browser's own download\nbehaviour is driven by `Content-Disposition` and the UI does not have to\nsynthesise a blob and an object URL to save a file.",
+        "operationId": "download_config_api_config_download_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Export the configuration as a downloadable file",
+        "tags": [
+          "config"
+        ]
+      }
+    },
     "/api/devices": {
       "get": {
         "description": "Return every configured device plus every detected-but-unconfigured one.",

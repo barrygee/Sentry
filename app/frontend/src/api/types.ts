@@ -4,6 +4,54 @@
  */
 
 export interface paths {
+  '/api/config': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Export this instance's configuration
+     * @description Return the whole configuration as JSON, for import into another Sentry.
+     */
+    get: operations['export_config_api_config_get']
+    put?: never
+    /**
+     * Import a configuration exported from another Sentry
+     * @description Apply an exported configuration, reporting what landed and what did not.
+     */
+    post: operations['import_config_api_config_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/config/download': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Export the configuration as a downloadable file
+     * @description The same payload as `GET /api/config`, with a filename attached.
+     *
+     *     A separate route rather than a query flag so the browser's own download
+     *     behaviour is driven by `Content-Disposition` and the UI does not have to
+     *     synthesise a blob and an object URL to save a file.
+     */
+    get: operations['download_config_api_config_download_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/devices': {
     parameters: {
       query?: never
@@ -390,6 +438,140 @@ export interface components {
       iq?: number | null
     }
     /**
+     * ConfigImportRequest
+     * @description `POST /api/config` body — a previously exported file, optionally narrowed.
+     */
+    ConfigImportRequest: {
+      /**
+       * Apply Devices
+       * @description Apply the file's device configuration
+       * @default true
+       */
+      apply_devices: boolean
+      /**
+       * Apply Hotspot
+       * @description Apply the file's hotspot settings. Off by default: it can change which network this Pi serves, and never carries a password to start it with
+       * @default false
+       */
+      apply_hotspot: boolean
+      config: components['schemas']['SentryConfig']
+    }
+    /**
+     * ConfigImportResult
+     * @description `POST /api/config` response — a per-entry report, not just a status code.
+     *
+     *     An import is partial by nature: a port in the file may already be taken on
+     *     this Pi, or a dongle may not be plugged in yet. Reporting each entry lets an
+     *     operator see exactly what landed rather than inferring it from a device list.
+     */
+    ConfigImportResult: {
+      /**
+       * Devices
+       * @default []
+       */
+      devices: components['schemas']['DeviceImportOutcome'][]
+      /**
+       * Devices Applied
+       * @default 0
+       */
+      devices_applied: number
+      /**
+       * Devices Failed
+       * @default 0
+       */
+      devices_failed: number
+      /**
+       * Devices Skipped
+       * @default 0
+       */
+      devices_skipped: number
+      /**
+       * Generated At
+       * @description Unix ms
+       * @default 0
+       */
+      generated_at: number
+      /**
+       * Hotspot Applied
+       * @default false
+       */
+      hotspot_applied: boolean
+      /**
+       * Hotspot Detail
+       * @description Why the hotspot was not applied, when it was not
+       * @default
+       */
+      hotspot_detail: string
+    }
+    /**
+     * DeviceConfigEntry
+     * @description One device's operator-set configuration, keyed by its stable identity.
+     *
+     *     Deliberately keyed by `(identity_kind, identity_key)` rather than
+     *     `device_id` or `record_id`: the row id is local to one instance and means
+     *     nothing on another Pi, whereas the identity is the same fact about the same
+     *     physical dongle wherever it is plugged in (ADR-0003).
+     */
+    DeviceConfigEntry: {
+      /**
+       * Antenna
+       * @default
+       */
+      antenna: string
+      /** Bias Tee */
+      bias_tee?: boolean | null
+      /** Center Hz */
+      center_hz?: number | null
+      /**
+       * Description
+       * @default
+       */
+      description: string
+      /** Direct Sampling */
+      direct_sampling?: (0 | 1 | 2) | null
+      /**
+       * Enabled
+       * @default false
+       */
+      enabled: boolean
+      /**
+       * Gain Auto
+       * @default true
+       */
+      gain_auto: boolean
+      /** Gain Db */
+      gain_db?: number | null
+      /** Identity Key */
+      identity_key: string
+      /**
+       * Identity Kind
+       * @enum {string}
+       */
+      identity_kind: 'serial' | 'usb'
+      /** Name */
+      name: string
+      /**
+       * Notes
+       * @default
+       */
+      notes: string
+      /** Output Port */
+      output_port?: number | null
+      /**
+       * Ppm Correction
+       * @default 0
+       */
+      ppm_correction: number
+      /** Sample Rate */
+      sample_rate?: number | null
+      /**
+       * Visibility
+       * @default private
+       * @enum {string}
+       */
+      visibility: 'public' | 'private'
+    }
+    /**
      * DeviceCounts
      * @description Per-state device tallies surfaced in the health snapshot.
      */
@@ -406,6 +588,30 @@ export interface components {
       present: number
       /** Streaming */
       streaming: number
+    }
+    /**
+     * DeviceImportOutcome
+     * @description What happened to one device entry during an import.
+     */
+    DeviceImportOutcome: {
+      /**
+       * Detail
+       * @description Why it was skipped or how it failed
+       * @default
+       */
+      detail: string
+      /** Identity Key */
+      identity_key: string
+      /**
+       * Identity Kind
+       * @enum {string}
+       */
+      identity_kind: 'serial' | 'usb'
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome: 'applied' | 'skipped' | 'failed'
     }
     /**
      * DevicePatch
@@ -735,6 +941,57 @@ export interface components {
        * @constant
        */
       source: 'dnsmasq-leases'
+    }
+    /**
+     * HotspotConfigEntry
+     * @description The hotspot's shape, minus its secret.
+     *
+     *     `passphrase_set` is reported so an operator importing this file knows
+     *     whether the source instance had one, and therefore whether the destination
+     *     will need a password typing in before the hotspot can start. It is never
+     *     a credential and never round-trips one.
+     */
+    HotspotConfigEntry: {
+      /**
+       * Band
+       * @default bg
+       * @enum {string}
+       */
+      band: 'bg' | 'a'
+      /**
+       * Channel
+       * @default 0
+       */
+      channel: number
+      /**
+       * Enabled
+       * @description Whether the source instance had the hotspot starting on boot
+       * @default false
+       */
+      enabled: boolean
+      /** Gateway Cidr */
+      gateway_cidr?: string | null
+      /**
+       * Hidden
+       * @default true
+       */
+      hidden: boolean
+      /** Interface */
+      interface?: string | null
+      /**
+       * Passphrase Set
+       * @description Whether the source had a password stored. Never the password itself
+       * @default false
+       */
+      passphrase_set: boolean
+      /**
+       * Security
+       * @default wpa2
+       * @enum {string}
+       */
+      security: 'wpa2' | 'wpa3'
+      /** Ssid */
+      ssid?: string | null
     }
     /**
      * HotspotConfigRequest
@@ -1111,6 +1368,42 @@ export interface components {
       version: string
     }
     /**
+     * SentryConfig
+     * @description The whole exportable configuration of one Sentry instance.
+     */
+    SentryConfig: {
+      /**
+       * Comment
+       * @description Free-text note carried in the file and otherwise ignored
+       * @default
+       */
+      _comment: string
+      /**
+       * Devices
+       * @default []
+       */
+      devices: components['schemas']['DeviceConfigEntry'][]
+      /**
+       * Generated At
+       * @description Unix ms the file was exported
+       * @default 0
+       */
+      generated_at: number
+      hotspot?: components['schemas']['HotspotConfigEntry'] | null
+      /**
+       * Sentry Version
+       * @description The app version that wrote it
+       * @default
+       */
+      sentry_version: string
+      /**
+       * Version
+       * @description Config-file format version, not the app version
+       * @default 1
+       */
+      version: number
+    }
+    /**
      * SerialFlashAccepted
      * @description `202 Accepted` body; the outcome arrives later as an SSE `notice`.
      */
@@ -1351,6 +1644,77 @@ export interface components {
 }
 export type $defs = Record<string, never>
 export interface operations {
+  export_config_api_config_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SentryConfig']
+        }
+      }
+    }
+  }
+  import_config_api_config_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConfigImportRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ConfigImportResult']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  download_config_api_config_download_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
   list_devices_api_devices_get: {
     parameters: {
       query?: never

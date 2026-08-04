@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LogoMark from '@/components/base/LogoMark.vue'
+import ConfigSettingsButton from '@/components/sdrs/ConfigSettingsButton.vue'
 import HotspotSettingsButton from '@/components/sdrs/HotspotSettingsButton.vue'
 
 /**
@@ -31,8 +32,9 @@ import HotspotSettingsButton from '@/components/sdrs/HotspotSettingsButton.vue'
     <!-- Pushed to the far end of the bar, where Sentinel puts its settings
          control, so the two consoles put the same kind of thing in the same
          place. -->
-    <div class="ml-auto">
+    <div class="ml-auto flex items-center">
       <HotspotSettingsButton />
+      <ConfigSettingsButton />
     </div>
   </header>
 </template>

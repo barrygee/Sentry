@@ -19,6 +19,10 @@ export type HotspotClientsResponse = components['schemas']['HotspotClientsRespon
 export type HotspotClient = components['schemas']['HotspotClientItem']
 export type WirelessInterface = components['schemas']['WirelessInterfaceItem']
 export type WirelessInterfacesResponse = components['schemas']['WirelessInterfacesResponse']
+export type SentryConfig = components['schemas']['SentryConfig']
+export type ConfigImportRequest = components['schemas']['ConfigImportRequest']
+export type ConfigImportResult = components['schemas']['ConfigImportResult']
+export type DeviceImportOutcome = components['schemas']['DeviceImportOutcome']
 
 /** Machine-readable shape of a `{"detail": {...}}` error body (architecture §7). */
 export interface ApiErrorDetail {
@@ -120,4 +124,11 @@ export const apiClient = {
     request<HotspotState>('/hotspot/disable', { method: 'POST', body: JSON.stringify(body) }),
   confirmHotspot: () => request<HotspotState>('/hotspot/confirm', { method: 'POST' }),
   deleteHotspot: () => request<void>('/hotspot', { method: 'DELETE' }),
+
+  // Config export/import. The download route is deliberately NOT fetched here —
+  // it is a plain navigation so the browser's own save-file behaviour handles
+  // `Content-Disposition`, rather than the app building a blob and an object URL.
+  exportConfig: () => request<SentryConfig>('/config'),
+  importConfig: (body: ConfigImportRequest) =>
+    request<ConfigImportResult>('/config', { method: 'POST', body: JSON.stringify(body) }),
 }
