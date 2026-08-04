@@ -1,4 +1,4 @@
-# Sentry — Multi-Dongle SDR Fleet Manager
+# Sentry — Multi-Dongle SDR Controller
 
 **Status:** Design — approved architecture, pending sign-off on the open questions in §13.
 **Supersedes:** the earlier single-dongle stack (`rtl-tcp` + `rtl-relay` compose services).
@@ -9,7 +9,7 @@
 
 ## 1. Goal
 
-Turn the proven single-dongle relay into a **managed fleet**. One Raspberry Pi, N RTL-SDR
+Turn the proven single-dongle relay into a **managed set of SDRs**. One Raspberry Pi, N RTL-SDR
 dongles (some behind USB hubs/extenders), each independently named, port-assigned and tuned,
 with a Vue operator console and a single JSON endpoint that Sentinel consumes to discover them.
 
@@ -226,7 +226,7 @@ Each has exactly one responsibility and takes its dependencies by constructor in
 | `usb_discovery.py` | Turn raw `UsbDeviceSnapshot`s into *candidate SDRs*: filter to known RTL-SDR USB IDs (`0bda:2832`, `0bda:2838`, `0bda:2834`, `0bda:2837`, `1d19:1101`, `0ccd:00a9`, plus an env-extendable allow-list), normalise fields, and flag `driver_conflict` when the DVB kernel driver is still bound. | `UsbDiscovery` |
 | `hotplug.py` | Own the event stream. Consume `HotplugSource`, debounce bursty re-enumeration (200 ms coalesce window per topology path), and publish `DeviceArrived`/`DeviceDeparted` on the event bus. Also owns the health signal "is the primary source alive". | `HotplugSource`, `usb_discovery`, `Clock`, `event_bus` |
 | `identity.py` | The three-tier identity decision, and only that. Pure functions over snapshots — no I/O. Produces a `DeviceIdentity(kind, key, confidence)` or `None` (⇒ needs identification). §5. | — (pure) |
-| `device_registry.py` | The in-memory authoritative fleet state: merge *persisted config* (from the repository) with *live presence* (from hotplug) into `DeviceStatus` records; own the state machine transitions (§10); emit `device_changed` on the event bus. The single source of truth every router reads. | `identity`, `DeviceRepository`, `event_bus`, `Clock` |
+| `device_registry.py` | The in-memory authoritative SDR state: merge *persisted config* (from the repository) with *live presence* (from hotplug) into `DeviceStatus` records; own the state machine transitions (§10); emit `device_changed` on the event bus. The single source of truth every router reads. | `identity`, `DeviceRepository`, `event_bus`, `Clock` |
 | `port_allocator.py` | Validate and reserve `(P, P+2)`. Pure rule evaluation plus one optional bind probe. Never picks a port on its own — it validates a user's choice and *suggests* a next free one. §8. | `PortProber`, `DeviceRepository` |
 | `supervisor.py` | Process lifecycle only. For each enabled+present+configured device: resolve the librtlsdr index by serial *at spawn time*, spawn `rtl_tcp` then the relay, watch both, restart the pair on any exit with capped backoff, stop pairs whose device left or was disabled, and reconcile the running set against the desired set on every registry change. | `ProcessSpawner`, `RtlSdrLibrary`, `device_registry`, `Clock`, `event_bus` |
 | `control_follower.py` | One NDJSON follower connection per running relay's `P+2`. Connects, **never claims the token**, reads `state` events, and feeds live `center_hz`/`sample_rate`/`gain_db`/`gain_auto`/`locked` into the registry. Reconnects with backoff. This is how the UI shows real tuning without fighting Sentinel for ownership. | `device_registry`, `Clock` |
@@ -789,13 +789,13 @@ supervisor therefore treats a spawn-time `EADDRINUSE` as `state=error`,
 frontend/
   src/
     api/            client.ts, types.ts (generated from OpenAPI), sse.ts
-    stores/         fleet.ts
-    composables/    useServerSentEvents.ts  useFleetStream.ts  useLiveAnnouncer.ts
+    stores/         sdrs.ts
+    composables/    useServerSentEvents.ts  useSdrsStream.ts  useLiveAnnouncer.ts
                     usePortValidation.ts    useTreeNavigation.ts  useDeviceActions.ts
     components/
       base/         BaseButton BaseDialog BaseField BaseBadge BaseToggle
                     StatusDot EmptyState LiveRegion CopyButton MonoValue
-      fleet/        FleetHeader ConnectionPill FleetToolbar FleetLayout
+      SDRs/        SdrsHeader ConnectionPill SDRsToolbar SDRsLayout
       topology/     UsbTopologyTree UsbTopologyNode HubBadge PortLug TopologyLegend
       device/       DeviceCard DeviceIdentityBlock DeviceStateBadge DevicePortPair
                     DeviceTunerReadout DeviceProcessStats DeviceActionsBar
@@ -805,7 +805,7 @@ frontend/
       serial/       SerialFlashDialog SerialFlashWarning SerialFlashSerialField
       health/       HealthSummaryBar HealthMetric
       consumer/     SentinelEndpointCard
-    views/          FleetView.vue
+    views/          SdrsView.vue
 ```
 
 Every component is single-responsibility and composes the `base/` primitives — `DeviceCard` is
@@ -813,7 +813,7 @@ layout and composition only, holding no formatting logic of its own. `MonoValue`
 numeric display) and `StatusDot` are the shared atoms used everywhere a port, frequency, PID or
 state appears; nothing re-implements them.
 
-### 9.2 Pinia store — `stores/fleet.ts`
+### 9.2 Pinia store — `stores/sdrs.ts`
 
 ```ts
 // state
@@ -842,7 +842,7 @@ flashSerial(deviceId, serial)
 dismissNotice(id)
 ```
 
-The store never calls `EventSource` itself — `useFleetStream` owns the subscription and calls
+The store never calls `EventSource` itself — `useSdrsStream` owns the subscription and calls
 store actions, so the store is trivially unit-testable with plain objects.
 
 ### 9.3 `useServerSentEvents` composable
@@ -1032,7 +1032,7 @@ The parallelisation seam. Nothing else starts until this lands.
 |---|---|---|---|
 | **1A Hardware edge** | backend-engineer | `interfaces/*`, `adapters/*` (sysfs, scripted, udev parse, reconcile, composite, process, ctypes, fakes), `services/usb_discovery`, `services/identity`, `services/hotplug`, `tests/fixtures/sysfs/*`, `tests/fakes/fake_rtl_tcp.py` | Phase 0 |
 | **1B Persistence** | database-engineer | `models.py`, `db.py` + WAL hook, `alembic/` + `0001_initial_fleet`, `repositories/device_repository.py`, `config.py`, `services/port_allocator` | Phase 0 |
-| **1C Frontend shell** | frontend-engineer | Vite + TS strict scaffold, Tailwind tokens for the design direction, all `base/` components, `stores/fleet.ts`, `useServerSentEvents`, `useLiveAnnouncer`, `useTreeNavigation`, `UsbTopologyTree`, `DeviceCard` and children — all against the Phase 0 mock server | Phase 0 |
+| **1C Frontend shell** | frontend-engineer | Vite + TS strict scaffold, Tailwind tokens for the design direction, all `base/` components, `stores/sdrs.ts`, `useServerSentEvents`, `useLiveAnnouncer`, `useTreeNavigation`, `UsbTopologyTree`, `DeviceCard` and children — all against the Phase 0 mock server | Phase 0 |
 
 No file is touched by two tracks. 1A owns `interfaces/`+`adapters/`+those three services; 1B owns
 `models/db/alembic/repositories`+`port_allocator`; 1C owns `frontend/`.
@@ -1107,7 +1107,7 @@ blocking; an *absent* device's reservation still blocking; `P = 1023`; `P = 6553
 overflows); `P` == HTTP port; `P+2` == HTTP port; the internal range at both boundaries
 (`13999` allowed, `14000` rejected, `14007` rejected, `14008` allowed with `MAX_DEVICES=8`);
 prober returning false; prober returning false for a port held by *this* device (accepted);
-`suggest_next` on an empty fleet, a full-ish fleet, and a fleet with a gap; `suggest_next` when
+`suggest_next` on an empty set, a full-ish set, and a set of SDRs with a gap; `suggest_next` when
 no port is available.
 
 **12.6 `services/device_registry`** — every row of the §10 transition table, one test each;
@@ -1175,14 +1175,14 @@ applied on a real connection (`PRAGMA journal_mode` returns `wal`); both unique 
 both CHECK constraints enforced; upsert-by-identity semantics; `updated_at` maintained; a
 simulated crash (connection killed mid-transaction) leaves the DB readable and consistent.
 
-**12.14 Frontend** — `stores/fleet` actions against plain fixture objects, including
+**12.14 Frontend** — `stores/sdrs` actions against plain fixture objects, including
 `applySnapshot` replacing a stale device and `applyDeviceChanged` clearing a matching pending
 patch and *not* clearing a non-matching one; `useServerSentEvents` open/named-event/parse-
 error/stall-detector/close paths against a mocked `EventSource`; `useTreeNavigation` for every
 key in the §9.4 table plus focus recovery when the focused node is removed; `usePortValidation`
 mirroring each server rule; `OutputPortField` rendering a server `409` in the same slot as client
 validation; `SerialFlashDialog` focus trap, Escape, and focus return; `vitest-axe` on every
-component plus the assembled `FleetView` in the states empty / one streaming device / a
+component plus the assembled `SdrsView` in the states empty / one streaming device / a
 needs-identification device / an error device; a reduced-motion snapshot; the tree's ARIA
 attributes (`aria-level`/`setsize`/`posinset`/`expanded`) asserted against a three-level fixture.
 

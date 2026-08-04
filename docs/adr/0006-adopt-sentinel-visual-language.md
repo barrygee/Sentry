@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-02
 - **Deciders:** project owner
-- **Context spec:** [`docs/architecture/sentry-fleet-manager.md`](../architecture/sentry-fleet-manager.md) §9.5
+- **Context spec:** [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md) §9.5
 - **Supersedes:** the "sibling, not twin" design direction recorded in §9.5 (no prior ADR — the
   direction lived only in the architecture spec)
 
@@ -75,7 +75,7 @@ indicator are deliberately the same colour.
 
 - **The window-confusion risk from §9.5 is now real and accepted.** Two windows on one screen no
   longer differ by accent colour. The mitigation is content and the page title, not chrome. If this
-  bites in practice, the cheapest fix is a persistent identifying band in `FleetHeader` — not a
+  bites in practice, the cheapest fix is a persistent identifying band in `SdrsHeader` — not a
   palette fork, which would put us back here.
 - **The "Patch Bay" identity is largely spent.** The jack pair and the state stripe survive; the
   amber accent, the amber focus ring and the amber connector motifs do not. §9.5 has been

@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07-29
 - **Deciders:** project owner, architect
-- **Context spec:** [`docs/architecture/sentry-fleet-manager.md`](../architecture/sentry-fleet-manager.md) §5
+- **Context spec:** [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md) §5
 
 ## Context
 
@@ -64,7 +64,7 @@ find the index *for this instant*. Ambiguity is an error state, never a coin tos
 ### 3. Serial flashing is in scope
 
 `rtl_eeprom -s <serial>` is exposed through a guarded endpoint so the operator can convert a
-tier-2/tier-3 fleet into a tier-1 fleet permanently. Guards: device must be idle, explicit
+tier-2/tier-3 set of SDRs into a tier-1 set permanently. Guards: device must be idle, explicit
 `confirm: true`, strict `^[A-Za-z0-9_-]{1,32}$` allow-list, collision check, per-device lock, and
 `exec` with a **list argv, never a shell string**.
 
@@ -99,7 +99,7 @@ tier-2/tier-3 fleet into a tier-1 fleet permanently. Guards: device must be idle
 **Rejected alternatives**
 
 - **Index only.** Trivial and wrong; breaks on the first reboot.
-- **Serial only.** Would leave the majority of real fleets permanently unconfigurable, since most
+- **Serial only.** Would leave the majority of real deployments permanently unconfigurable, since most
   dongles ship with the same serial.
 - **Topology only.** Loses the strongest available identity, and makes a dongle moved between two
   ports look like a new device even when it self-identifies perfectly well.

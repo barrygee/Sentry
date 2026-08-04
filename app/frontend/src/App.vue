@@ -4,10 +4,10 @@ import { ref } from 'vue'
 import AuthTokenPrompt from '@/components/auth/AuthTokenPrompt.vue'
 import LiveRegion from '@/components/base/LiveRegion.vue'
 import { useLiveAnnouncer } from '@/composables/useLiveAnnouncer'
-import FleetHeader from '@/components/fleet/FleetHeader.vue'
-import NavRail from '@/components/fleet/NavRail.vue'
-import NavRailToggle from '@/components/fleet/NavRailToggle.vue'
-import FleetView from '@/views/FleetView.vue'
+import SdrsHeader from '@/components/sdrs/SdrsHeader.vue'
+import NavRail from '@/components/sdrs/NavRail.vue'
+import NavRailToggle from '@/components/sdrs/NavRailToggle.vue'
+import SdrsView from '@/views/SdrsView.vue'
 
 const { politeMessage, assertiveMessage } = useLiveAnnouncer()
 
@@ -45,7 +45,7 @@ const isRailVisible = ref(true)
        and so ignores anything else in the document, which left the shell
        taller than its container and reintroduced a second, outer scrollbar. -->
   <div class="flex h-full flex-col overflow-hidden bg-ground-page">
-    <FleetHeader />
+    <SdrsHeader />
     <div class="flex min-h-0 flex-1 items-stretch">
       <!-- `v-show`, not `v-if`: the toggle's `aria-controls` has to keep
            pointing at a element that exists even while the rail is hidden. -->
@@ -59,7 +59,7 @@ const isRailVisible = ref(true)
         @toggle="isRailVisible = !isRailVisible"
       />
       <main class="min-w-0 flex-1 overflow-y-auto">
-        <FleetView />
+        <SdrsView />
       </main>
     </div>
   </div>

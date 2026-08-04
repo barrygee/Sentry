@@ -1,6 +1,6 @@
-# Sentry — multi-dongle RTL-SDR fleet manager
+# Sentry — multi-dongle RTL-SDR controller
 
-Runs a **fleet** of RTL-SDR dongles on a Raspberry Pi (or any Linux host) and
+Runs a **set** of RTL-SDR dongles on a Raspberry Pi (or any Linux host) and
 serves each one to the network as if it were a plain `rtl_tcp`. Give every
 dongle a name and an output port in a web UI, and every consumer — SDR#, GQRX,
 SDR++, or [Sentinel](https://github.com/barrygee/Sentinel) — connects to it
@@ -82,7 +82,7 @@ dead connection — locking everyone else out until it is restarted. Sentry puts
 permanent client and re-serves the IQ stream to any number of consumers, reaping
 dead ones via TCP keepalive.
 
-On top of that, Sentry manages the fleet: it detects dongles as they are plugged
+On top of that, Sentry manages the SDRs: it detects dongles as they are plugged
 and unplugged, remembers what you called each one, assigns each a stable output
 port, supervises the process pair behind it, and recovers a dongle that wedges
 after a USB re-enumeration.
@@ -296,7 +296,7 @@ consumer holds the ownership token on the control channel.
 
 ### Sentinel
 
-Sentinel discovers the fleet from one endpoint:
+Sentinel discovers the SDRs from one endpoint:
 
 ```
 GET http://<PI_IP>:8000/api/v1/sdrs
@@ -342,6 +342,172 @@ antenna.
 
 ---
 
+## WiFi hotspot
+
+Sentry can run **its own WiFi network**, so a Sentinel client joins that and
+reaches the SDRs with no LAN in between — in a vehicle, in a field, anywhere you
+carry the Pi to. The network is **hidden by default**: it does not appear in a
+device's WiFi list, so a client has to be told the name and password in advance.
+
+This is purely additive. Everything above keeps working exactly as it does now,
+and a Sentry that never enables the hotspot behaves identically to one without
+this feature.
+
+Everything is done from the **hotspot control in the top-right of the header**.
+See [turning it on](#turning-the-hotspot-on) and
+[turning it off](#turning-the-hotspot-off) below.
+
+### Before you start
+
+On the Pi:
+
+```bash
+nmcli -v                                        # NetworkManager must be present
+dpkg -s dnsmasq-base | grep Status              # supplies the hotspot's DHCP/DNS
+iw list | grep -A8 "Supported interface modes"  # must list "AP"
+iw reg get                                      # your regulatory domain
+```
+
+Raspberry Pi OS Bookworm ships NetworkManager by default. A host using `dhcpcd`
+or `systemd-networkd` instead will report the hotspot as unavailable rather than
+failing.
+
+Then, in `.env`:
+
+```bash
+SENTRY_HOTSPOT_CONTROL_ENABLED=true
+SENTRY_AUTH_TOKEN=<a long random value>
+```
+
+Both are required. Control is off by default because it is the one setting that
+hands a LAN-facing API control of the host's networking, and Sentry refuses every
+hotspot change while the auth token is unset — an access point puts anyone in
+radio range who has the passphrase on the same network as an API that spawns
+processes and writes dongle firmware.
+
+### Do the first run over Ethernet
+
+A Pi with a single radio cannot be both a WiFi client and an access point. Making
+`wlan0` a hotspot therefore **drops the Pi's own WiFi connection** — including,
+quite possibly, the one your browser is using.
+
+Sentry will not do that quietly:
+
+- Automatic interface selection never picks a radio that is already carrying a
+  connection.
+- Choosing one anyway requires ticking an acknowledgement that names the network
+  it will disconnect.
+- Starting a hotspot is **provisional**. It rolls itself back and restores the
+  previous connection after `SENTRY_HOTSPOT_CONFIRM_TIMEOUT_S` (120s by default)
+  unless you press **Keep this hotspot** — and only then does it start on boot.
+  So a hotspot nobody can reach cannot survive a reboot.
+
+If you do lock yourself out, plug in Ethernet, or attach a keyboard and monitor
+and run:
+
+```bash
+sudo nmcli connection down sentry-hotspot
+```
+
+### Turning the hotspot on
+
+1. Open the **hotspot control in the top-right of the header**.
+2. **Network name (SSID)** — what clients will look for. Up to 32 bytes; accented
+   and emoji characters cost more than one byte each, and the panel counts them
+   for you. Because the network is hidden, clients type this by hand, so avoid
+   anything ambiguous.
+3. **Password** — 8 to 63 characters. This is the only thing protecting the
+   network, so make it long. Sentry will never show it back to you afterwards.
+4. **Hide this network** — on by default. Leave it on unless you want the network
+   to appear in normal WiFi scans.
+5. **Wireless interface** — leave on *Choose automatically*. It picks a radio that
+   is not already carrying a connection. Pick one explicitly only if you know you
+   want it; if that radio is in use you will have to tick an acknowledgement
+   naming the network it is about to disconnect.
+6. **Band and channel** — 2.4 GHz and *Automatic* are right unless you are working
+   around a specific congested channel.
+7. Switch **Run the hotspot** on and press **Save hotspot settings**.
+
+The hotspot comes up straight away, but as **ON TRIAL**: a countdown appears and
+Sentry will undo the change and restore the previous connection when it expires.
+
+8. Press **Keep this hotspot** before the countdown runs out.
+
+Only then does *Starts on boot* flip to **Yes**. That is the point of the
+countdown — a hotspot that has locked everyone out cannot survive a reboot,
+because nobody was able to reach the API to confirm it.
+
+If the countdown expires, nothing is lost: the settings are still saved and the
+previous connection comes back. Switch **Run the hotspot** on and save again.
+
+### Turning the hotspot off
+
+**To stop it but keep the settings** — open the hotspot control, switch **Run the
+hotspot** off and press **Save hotspot settings**. The network drops immediately
+and will not start on boot. The name and password are remembered, so switching it
+back on later needs no re-entry.
+
+During the confirmation countdown there is a shortcut: press **Stop it now**.
+
+**To forget it entirely** — `DELETE /api/hotspot` removes the NetworkManager
+profile, including the stored password:
+
+```bash
+curl -X DELETE http://<PI_IP>:8000/api/hotspot \
+  -H "Authorization: Bearer $SENTRY_AUTH_TOKEN"
+```
+
+**To turn the whole feature off** — set `SENTRY_HOTSPOT_CONTROL_ENABLED=false` in
+`.env` and restart. Sentry then refuses every hotspot change, runs no `nmcli`, and
+makes no D-Bus call. Note this does *not* take down a hotspot that is already
+running, because the profile belongs to NetworkManager rather than to Sentry —
+stop it first, or bring it down on the Pi directly.
+
+**From the Pi, when the UI is unreachable** — the usual case is having just
+disconnected yourself. Over Ethernet, or with a keyboard and monitor:
+
+```bash
+sudo nmcli connection down sentry-hotspot          # stop it now
+sudo nmcli connection modify sentry-hotspot \
+     connection.autoconnect no                     # and stop it starting on boot
+sudo nmcli connection up "<your usual network>"    # reconnect the Pi
+```
+
+### Connecting a client
+
+1. On the client, add the network **manually** — hidden networks never appear in
+   a scan. On macOS that is Wi-Fi → *Other…*; on iOS, Settings → Wi-Fi → *Other*.
+   Enter the exact network name, WPA2/WPA3-Personal, and the password.
+2. Read the **address for clients** off the hotspot panel (`10.42.0.1` by
+   default) and enter it, with each device's port, in Sentinel's SDR settings.
+   The control channel is still `port + 2`, exactly as on a LAN.
+
+The panel also lists **recent DHCP leases** so you can see which machines were
+given an address. A lease is not a live connection: a client that has walked out
+of range keeps its lease until it expires, and one with a static address never
+appears at all.
+
+### Things worth knowing
+
+- **Hiding the network is not a security control.** It defeats casual scanning
+  and nothing else — the network is still discoverable to anyone watching a
+  client associate. The password is what protects it.
+- **Sentry never shows a saved password back to you.** It is write-only: the API
+  reports only whether one is set, and there is no endpoint that returns it. If
+  it is forgotten, set a new one.
+- **Hotspot clients can reach your uplink LAN.** The hotspot uses
+  NetworkManager's shared mode, which provides DHCP, DNS and NAT — and NAT
+  routes joined clients out toward whatever network the Pi is on.
+- **WPA3 is experimental.** It is unreliable on some Raspberry Pi radios. WPA2 is
+  the default and the safe choice.
+- **If `SENTRY_ADVERTISED_HOST` is set**, it is published to hotspot-joined
+  clients too, who cannot reach a LAN address. Sentry warns about this rather
+  than overriding your setting; use the address shown on the hotspot panel.
+- Sentry owns exactly one NetworkManager profile (`sentry-hotspot`) and never
+  reads, edits or deletes any other.
+
+---
+
 ## API
 
 | Endpoint                        | Purpose                                                                            |
@@ -354,6 +520,14 @@ antenna.
 | `DELETE /api/devices/{id}`      | Forget an absent device's configuration                                            |
 | `POST /api/devices/{id}/serial` | Write a unique serial via `rtl_eeprom`                                             |
 | `GET /api/v1/sdrs`              | The public dongles, for Sentinel                                                   |
+| `GET /api/hotspot`              | Hotspot configuration and state. Always 200 — degrades rather than failing         |
+| `GET /api/hotspot/interfaces`   | Wireless interfaces the hotspot could use, and which carries the Pi's own link     |
+| `GET /api/hotspot/clients`      | DHCP leases the hotspot has issued. `null` means "cannot tell", never "none"       |
+| `PUT /api/hotspot`              | Replace the hotspot configuration. Omit `passphrase` to keep the stored one        |
+| `POST /api/hotspot/enable`      | Start the hotspot, provisionally — it rolls back unless confirmed                  |
+| `POST /api/hotspot/disable`     | Stop the hotspot                                                                   |
+| `POST /api/hotspot/confirm`     | Keep a hotspot that is on trial, and let it start on boot                          |
+| `DELETE /api/hotspot`           | Forget the hotspot, password included                                              |
 
 `/api/health` deliberately stays healthy while an individual dongle is degraded —
 otherwise a single wedged dongle would restart the container and take the healthy
@@ -380,6 +554,20 @@ defaults; copy it to `.env` (which is git-ignored) to override.
 | `SENTRY_LOG_LEVEL`            | `INFO`                                | Logging level                                          |
 | `SENTRY_CORS_ORIGINS`         | *(empty — CORS closed)*               | Allow-list for a separately-hosted dev frontend        |
 
+WiFi hotspot (all inert while control is off):
+
+| Variable                            | Default                  | Purpose                                                       |
+| ----------------------------------- | ------------------------ | ------------------------------------------------------------- |
+| `SENTRY_HOTSPOT_CONTROL_ENABLED`    | `false`                  | Master switch for host WiFi control                           |
+| `SENTRY_HOTSPOT_REQUIRE_AUTH_TOKEN` | `true`                   | Refuse hotspot changes while `SENTRY_AUTH_TOKEN` is unset      |
+| `SENTRY_HOTSPOT_CONNECTION_NAME`    | `sentry-hotspot`         | The single NetworkManager profile Sentry owns                 |
+| `SENTRY_HOTSPOT_INTERFACE`          | *(chosen automatically)* | Wireless interface to use                                     |
+| `SENTRY_HOTSPOT_GATEWAY_CIDR`       | `10.42.0.1/24`           | The Pi's address on the hotspot — what clients dial           |
+| `SENTRY_HOTSPOT_CONFIRM_TIMEOUT_S`  | `120.0`                  | Seconds to confirm a hotspot before it rolls back             |
+| `SENTRY_NMCLI_PATH`                 | `nmcli`                  | nmcli binary path                                             |
+| `SENTRY_NMCLI_TIMEOUT_S`            | `20.0`                   | Per-command timeout for nmcli                                 |
+| `SENTRY_NM_STATE_ROOT`              | `/var/lib/NetworkManager`| Where NetworkManager keeps its dnsmasq lease files            |
+
 ### Security
 
 **Authentication is off by default**, which suits a trusted home LAN. Sentry can
@@ -394,18 +582,34 @@ socket — earlier versions did, which was root-equivalent host control; the
 supervisor is now the parent of its own child processes and restarts them
 directly (see `docs/adr/0002`).
 
+**The WiFi hotspot makes the auth token effectively mandatory.** Raising an
+access point invites unknown machines onto the same network as this API, so
+Sentry refuses every hotspot change while `SENTRY_AUTH_TOKEN` is unset. Host
+WiFi control is also off by default (`SENTRY_HOTSPOT_CONTROL_ENABLED`), so it has
+to be turned on deliberately by someone with shell access to the Pi. The hotspot
+password is write-only end to end: it is never returned by any endpoint, never
+logged, and never stored by Sentry — NetworkManager holds it in its own root-only
+keyfile. See `docs/adr/0007` for why driving the host's NetworkManager from this
+container was preferred to a separate privileged helper.
+
+Note that the hotspot's shared mode provides NAT as well as DHCP and DNS, so a
+client that joins it can route out to whatever network the Pi's uplink is on.
+That is inherent to the mode and is not restricted.
+
 ---
 
 ## Architecture
 
 Design documents live in `docs/`:
 
-- `docs/architecture/sentry-fleet-manager.md` — the full design
+- `docs/architecture/sentry-sdr-controller.md` — the full design
 - `docs/adr/0001` — one container with subprocess supervision, not a container per dongle
 - `docs/adr/0002` — dropping the Docker socket
 - `docs/adr/0003` — device identity strategy
 - `docs/adr/0004` — SSE over WebSocket
 - `docs/adr/0005` — SQLite with WAL
+- `docs/adr/0006` — adopting Sentinel's visual language
+- `docs/adr/0007` — driving the host's NetworkManager for the WiFi hotspot
 
 ---
 

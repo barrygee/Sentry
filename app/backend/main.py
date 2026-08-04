@@ -22,6 +22,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import shutil
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from os import PathLike
@@ -41,6 +42,7 @@ from app.backend.adapters.asyncio_process import AsyncioProcessSpawner
 from app.backend.adapters.composite_hotplug import CompositeHotplugSource
 from app.backend.adapters.ctypes_rtlsdr import CtypesRtlSdrLibrary, RtlSdrLibraryUnavailableError
 from app.backend.adapters.net import SocketPortProber
+from app.backend.adapters.nmcli_wifi_ap import NmcliWifiApController, UnavailableWifiApController
 from app.backend.adapters.reconcile_hotplug import ReconcileHotplugSource
 from app.backend.adapters.sysfs_usb import SysfsUsbDiscovery
 from app.backend.adapters.system_clock import SystemClock
@@ -49,8 +51,10 @@ from app.backend.config import Settings, get_settings
 from app.backend.db import create_sentry_engine, create_sentry_session_factory
 from app.backend.example_fixtures import SENTRY_VERSION
 from app.backend.interfaces.clock import Clock
+from app.backend.interfaces.process import ProcessSpawner
 from app.backend.interfaces.rtlsdr import RtlSdrLibrary
 from app.backend.interfaces.types import RtlSdrUsbStrings
+from app.backend.interfaces.wifi_ap import WifiApController
 from app.backend.repositories.device_repository import DeviceRepository
 from app.backend.routers.api import api_router
 from app.backend.services.control_follower import ControlFollowerService
@@ -59,6 +63,7 @@ from app.backend.services.eeprom import EepromService
 from app.backend.services.event_bus import EventBus
 from app.backend.services.health import HealthService
 from app.backend.services.hotplug import HotplugService
+from app.backend.services.hotspot import HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
 from app.backend.services.supervisor import SupervisorService
 from app.backend.services.usb_discovery import UsbDiscoveryService
@@ -147,6 +152,71 @@ def _build_rtlsdr_library() -> RtlSdrLibrary:
         return _NullRtlSdrLibrary()
 
 
+DBUS_SYSTEM_BUS_SOCKET = Path("/run/dbus/system_bus_socket")
+"""The host's system D-Bus socket, which `nmcli` needs to reach NetworkManager.
+
+Present only when compose mounts it (ADR-0007). Its absence is the normal state
+on a developer workstation and on any deployment that has not opted into
+hotspot control, so it degrades rather than failing."""
+
+
+def _build_wifi_ap_controller(
+    settings: Settings, process_spawner: ProcessSpawner
+) -> WifiApController:
+    """Construct the real nmcli-backed controller, degrading to the null object.
+
+    Follows `_build_rtlsdr_library`'s precedent exactly: an optional capability
+    the host may simply not have must never crash startup. Three things have to
+    be true for real control — the operator enabled it, `nmcli` exists, and the
+    host's D-Bus socket is reachable — and each failing case names itself in the
+    log so an operator on the Pi knows which one to fix.
+    """
+    if not settings.hotspot_control_enabled:
+        return UnavailableWifiApController(
+            "Hotspot control is switched off (SENTRY_HOTSPOT_CONTROL_ENABLED).",
+            nm_state_root=Path(settings.nm_state_root),
+        )
+    if shutil.which(settings.nmcli_path) is None:
+        _logger.warning(
+            "hotspot control is enabled but %s was not found; the hotspot API will report "
+            "available=false. Expected on a developer workstation; install the "
+            "network-manager package in the production image.",
+            settings.nmcli_path,
+        )
+        return UnavailableWifiApController(
+            f"{settings.nmcli_path} is not installed.",
+            nm_state_root=Path(settings.nm_state_root),
+        )
+    if not DBUS_SYSTEM_BUS_SOCKET.exists():
+        _logger.warning(
+            "hotspot control is enabled but %s is missing, so nmcli cannot reach the host's "
+            "NetworkManager; the hotspot API will report available=false. Mount it in "
+            "docker-compose.yml (ADR-0007).",
+            DBUS_SYSTEM_BUS_SOCKET,
+        )
+        return UnavailableWifiApController(
+            "The host's D-Bus socket is not mounted into this container.",
+            nm_state_root=Path(settings.nm_state_root),
+        )
+    if settings.auth_token is None and settings.hotspot_require_auth_token:
+        # Not fatal, and not a refusal here — the router refuses each mutation
+        # individually. Logged at startup because an operator who enabled the
+        # hotspot and never set a token has a security problem they will not
+        # otherwise discover until they try to use it.
+        _logger.warning(
+            "hotspot control is enabled but SENTRY_AUTH_TOKEN is unset; every hotspot change "
+            "will be refused. Anyone joining the hotspot would otherwise reach this API "
+            "without credentials."
+        )
+    return NmcliWifiApController(
+        process_spawner=process_spawner,
+        nmcli_path=settings.nmcli_path,
+        connection_name=settings.hotspot_connection_name,
+        nm_state_root=Path(settings.nm_state_root),
+        timeout_s=settings.nmcli_timeout_s,
+    )
+
+
 def _run_migrations_sync(database_url: str) -> None:
     """Run `alembic upgrade head` synchronously against `database_url`.
 
@@ -182,6 +252,7 @@ class AppContainer:
     eeprom_service: EepromService
     port_allocator: PortAllocatorService
     health_service: HealthService
+    hotspot_service: HotspotService
     background_tasks: list[asyncio.Task[None]]
 
 
@@ -256,6 +327,14 @@ def _build_container(settings: Settings) -> AppContainer:
         started_at_ms=clock.now_ms(),
         version=SENTRY_VERSION,
     )
+    hotspot_service = HotspotService(
+        controller=_build_wifi_ap_controller(settings, process_spawner),
+        event_bus=event_bus,
+        clock=clock,
+        default_gateway_cidr=settings.hotspot_gateway_cidr,
+        confirm_timeout_s=settings.hotspot_confirm_timeout_s,
+        configured_interface=settings.hotspot_interface,
+    )
 
     return AppContainer(
         settings=settings,
@@ -270,6 +349,7 @@ def _build_container(settings: Settings) -> AppContainer:
         eeprom_service=eeprom_service,
         port_allocator=port_allocator,
         health_service=health_service,
+        hotspot_service=hotspot_service,
         background_tasks=[],
     )
 
@@ -290,7 +370,7 @@ RECONCILE_DEBOUNCE_S = 0.25
 reads the registry's *live* desired set rather than anything carried by the
 triggering event, so a debounced call is never stale — merely less frequent —
 which is what keeps an operator alternating a device between two valid ports
-from holding the fleet in continuous stop/respawn churn."""
+from holding the SDRs in continuous stop/respawn churn."""
 
 
 async def _run_supervisor_reconcile_loop(container: AppContainer) -> None:
@@ -419,6 +499,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             _logger.exception("error stopping supervised processes")
 
         try:
+            # Cancels any armed rollback timer only — deliberately does not roll
+            # a hotspot back on the way out, since a container restart must not
+            # tear down a working network (ADR-0007).
+            await container.hotspot_service.close()
+        except Exception:
+            _logger.exception("error closing hotspot service")
+
+        try:
             await container.device_registry.close()
         except Exception:
             _logger.exception("error closing device registry")
@@ -473,7 +561,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     application = FastAPI(
         title="Sentry",
-        description="Multi-dongle RTL-SDR fleet manager for a Raspberry Pi.",
+        description="Multi-dongle RTL-SDR controller for a Raspberry Pi.",
         version=SENTRY_VERSION,
         lifespan=_lifespan,
     )

@@ -5,7 +5,7 @@ import BaseField from '@/components/base/BaseField.vue'
 
 /**
  * The device's operator-facing name (architecture §7.5): 1-64 chars,
- * allow-listed charset, unique across the fleet. Validates on blur, not
+ * allow-listed charset, unique across the SDRs. Validates on blur, not
  * per keystroke — a partially typed name is not an error. On a validation
  * failure, focus is returned to the field rather than left wherever the
  * operator tabbed to, so a screen-reader user hears which field the error

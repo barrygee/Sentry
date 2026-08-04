@@ -39,7 +39,7 @@ _HEALTH_CACHE_TTL_S = 4.0
 sees a snapshot at least once per cycle, while a burst of many concurrent
 connections (each independently calling `get_health()` on its own 5s timer,
 plus `GET /api/health` itself) shares one DB ping instead of issuing one per
-connection every 5 seconds — the amplification path a fleet with many open
+connection every 5 seconds — the amplification path a set of SDRs with many open
 tabs would otherwise hit."""
 
 

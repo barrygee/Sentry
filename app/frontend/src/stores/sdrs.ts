@@ -9,11 +9,11 @@ import {
   type SerialFlashAccepted,
 } from '@/api/client'
 import { useLiveAnnouncer } from '@/composables/useLiveAnnouncer'
-import type { ConnectionState, HealthSnapshot, NoticeEvent, NoticeItem } from '@/types/fleet'
+import type { ConnectionState, HealthSnapshot, NoticeEvent, NoticeItem } from '@/types/sdrs'
 
 const MAX_NOTICES = 50
 
-export interface FleetState {
+export interface SdrsState {
   devicesById: Record<string, DeviceStatus>
   order: string[]
   health: HealthSnapshot | null
@@ -42,13 +42,13 @@ export interface SerialConflictDevice {
 let noticeSequence = 0
 
 /**
- * The authoritative client-side fleet model (architecture §9.2). Never opens
- * the `EventSource` itself — `useFleetStream` owns that subscription and
+ * The authoritative client-side SDR model (architecture §9.2). Never opens
+ * the `EventSource` itself — `useSdrsStream` owns that subscription and
  * calls these actions, keeping the store trivially testable with plain
  * fixture objects.
  */
-export const useFleetStore = defineStore('fleet', {
-  state: (): FleetState => ({
+export const useSdrsStore = defineStore('sdrs', {
+  state: (): SdrsState => ({
     devicesById: {},
     order: [],
     health: null,
@@ -105,7 +105,7 @@ export const useFleetStore = defineStore('fleet', {
     /**
      * Groups present devices that report the same raw factory serial
      * (architecture §5.1 tier 3's first cause) so `SerialConflictBanner` can
-     * surface one fleet-level summary per duplicate rather than relying on
+     * surface one SDR-level summary per duplicate rather than relying on
      * each affected card's `NeedsIdentificationNotice` alone.
      */
     serialConflictGroups(): { serial: string; devices: SerialConflictDevice[] }[] {

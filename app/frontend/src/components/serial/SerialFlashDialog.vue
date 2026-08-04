@@ -7,7 +7,7 @@ import BaseDialog from '@/components/base/BaseDialog.vue'
 import BaseField from '@/components/base/BaseField.vue'
 import NoticeBox from '@/components/base/NoticeBox.vue'
 import SectionHeading from '@/components/base/SectionHeading.vue'
-import { useFleetStore } from '@/stores/fleet'
+import { useSdrsStore } from '@/stores/sdrs'
 import { isDeviceIdle } from '@/utils/deviceState'
 import { validateSerialClientSide } from '@/utils/serialValidation'
 
@@ -21,7 +21,7 @@ import { validateSerialClientSide } from '@/utils/serialValidation'
  * driven entirely by the SSE `notice` stream — there is no polling and no
  * synchronous result.
  *
- * Rendered once, near the app root, and fed by `fleetStore.serialFlashDeviceId`
+ * Rendered once, near the app root, and fed by `sdrsStore.serialFlashDeviceId`
  * (opened by `SdrDeviceCard`'s `request-serial-flash` emit or
  * `SerialConflictBanner`) rather than owning its own visibility — the
  * invoking control can be several components away from wherever this
@@ -30,7 +30,7 @@ import { validateSerialClientSide } from '@/utils/serialValidation'
 const props = defineProps<{ device: DeviceStatus | null }>()
 const emit = defineEmits<{ close: [] }>()
 
-const fleetStore = useFleetStore()
+const sdrsStore = useSdrsStore()
 
 type FlashPhase = 'form' | 'submitting' | 'awaiting-outcome' | 'succeeded' | 'failed'
 
@@ -76,7 +76,7 @@ watch(
 // 5), so the first notice for this device raised after the request was
 // accepted is that operation's outcome.
 watch(
-  () => fleetStore.notices,
+  () => sdrsStore.notices,
   (notices) => {
     if (phase.value !== 'awaiting-outcome' || !props.device) {
       return
@@ -105,7 +105,7 @@ async function submit(): Promise<void> {
   phase.value = 'submitting'
   requestStartedAtMs = Date.now()
   try {
-    const accepted = await fleetStore.flashSerial(props.device.device_id, serialDraft.value)
+    const accepted = await sdrsStore.flashSerial(props.device.device_id, serialDraft.value)
     requiresReplug.value = accepted.requires_replug
     phase.value = 'awaiting-outcome'
   } catch (error) {
@@ -190,7 +190,7 @@ function humanizeFlashError(error: unknown): string {
     <template v-if="device">
       <!-- A `<div>`, not `<header>`: this dialog is teleported to `<body>`,
            outside any sectioning root, so `<header>` here would register as
-           a second page-level "banner" landmark alongside `FleetHeader`'s. -->
+           a second page-level "banner" landmark alongside `SdrsHeader`'s. -->
       <div class="flex flex-col gap-2">
         <SectionHeading :id="headingId" dot-class="bg-signal-danger">
           Flash a unique serial — {{ deviceLabel }}

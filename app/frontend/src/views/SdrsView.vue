@@ -4,19 +4,20 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { apiClient } from '@/api/client'
 import EmptyState from '@/components/base/EmptyState.vue'
 import PanelStack from '@/components/base/PanelStack.vue'
-import AbsentDeviceGroup from '@/components/fleet/AbsentDeviceGroup.vue'
-import NoticeList from '@/components/fleet/NoticeList.vue'
+import AbsentDeviceGroup from '@/components/sdrs/AbsentDeviceGroup.vue'
+import NoticeList from '@/components/sdrs/NoticeList.vue'
 import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
 import ForgetDeviceDialog from '@/components/device/ForgetDeviceDialog.vue'
+import HotspotDialog from '@/components/hotspot/HotspotDialog.vue'
 import SerialConflictBanner from '@/components/serial/SerialConflictBanner.vue'
 import SerialFlashDialog from '@/components/serial/SerialFlashDialog.vue'
-import { useFleetStream } from '@/composables/useFleetStream'
+import { useSdrsStream } from '@/composables/useSdrsStream'
 import { useLiveAnnouncer } from '@/composables/useLiveAnnouncer'
-import { useFleetStore } from '@/stores/fleet'
+import { useSdrsStore } from '@/stores/sdrs'
 
-const fleetStore = useFleetStore()
+const sdrsStore = useSdrsStore()
 const { announcePolite, announceAssertive } = useLiveAnnouncer()
-useFleetStream()
+useSdrsStream()
 
 // Locally dismissed conflict banners, keyed by serial — dismissing hides the
 // summary banner without touching each affected card's own
@@ -25,7 +26,7 @@ useFleetStream()
 // dismissed is suppressed.
 const dismissedConflictSerials = ref(new Set<string>())
 const visibleConflictGroups = computed(() =>
-  fleetStore.serialConflictGroups.filter(
+  sdrsStore.serialConflictGroups.filter(
     (group) => !dismissedConflictSerials.value.has(group.serial),
   ),
 )
@@ -35,23 +36,23 @@ function dismissConflictGroup(serial: string): void {
 }
 
 function openSerialFlashDialog(deviceId: string): void {
-  fleetStore.openSerialFlashDialog(deviceId)
+  sdrsStore.openSerialFlashDialog(deviceId)
 }
 
 function closeSerialFlashDialog(): void {
-  fleetStore.closeSerialFlashDialog()
+  sdrsStore.closeSerialFlashDialog()
 }
 
 function closeForgetDialog(): void {
-  fleetStore.closeForgetDialog()
+  sdrsStore.closeForgetDialog()
 }
 
 onMounted(async () => {
   try {
     const devicesResponse = await apiClient.listDevices()
-    fleetStore.setConstraints(devicesResponse.constraints)
+    sdrsStore.setConstraints(devicesResponse.constraints)
   } catch {
-    // The SSE `snapshot` still populates the fleet even if this convenience
+    // The SSE `snapshot` still populates the SDRs even if this convenience
     // fetch fails; port constraints simply stay advisory-only until it does.
   }
 })
@@ -60,7 +61,7 @@ onMounted(async () => {
 // diffing each snapshot against the previous one's `(present, state)` pair.
 const previousDeviceSnapshot = new Map<string, { present: boolean; state: string }>()
 watch(
-  () => fleetStore.devices,
+  () => sdrsStore.devices,
   (currentDevices) => {
     for (const device of currentDevices) {
       const previous = previousDeviceSnapshot.get(device.device_id)
@@ -91,7 +92,7 @@ watch(
   { deep: false },
 )
 
-const hasDevices = computed(() => fleetStore.devices.length > 0)
+const hasDevices = computed(() => sdrsStore.devices.length > 0)
 </script>
 
 <template>
@@ -128,30 +129,33 @@ const hasDevices = computed(() => fleetStore.devices.length > 0)
         />
         <template v-else>
           <EmptyState
-            v-if="fleetStore.presentDevices.length === 0"
+            v-if="sdrsStore.presentDevices.length === 0"
             title="No devices currently plugged in"
             detail="Every configured device below is absent — see the collapsed group beneath."
           />
           <PanelStack v-else>
             <SdrDeviceCard
-              v-for="device in fleetStore.presentDevices"
+              v-for="device in sdrsStore.presentDevices"
               :key="device.device_id"
               :device="device"
               @request-serial-flash="openSerialFlashDialog"
             />
           </PanelStack>
           <AbsentDeviceGroup
-            v-if="fleetStore.absentConfiguredDevices.length > 0"
-            :devices="fleetStore.absentConfiguredDevices"
+            v-if="sdrsStore.absentConfiguredDevices.length > 0"
+            :devices="sdrsStore.absentConfiguredDevices"
             @request-serial-flash="openSerialFlashDialog"
           />
         </template>
       </section>
     </div>
     <SerialFlashDialog
-      :device="fleetStore.serialFlashDialogDevice"
+      :device="sdrsStore.serialFlashDialogDevice"
       @close="closeSerialFlashDialog"
     />
-    <ForgetDeviceDialog :device="fleetStore.forgetDialogDevice" @close="closeForgetDialog" />
+    <ForgetDeviceDialog :device="sdrsStore.forgetDialogDevice" @close="closeForgetDialog" />
+    <!-- Mounted once here, beside the other teleported dialogs, and opened from
+         the store by the header's control several components away. -->
+    <HotspotDialog />
   </div>
 </template>

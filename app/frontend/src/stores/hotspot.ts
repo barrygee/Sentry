@@ -1,0 +1,276 @@
+import { defineStore } from 'pinia'
+
+import {
+  apiClient,
+  ApiError,
+  type HotspotClient,
+  type HotspotConfigRequest,
+  type HotspotState,
+  type WirelessInterface,
+} from '@/api/client'
+import { useLiveAnnouncer } from '@/composables/useLiveAnnouncer'
+
+/**
+ * The hotspot's client-side model.
+ *
+ * A store of its own rather than fields on `sdrs.ts`: that one is the
+ * SSE-driven device model, and the hotspot is request/response state about the
+ * host's network. Keeping them apart means neither has to know the other exists,
+ * and both stay trivially testable with plain fixture objects.
+ *
+ * **The passphrase is never held here.** It lives in the form component's local
+ * ref for exactly as long as it takes to send, and is never written to state,
+ * `sessionStorage` or a URL — deliberately unlike `useAuthToken`, which does
+ * persist its token. The hotspot key is the higher-value secret and it has no
+ * reason to outlive the request.
+ */
+
+/** What the dialog is currently doing. Drives which controls are live. */
+export type HotspotPhase =
+  'loading' | 'form' | 'submitting' | 'awaiting-confirm' | 'succeeded' | 'failed'
+
+export interface HotspotStoreState {
+  state: HotspotState | null
+  interfaces: WirelessInterface[]
+  /** `null` means the host could not be asked — never render it as "no clients". */
+  clients: HotspotClient[] | null
+  phase: HotspotPhase
+  /** The last operator-facing failure message, or null. Never contains a secret. */
+  errorMessage: string | null
+  errorCode: string | null
+  dialogOpen: boolean
+}
+
+/**
+ * Turn a server error code into a sentence an operator can act on.
+ *
+ * Follows `sdrs.ts`'s `humanize*ErrorCode` idiom: a raw code is never rendered.
+ * Falls back to the server's own message, which is already written for a human
+ * and already redacted of any passphrase.
+ */
+export function humanizeHotspotError(code: string, fallback: string): string {
+  switch (code) {
+    case 'hotspot_control_disabled':
+      return 'Hotspot control is switched off on this Sentry. Set SENTRY_HOTSPOT_CONTROL_ENABLED=true in its .env and restart.'
+    case 'auth_token_required':
+      return 'Set an API access token on this Sentry before starting a hotspot — otherwise anyone who joins the network can reach it without credentials.'
+    case 'hotspot_unavailable':
+      return 'This Sentry cannot manage a WiFi hotspot: NetworkManager was not reachable.'
+    case 'passphrase_required':
+      return 'Enter a password for the hotspot.'
+    case 'hotspot_not_configured':
+      return 'Set the network name and password first.'
+    case 'uplink_loss_unconfirmed':
+      return 'That interface is carrying this Sentry’s own network connection. Confirm before continuing.'
+    case 'no_wireless_interface':
+      return 'This Sentry has no wireless interface that can host a network.'
+    case 'interface_not_found':
+      return 'That wireless interface is no longer present.'
+    case 'interface_ap_unsupported':
+      return 'That wireless interface cannot host a network.'
+    case 'hotspot_busy':
+      return 'Another hotspot change is still running. Wait a moment and try again.'
+    case 'no_pending_confirmation':
+      return 'There is no hotspot change waiting to be confirmed — it may have already rolled back.'
+    case 'hotspot_command_timeout':
+      return 'The network command did not finish in time. The radio or NetworkManager may be stuck.'
+    case 'hotspot_command_failed':
+      return 'The network command failed. See the details below.'
+    default:
+      return fallback
+  }
+}
+
+function describeError(error: unknown, fallback: string): { code: string; message: string } {
+  if (error instanceof ApiError) {
+    const code = error.detail?.code ?? 'hotspot_request_failed'
+    return { code, message: humanizeHotspotError(code, error.message || fallback) }
+  }
+  return { code: 'hotspot_request_failed', message: fallback }
+}
+
+export const useHotspotStore = defineStore('hotspot', {
+  state: (): HotspotStoreState => ({
+    state: null,
+    interfaces: [],
+    clients: null,
+    phase: 'loading',
+    errorMessage: null,
+    errorCode: null,
+    dialogOpen: false,
+  }),
+
+  getters: {
+    /** Whether a hotspot change is currently on trial and will revert if unconfirmed. */
+    isAwaitingConfirmation(state): boolean {
+      return state.state?.pending_confirmation === true
+    },
+    /** Whether the chosen interface is also this Sentry's own way onto the network. */
+    wouldDropUplink(state): boolean {
+      return state.state?.uplink_interface_is_hotspot_interface === true
+    },
+    /** The address a joined client should point Sentinel at. */
+    gatewayAddress(state): string | null {
+      return state.state?.gateway_address ?? null
+    },
+    /** Whether any mutating control should be enabled at all. */
+    canMutate(state): boolean {
+      return (
+        state.state !== null &&
+        state.state.available &&
+        state.state.control_enabled &&
+        state.state.auth_token_configured
+      )
+    },
+  },
+
+  actions: {
+    openDialog(): void {
+      this.dialogOpen = true
+      void this.refresh()
+    },
+
+    closeDialog(): void {
+      this.dialogOpen = false
+      this.errorMessage = null
+      this.errorCode = null
+    },
+
+    /** Apply a fresh state payload, deriving the phase from what the server reports. */
+    applyState(nextState: HotspotState): void {
+      this.state = nextState
+      this.phase = nextState.pending_confirmation ? 'awaiting-confirm' : 'form'
+    },
+
+    recordError(error: unknown, fallback: string): void {
+      const described = describeError(error, fallback)
+      this.errorCode = described.code
+      this.errorMessage = described.message
+      this.phase = 'failed'
+    },
+
+    async refresh(): Promise<void> {
+      try {
+        const [nextState, interfacesResponse] = await Promise.all([
+          apiClient.getHotspot(),
+          apiClient.getHotspotInterfaces(),
+        ])
+        this.interfaces = [...interfacesResponse.interfaces]
+        this.applyState(nextState)
+        this.errorMessage = null
+        this.errorCode = null
+      } catch (error) {
+        this.recordError(error, 'Could not read the hotspot settings.')
+      }
+      await this.refreshClients()
+    },
+
+    async refreshClients(): Promise<void> {
+      try {
+        const response = await apiClient.getHotspotClients()
+        // Preserve the null: "cannot tell" and "nobody connected" are different
+        // answers and the UI renders them differently. An absent key is also
+        // "cannot tell", so `?? null` collapses only that, never an empty list.
+        this.clients = response.clients == null ? null : [...response.clients]
+      } catch {
+        // A failed client list must never blank out the settings form — it is
+        // supplementary information, not the point of the panel.
+        this.clients = null
+      }
+    },
+
+    /**
+     * Save the configuration.
+     *
+     * `passphrase` is omitted from the body entirely when unchanged rather than
+     * sent as null — that omission *is* the "keep the stored password" signal
+     * the server contract defines.
+     */
+    async save(config: HotspotConfigRequest): Promise<boolean> {
+      this.phase = 'submitting'
+      this.errorMessage = null
+      this.errorCode = null
+      try {
+        this.applyState(await apiClient.putHotspot(config))
+        useLiveAnnouncer().announcePolite(
+          config.enabled ? 'Hotspot settings saved and started.' : 'Hotspot settings saved.',
+        )
+        void this.refreshClients()
+        return true
+      } catch (error) {
+        this.recordError(error, 'Could not save the hotspot settings.')
+        return false
+      }
+    },
+
+    async enable(confirmUplinkLoss: boolean): Promise<boolean> {
+      return this.runActivation(
+        () => apiClient.enableHotspot({ confirm_uplink_loss: confirmUplinkLoss }),
+        'Hotspot started.',
+        'Could not start the hotspot.',
+      )
+    },
+
+    async disable(confirmUplinkLoss: boolean): Promise<boolean> {
+      return this.runActivation(
+        () => apiClient.disableHotspot({ confirm_uplink_loss: confirmUplinkLoss }),
+        'Hotspot stopped.',
+        'Could not stop the hotspot.',
+      )
+    },
+
+    async confirm(): Promise<boolean> {
+      return this.runActivation(
+        () => apiClient.confirmHotspot(),
+        'Hotspot confirmed. It will now start automatically.',
+        'Could not confirm the hotspot.',
+      )
+    },
+
+    /** Shared submit-announce-or-record path for the three activation routes. */
+    async runActivation(
+      call: () => Promise<HotspotState>,
+      successAnnouncement: string,
+      failureFallback: string,
+    ): Promise<boolean> {
+      this.phase = 'submitting'
+      this.errorMessage = null
+      this.errorCode = null
+      try {
+        this.applyState(await call())
+        useLiveAnnouncer().announcePolite(successAnnouncement)
+        void this.refreshClients()
+        return true
+      } catch (error) {
+        this.recordError(error, failureFallback)
+        return false
+      }
+    },
+
+    async forget(): Promise<boolean> {
+      this.phase = 'submitting'
+      try {
+        await apiClient.deleteHotspot()
+        useLiveAnnouncer().announcePolite('Hotspot configuration deleted.')
+        await this.refresh()
+        return true
+      } catch (error) {
+        this.recordError(error, 'Could not delete the hotspot configuration.')
+        return false
+      }
+    },
+
+    /**
+     * React to a rollback that happened on the server without us asking.
+     *
+     * Called by the SDRs stream when a `hotspot_rollback` notice arrives, so an
+     * operator who closed the dialog still learns their hotspot reverted —
+     * assertively, because it means the network they were about to rely on is
+     * gone.
+     */
+    handleRollbackNotice(message: string): void {
+      useLiveAnnouncer().announceAssertive(message)
+      void this.refresh()
+    },
+  },
+})

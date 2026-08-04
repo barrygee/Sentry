@@ -1,4 +1,4 @@
-# Sentry — multi-dongle RTL-SDR fleet manager.
+# Sentry — multi-dongle RTL-SDR controller.
 #
 # Three build stages, one final runtime image (ADR-0001: one container, one
 # process tree, subprocess supervision — no per-dongle containers, no Docker
@@ -72,9 +72,23 @@ FROM python:3.12-slim AS runtime
 # — needed to inspect or signal the supervised `rtl_tcp`/relay process tree
 # from inside the container (hardware-debugging finding: neither tool was
 # available when diagnosing a wedged/unresponsive dongle on the Pi).
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        libusb-1.0-0 tini procps \
-    && rm -rf /var/lib/apt/lists/*
+# network-manager is here for `/usr/bin/nmcli` ALONE (ADR-0007). The
+# NetworkManager daemon the package also installs is never started — there is
+# no init in this container, and it must not be: nmcli talks to the *host's*
+# NetworkManager over the system D-Bus socket that docker-compose mounts in.
+# A second NetworkManager fighting the host's one for the same radio is exactly
+# the failure this design avoids. `--no-install-recommends` matters more than
+# usual for it, keeping ppp, modemmanager and friends out of the image.
+#
+# `policy-rc.d` returning 101 tells the Debian package scripts not to start any
+# service during the build. Without it, network-manager's postinst tries to
+# `systemctl start` in a container that has no init and can fail the build.
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
+    && chmod +x /usr/sbin/policy-rc.d \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        libusb-1.0-0 tini procps network-manager \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/sbin/policy-rc.d
 
 # rtl_tcp and rtl_eeprom (the operator runs rtl_eeprom directly from this
 # image for the duplicate-serial remedy — README), plus rtl_test and rtl_sdr —

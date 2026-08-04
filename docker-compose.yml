@@ -1,4 +1,4 @@
-# Sentry — multi-dongle RTL-SDR fleet manager.
+# Sentry — multi-dongle RTL-SDR controller.
 #
 # ONE service replaces the legacy two-service stack. Sentry supervises a pair of
 # child processes (`rtl_tcp` + the vendored relay) per enabled dongle inside this
@@ -42,6 +42,30 @@ services:
       # persistence across reboots, and losing it on a rebuild would fail that.
       - sentry-data:/data
 
+      # WiFi hotspot control (ADR-0007). `nmcli` in this container drives the
+      # HOST's NetworkManager over its system D-Bus socket; without this mount
+      # there is nothing for it to talk to and GET /api/hotspot simply reports
+      # available: false.
+      #
+      # Read-write deliberately. `:ro` on a *socket* restricts nothing about
+      # the calls made through it — the same reasoning ADR-0002 applied when it
+      # rejected mounting the Docker socket read-only as security theatre. The
+      # real controls are elsewhere: SENTRY_HOTSPOT_CONTROL_ENABLED below is off
+      # by default, and every hotspot change is refused while SENTRY_AUTH_TOKEN
+      # is unset.
+      #
+      # Absent on a host that does not run NetworkManager (Raspberry Pi OS
+      # Bookworm does, by default), in which case Docker creates an empty
+      # directory here and the hotspot degrades to read-only rather than
+      # failing.
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+
+      # NetworkManager's dnsmasq lease files — the source for
+      # GET /api/hotspot/clients. Read-only: this is the one hotspot path that
+      # only ever reads. A missing path yields `clients: null`, which the UI
+      # renders as "cannot tell" rather than "nobody connected".
+      - /var/lib/NetworkManager:/var/lib/NetworkManager:ro
+
     # Gives `SENTRY_AUTH_TOKEN` (and any other secret) a git-ignored home:
     # a real deployment sets it in a project-root `.env` (see `.env.example`)
     # rather than committing it into this file's `environment:` block below,
@@ -67,7 +91,17 @@ services:
       #
       # Set only if Sentry sits behind NAT/a proxy and the Host header would
       # otherwise advertise the wrong address to Sentinel in GET /api/v1/sdrs.
+      # Note it is published to hotspot-joined clients too, who cannot reach a
+      # LAN address — read the hotspot's own address off the hotspot panel.
       # SENTRY_ADVERTISED_HOST: '192.168.1.45'
+
+      # Lets the web UI reconfigure this HOST's WiFi so Sentry can run its own
+      # network for Sentinel clients (ADR-0007). OFF by default: this is the one
+      # setting that hands a LAN-facing API control of host networking. With it
+      # on, every hotspot change is still refused until SENTRY_AUTH_TOKEN is set,
+      # because an access point puts anyone in radio range holding the passphrase
+      # on the same segment as this API.
+      SENTRY_HOTSPOT_CONTROL_ENABLED: 'false'
 
     healthcheck:
       # /api/health stays 200 while individual dongles are degraded and returns

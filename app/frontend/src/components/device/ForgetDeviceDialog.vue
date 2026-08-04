@@ -6,7 +6,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import BaseDialog from '@/components/base/BaseDialog.vue'
 import NoticeBox from '@/components/base/NoticeBox.vue'
 import SectionHeading from '@/components/base/SectionHeading.vue'
-import { useFleetStore } from '@/stores/fleet'
+import { useSdrsStore } from '@/stores/sdrs'
 
 /**
  * The confirmation for discarding an absent device's persisted
@@ -16,7 +16,7 @@ import { useFleetStore } from '@/stores/fleet'
  * the name/port/tuning defaults are genuinely gone, so the copy says that
  * plainly instead of a generic "are you sure".
  *
- * Rendered once near the app root and fed by `fleetStore.forgetDeviceId`
+ * Rendered once near the app root and fed by `sdrsStore.forgetDeviceId`
  * (opened from `SdrDeviceCard`'s `request-forget-device` emit), matching the
  * `SerialFlashDialog` pattern — the invoking control lives inside
  * `AbsentDeviceGroup`, several components away from wherever this mounts.
@@ -24,7 +24,7 @@ import { useFleetStore } from '@/stores/fleet'
 const props = defineProps<{ device: DeviceStatus | null }>()
 const emit = defineEmits<{ close: [] }>()
 
-const fleetStore = useFleetStore()
+const sdrsStore = useSdrsStore()
 
 type ForgetPhase = 'confirm' | 'deleting' | 'failed'
 
@@ -60,7 +60,7 @@ async function confirmForget(): Promise<void> {
   phase.value = 'deleting'
   errorMessage.value = null
   try {
-    await fleetStore.deleteDevice(props.device.device_id)
+    await sdrsStore.deleteDevice(props.device.device_id)
     // Success closes via `deleteDevice` itself (`closeForgetDialog`), which
     // sets `device` to null and this component's `watch` resets `phase`.
   } catch (error) {
@@ -95,7 +95,7 @@ function humanizeForgetError(error: unknown): string {
     <template v-if="device">
       <!-- A `<div>`, not `<header>`: this dialog is teleported to `<body>`,
            outside any sectioning root, so `<header>` here would register as
-           a second page-level "banner" landmark alongside `FleetHeader`'s. -->
+           a second page-level "banner" landmark alongside `SdrsHeader`'s. -->
       <div class="flex flex-col gap-2">
         <!-- Red dot rather than the identity amber: this dialog's whole
              purpose is a destructive confirmation, and the heading is the

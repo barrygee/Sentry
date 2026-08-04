@@ -1,4 +1,4 @@
-"""The in-memory authoritative fleet state (architecture §4.3, §10).
+"""The in-memory authoritative SDR state (architecture §4.3, §10).
 
 Merges persisted configuration (from `DeviceRepository`) with live presence
 (from hotplug) into `DeviceStatus` records, owns every state-machine

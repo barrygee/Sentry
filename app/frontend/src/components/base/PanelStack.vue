@@ -3,9 +3,9 @@
  * The device stack: one centred column, cards laid out vertically.
  *
  * This replaced an auto-filling card grid that placed cards side by side at
- * wider viewports. A fleet is a handful of dongles, and reading them as a
+ * wider viewports. A set of SDRs is a handful of dongles, and reading them as a
  * single ordered list beats packing them into columns. The centred 860px
- * measure they sit in belongs to `FleetView`'s page wrapper, shared with the
+ * measure they sit in belongs to `SdrsView`'s page wrapper, shared with the
  * notices and banners above them.
  *
  * Renders a `<div>` by default. Pass `as="ul"` when the cards are a genuine

@@ -817,6 +817,402 @@
         "title": "HotplugHealth",
         "type": "object"
       },
+      "HotspotActivationRequest": {
+        "additionalProperties": false,
+        "description": "Body shared by `POST /api/hotspot/enable` and `/disable`.\n\nThese exist as their own routes so the UI's on/off switch never resends the\nwhole configuration \u2014 and therefore never has to be holding the passphrase\njust to flip a switch.",
+        "properties": {
+          "confirm_uplink_loss": {
+            "default": false,
+            "description": "Acknowledges that this call will drop a connection currently in use",
+            "title": "Confirm Uplink Loss",
+            "type": "boolean"
+          }
+        },
+        "title": "HotspotActivationRequest",
+        "type": "object"
+      },
+      "HotspotClientItem": {
+        "description": "One DHCP lease issued by the hotspot.",
+        "properties": {
+          "expired": {
+            "description": "Whether the lease has already lapsed",
+            "title": "Expired",
+            "type": "boolean"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "ip_address": {
+            "title": "Ip Address",
+            "type": "string"
+          },
+          "lease_expires_at_ms": {
+            "description": "Unix ms",
+            "title": "Lease Expires At Ms",
+            "type": "integer"
+          },
+          "mac_address": {
+            "title": "Mac Address",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mac_address",
+          "ip_address",
+          "lease_expires_at_ms",
+          "expired"
+        ],
+        "title": "HotspotClientItem",
+        "type": "object"
+      },
+      "HotspotClientsResponse": {
+        "description": "`GET /api/hotspot/clients` body.\n\n`clients` is `null`, never `[]`, when no lease file could be read \u2014 \"we\ncannot tell\" and \"nobody is connected\" are different answers and the UI\nrenders them differently.",
+        "properties": {
+          "clients": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HotspotClientItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clients"
+          },
+          "generated_at": {
+            "description": "Unix ms",
+            "title": "Generated At",
+            "type": "integer"
+          },
+          "source": {
+            "const": "dnsmasq-leases",
+            "default": "dnsmasq-leases",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generated_at"
+        ],
+        "title": "HotspotClientsResponse",
+        "type": "object"
+      },
+      "HotspotConfigRequest": {
+        "additionalProperties": false,
+        "description": "`PUT /api/hotspot` body \u2014 a full replace, not a merge.\n\nDeliberately not a PATCH. Merging a partial body would let a request that\nsays nothing about `hidden` silently inherit a previous `false`, which is\nexactly the security-relevant field an operator most expects to be\nexplicit. The passphrase is the single exception, and only because omitting\nit is the mechanism that keeps the secret write-only.",
+        "properties": {
+          "band": {
+            "default": "bg",
+            "description": "bg is 2.4 GHz, a is 5 GHz",
+            "enum": [
+              "bg",
+              "a"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "channel": {
+            "default": 0,
+            "description": "0 chooses automatically",
+            "maximum": 196.0,
+            "minimum": 0.0,
+            "title": "Channel",
+            "type": "integer"
+          },
+          "confirm_uplink_loss": {
+            "default": false,
+            "description": "Acknowledges that the chosen interface currently carries a connection which raising the hotspot will drop",
+            "title": "Confirm Uplink Loss",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": false,
+            "description": "Whether the hotspot should be running after this call",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "gateway_cidr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Pi's address on the hotspot network; omit to use the configured default",
+            "title": "Gateway Cidr"
+          },
+          "hidden": {
+            "default": true,
+            "description": "Suppress SSID broadcast so clients must know the name in advance. Not a security control on its own",
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "interface": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_.-]{1,15}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wireless interface to use; omit to choose one automatically",
+            "title": "Interface"
+          },
+          "passphrase": {
+            "anyOf": [
+              {
+                "format": "password",
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omit to keep the currently stored password unchanged",
+            "title": "Passphrase"
+          },
+          "security": {
+            "default": "wpa2",
+            "description": "wpa3 is experimental on Raspberry Pi radios",
+            "enum": [
+              "wpa2",
+              "wpa3"
+            ],
+            "title": "Security",
+            "type": "string"
+          },
+          "ssid": {
+            "description": "The network name clients look for; 1-32 UTF-8 bytes",
+            "title": "Ssid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ssid"
+        ],
+        "title": "HotspotConfigRequest",
+        "type": "object"
+      },
+      "HotspotErrorSummary": {
+        "description": "The last control failure, kept so the UI can explain a hotspot that is not up.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ts": {
+            "description": "Unix ms",
+            "title": "Ts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "ts"
+        ],
+        "title": "HotspotErrorSummary",
+        "type": "object"
+      },
+      "HotspotStateResponse": {
+        "description": "`GET /api/hotspot` and every mutator's success body.\n\nNever 503s: a host that cannot do any of this answers 200 with\n`available: false`, matching how the app already degrades when `librtlsdr`\nis missing. A client can therefore always render *something*.",
+        "properties": {
+          "active": {
+            "description": "Whether the hotspot is running right now",
+            "title": "Active",
+            "type": "boolean"
+          },
+          "auth_token_configured": {
+            "description": "Whether SENTRY_AUTH_TOKEN is set",
+            "title": "Auth Token Configured",
+            "type": "boolean"
+          },
+          "available": {
+            "description": "Whether access-point control works on this host",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "band": {
+            "default": "bg",
+            "enum": [
+              "bg",
+              "a"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "channel": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Channel",
+            "type": "integer"
+          },
+          "configured": {
+            "description": "Whether a hotspot profile exists",
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "confirm_deadline_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unix ms by which POST /api/hotspot/confirm must arrive",
+            "title": "Confirm Deadline Ms"
+          },
+          "control_enabled": {
+            "description": "Whether SENTRY_HOTSPOT_CONTROL_ENABLED is set",
+            "title": "Control Enabled",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "Whether the profile is set to come up on boot",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "gateway_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The address a joined client should point Sentinel at, e.g. 10.42.0.1",
+            "title": "Gateway Address"
+          },
+          "gateway_cidr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Cidr"
+          },
+          "generated_at": {
+            "description": "Unix ms",
+            "title": "Generated At",
+            "type": "integer"
+          },
+          "hidden": {
+            "default": true,
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "interface": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HotspotErrorSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "passphrase_set": {
+            "default": false,
+            "description": "Whether a password is stored; never the password itself",
+            "title": "Passphrase Set",
+            "type": "boolean"
+          },
+          "pending_confirmation": {
+            "default": false,
+            "description": "A hotspot change is awaiting confirmation and will roll back without it",
+            "title": "Pending Confirmation",
+            "type": "boolean"
+          },
+          "security": {
+            "default": "wpa2",
+            "enum": [
+              "wpa2",
+              "wpa3"
+            ],
+            "title": "Security",
+            "type": "string"
+          },
+          "ssid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssid"
+          },
+          "uplink_interface_is_hotspot_interface": {
+            "default": false,
+            "description": "True when raising the hotspot would drop this host's own connection",
+            "title": "Uplink Interface Is Hotspot Interface",
+            "type": "boolean"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "enum": [
+                "auth_token_missing",
+                "advertised_host_overrides_gateway",
+                "single_radio_uplink_loss",
+                "nm_unavailable"
+              ],
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "available",
+          "control_enabled",
+          "auth_token_configured",
+          "configured",
+          "enabled",
+          "active",
+          "generated_at"
+        ],
+        "title": "HotspotStateResponse",
+        "type": "object"
+      },
       "OutputInfo": {
         "description": "The public IQ/control endpoint for a configured device.",
         "properties": {
@@ -1495,11 +1891,113 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WirelessInterfaceItem": {
+        "description": "One selectable wireless interface in `GET /api/hotspot/interfaces`.",
+        "properties": {
+          "carries_default_route": {
+            "default": false,
+            "title": "Carries Default Route",
+            "type": "boolean"
+          },
+          "in_use_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The connection currently active on this interface, if any",
+            "title": "In Use By"
+          },
+          "ipv4_addresses": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Ipv4 Addresses",
+            "type": "array"
+          },
+          "mac_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac Address"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "station_ssid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The network this interface is joined to as a client, if any",
+            "title": "Station Ssid"
+          },
+          "supports_ap": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when this NetworkManager version does not report it",
+            "title": "Supports Ap"
+          }
+        },
+        "required": [
+          "name",
+          "state"
+        ],
+        "title": "WirelessInterfaceItem",
+        "type": "object"
+      },
+      "WirelessInterfacesResponse": {
+        "description": "`GET /api/hotspot/interfaces` body. Empty when nothing can be enumerated.",
+        "properties": {
+          "generated_at": {
+            "description": "Unix ms",
+            "title": "Generated At",
+            "type": "integer"
+          },
+          "interfaces": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WirelessInterfaceItem"
+            },
+            "title": "Interfaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at"
+        ],
+        "title": "WirelessInterfacesResponse",
+        "type": "object"
       }
     }
   },
   "info": {
-    "description": "Multi-dongle RTL-SDR fleet manager for a Raspberry Pi.",
+    "description": "Multi-dongle RTL-SDR controller for a Raspberry Pi.",
     "title": "Sentry",
     "version": "0.1.0"
   },
@@ -1684,7 +2182,7 @@
     },
     "/api/events": {
       "get": {
-        "description": "Open an SSE stream of fleet events.\n\nThe response is `text/event-stream` and is not one flat JSON schema \u2014 the\nfrozen shape of each named event is documented in `schemas/device.py`,\n`schemas/events.py` and `schemas/health.py`. Client disconnect cancels the\nunderlying generator (Starlette's normal `StreamingResponse` behaviour),\nwhich the `finally` block above uses to release the bus subscription.\n\nRefuses a new connection with `503` once `MAX_SSE_SUBSCRIBERS` are\nalready open, rather than accepting an unbounded number of concurrent\nstreams (each with its own queue and heartbeat timer).",
+        "description": "Open an SSE stream of SDR events.\n\nThe response is `text/event-stream` and is not one flat JSON schema \u2014 the\nfrozen shape of each named event is documented in `schemas/device.py`,\n`schemas/events.py` and `schemas/health.py`. Client disconnect cancels the\nunderlying generator (Starlette's normal `StreamingResponse` behaviour),\nwhich the `finally` block above uses to release the bus subscription.\n\nRefuses a new connection with `503` once `MAX_SSE_SUBSCRIBERS` are\nalready open, rather than accepting an unbounded number of concurrent\nstreams (each with its own queue and heartbeat timer).",
         "operationId": "get_events_api_events_get",
         "responses": {
           "200": {
@@ -1696,7 +2194,7 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Realtime fleet events (Server-Sent Events)",
+        "summary": "Realtime SDR events (Server-Sent Events)",
         "tags": [
           "events"
         ]
@@ -1721,6 +2219,231 @@
         "summary": "Health snapshot",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/hotspot": {
+      "delete": {
+        "description": "Forget the network entirely, including its stored password.",
+        "operationId": "delete_hotspot_api_hotspot_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete the hotspot configuration",
+        "tags": [
+          "hotspot"
+        ]
+      },
+      "get": {
+        "description": "Describe the hotspot, degrading rather than failing.\n\nAlways 200. A host with no NetworkManager answers `available: false` and a\n`nm_unavailable` warning \u2014 a client can therefore always render something\ntruthful instead of an error it cannot explain.",
+        "operationId": "get_hotspot_api_hotspot_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The hotspot's current configuration and state",
+        "tags": [
+          "hotspot"
+        ]
+      },
+      "put": {
+        "description": "Write the whole configuration, then bring the hotspot up or down to match.\n\nOmitting `passphrase` keeps the stored one \u2014 the mechanism that lets an\noperator rename the network without the server ever handling the secret\nagain (WCAG 3.3.7 as much as security: not re-asking for something\nunchanged is a requirement, not a courtesy).",
+        "operationId": "put_hotspot_api_hotspot_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HotspotConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace the hotspot configuration",
+        "tags": [
+          "hotspot"
+        ]
+      }
+    },
+    "/api/hotspot/clients": {
+      "get": {
+        "description": "Return the hotspot's leases, or `null` when they cannot be read.\n\n`null` and `[]` are different answers and must stay so: one means \"this host\ncannot tell you\", the other means \"nothing is connected\". Collapsing them\nwould have the UI confidently report an empty network on a machine that\nsimply has no lease file.",
+        "operationId": "list_clients_api_hotspot_clients_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotClientsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "DHCP leases the hotspot has issued",
+        "tags": [
+          "hotspot"
+        ]
+      }
+    },
+    "/api/hotspot/confirm": {
+      "post": {
+        "description": "Cancel the pending rollback and let the hotspot survive a reboot.\n\nReaching this route at all is the proof the commit-confirm flow wants: the\nAPI is still answering with the hotspot running.",
+        "operationId": "confirm_hotspot_api_hotspot_confirm_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Keep the hotspot that is awaiting confirmation",
+        "tags": [
+          "hotspot"
+        ]
+      }
+    },
+    "/api/hotspot/disable": {
+      "post": {
+        "description": "Bring the hotspot down and stop it starting on boot.",
+        "operationId": "disable_hotspot_api_hotspot_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HotspotActivationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop the hotspot",
+        "tags": [
+          "hotspot"
+        ]
+      }
+    },
+    "/api/hotspot/enable": {
+      "post": {
+        "description": "Bring the hotspot up provisionally; it rolls back unless confirmed.\n\nSeparate from `PUT` so the UI's on/off switch never resends the whole\nconfiguration, and therefore never has to be holding the passphrase just to\nflip a switch.",
+        "operationId": "enable_hotspot_api_hotspot_enable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HotspotActivationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start the configured hotspot",
+        "tags": [
+          "hotspot"
+        ]
+      }
+    },
+    "/api/hotspot/interfaces": {
+      "get": {
+        "description": "List candidate interfaces, flagging which one carries the host's own link.",
+        "operationId": "list_interfaces_api_hotspot_interfaces_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WirelessInterfacesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Wireless interfaces the hotspot could use",
+        "tags": [
+          "hotspot"
         ]
       }
     },

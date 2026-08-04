@@ -1,0 +1,2 @@
+Home-2G:wlan0
+Wired connection 1:eth0

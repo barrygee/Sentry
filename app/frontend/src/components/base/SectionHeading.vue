@@ -9,7 +9,7 @@
  * without the caller restating the visual treatment.
  *
  * There is no accent dot. An earlier version prefixed every heading with one,
- * echoing the wordmark's mark; the mark now appears once, in `FleetHeader`,
+ * echoing the wordmark's mark; the mark now appears once, in `SdrsHeader`,
  * where it means something.
  */
 withDefaults(

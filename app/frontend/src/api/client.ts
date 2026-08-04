@@ -12,6 +12,13 @@ export type HealthResponse = components['schemas']['HealthResponse']
 export type PortConstraints = components['schemas']['PortConstraints']
 export type SerialFlashRequest = components['schemas']['SerialFlashRequest']
 export type SerialFlashAccepted = components['schemas']['SerialFlashAccepted']
+export type HotspotState = components['schemas']['HotspotStateResponse']
+export type HotspotConfigRequest = components['schemas']['HotspotConfigRequest']
+export type HotspotActivationRequest = components['schemas']['HotspotActivationRequest']
+export type HotspotClientsResponse = components['schemas']['HotspotClientsResponse']
+export type HotspotClient = components['schemas']['HotspotClientItem']
+export type WirelessInterface = components['schemas']['WirelessInterfaceItem']
+export type WirelessInterfacesResponse = components['schemas']['WirelessInterfacesResponse']
 
 /** Machine-readable shape of a `{"detail": {...}}` error body (architecture §7). */
 export interface ApiErrorDetail {
@@ -97,4 +104,20 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  // Hotspot (ADR-0007). `putHotspot` takes the caller's body verbatim so that
+  // omitting `passphrase` stays a meaningful, deliberate act — the store builds
+  // the body without the key rather than sending `undefined`, which is what
+  // keeps "leave the stored password alone" expressible over the wire.
+  getHotspot: () => request<HotspotState>('/hotspot'),
+  getHotspotInterfaces: () => request<WirelessInterfacesResponse>('/hotspot/interfaces'),
+  getHotspotClients: () => request<HotspotClientsResponse>('/hotspot/clients'),
+  putHotspot: (body: HotspotConfigRequest) =>
+    request<HotspotState>('/hotspot', { method: 'PUT', body: JSON.stringify(body) }),
+  enableHotspot: (body: HotspotActivationRequest) =>
+    request<HotspotState>('/hotspot/enable', { method: 'POST', body: JSON.stringify(body) }),
+  disableHotspot: (body: HotspotActivationRequest) =>
+    request<HotspotState>('/hotspot/disable', { method: 'POST', body: JSON.stringify(body) }),
+  confirmHotspot: () => request<HotspotState>('/hotspot/confirm', { method: 'POST' }),
+  deleteHotspot: () => request<void>('/hotspot', { method: 'DELETE' }),
 }

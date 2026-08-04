@@ -107,8 +107,8 @@ export interface paths {
       cookie?: never
     }
     /**
-     * Realtime fleet events (Server-Sent Events)
-     * @description Open an SSE stream of fleet events.
+     * Realtime SDR events (Server-Sent Events)
+     * @description Open an SSE stream of SDR events.
      *
      *     The response is `text/event-stream` and is not one flat JSON schema — the
      *     frozen shape of each named event is documented in `schemas/device.py`,
@@ -147,6 +147,155 @@ export interface paths {
      *     Docker healthcheck must reach it regardless of `SENTRY_AUTH_TOKEN`.
      */
     get: operations['get_health_api_health_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/hotspot': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The hotspot's current configuration and state
+     * @description Describe the hotspot, degrading rather than failing.
+     *
+     *     Always 200. A host with no NetworkManager answers `available: false` and a
+     *     `nm_unavailable` warning — a client can therefore always render something
+     *     truthful instead of an error it cannot explain.
+     */
+    get: operations['get_hotspot_api_hotspot_get']
+    /**
+     * Replace the hotspot configuration
+     * @description Write the whole configuration, then bring the hotspot up or down to match.
+     *
+     *     Omitting `passphrase` keeps the stored one — the mechanism that lets an
+     *     operator rename the network without the server ever handling the secret
+     *     again (WCAG 3.3.7 as much as security: not re-asking for something
+     *     unchanged is a requirement, not a courtesy).
+     */
+    put: operations['put_hotspot_api_hotspot_put']
+    post?: never
+    /**
+     * Delete the hotspot configuration
+     * @description Forget the network entirely, including its stored password.
+     */
+    delete: operations['delete_hotspot_api_hotspot_delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/hotspot/clients': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * DHCP leases the hotspot has issued
+     * @description Return the hotspot's leases, or `null` when they cannot be read.
+     *
+     *     `null` and `[]` are different answers and must stay so: one means "this host
+     *     cannot tell you", the other means "nothing is connected". Collapsing them
+     *     would have the UI confidently report an empty network on a machine that
+     *     simply has no lease file.
+     */
+    get: operations['list_clients_api_hotspot_clients_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/hotspot/confirm': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Keep the hotspot that is awaiting confirmation
+     * @description Cancel the pending rollback and let the hotspot survive a reboot.
+     *
+     *     Reaching this route at all is the proof the commit-confirm flow wants: the
+     *     API is still answering with the hotspot running.
+     */
+    post: operations['confirm_hotspot_api_hotspot_confirm_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/hotspot/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Stop the hotspot
+     * @description Bring the hotspot down and stop it starting on boot.
+     */
+    post: operations['disable_hotspot_api_hotspot_disable_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/hotspot/enable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Start the configured hotspot
+     * @description Bring the hotspot up provisionally; it rolls back unless confirmed.
+     *
+     *     Separate from `PUT` so the UI's on/off switch never resends the whole
+     *     configuration, and therefore never has to be holding the passphrase just to
+     *     flip a switch.
+     */
+    post: operations['enable_hotspot_api_hotspot_enable_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/hotspot/interfaces': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Wireless interfaces the hotspot could use
+     * @description List candidate interfaces, flagging which one carries the host's own link.
+     */
+    get: operations['list_interfaces_api_hotspot_interfaces_get']
     put?: never
     post?: never
     delete?: never
@@ -527,6 +676,264 @@ export interface components {
       source: 'udev' | 'reconcile'
     }
     /**
+     * HotspotActivationRequest
+     * @description Body shared by `POST /api/hotspot/enable` and `/disable`.
+     *
+     *     These exist as their own routes so the UI's on/off switch never resends the
+     *     whole configuration — and therefore never has to be holding the passphrase
+     *     just to flip a switch.
+     */
+    HotspotActivationRequest: {
+      /**
+       * Confirm Uplink Loss
+       * @description Acknowledges that this call will drop a connection currently in use
+       * @default false
+       */
+      confirm_uplink_loss: boolean
+    }
+    /**
+     * HotspotClientItem
+     * @description One DHCP lease issued by the hotspot.
+     */
+    HotspotClientItem: {
+      /**
+       * Expired
+       * @description Whether the lease has already lapsed
+       */
+      expired: boolean
+      /** Hostname */
+      hostname?: string | null
+      /** Ip Address */
+      ip_address: string
+      /**
+       * Lease Expires At Ms
+       * @description Unix ms
+       */
+      lease_expires_at_ms: number
+      /** Mac Address */
+      mac_address: string
+    }
+    /**
+     * HotspotClientsResponse
+     * @description `GET /api/hotspot/clients` body.
+     *
+     *     `clients` is `null`, never `[]`, when no lease file could be read — "we
+     *     cannot tell" and "nobody is connected" are different answers and the UI
+     *     renders them differently.
+     */
+    HotspotClientsResponse: {
+      /** Clients */
+      clients?: components['schemas']['HotspotClientItem'][] | null
+      /**
+       * Generated At
+       * @description Unix ms
+       */
+      generated_at: number
+      /**
+       * Source
+       * @default dnsmasq-leases
+       * @constant
+       */
+      source: 'dnsmasq-leases'
+    }
+    /**
+     * HotspotConfigRequest
+     * @description `PUT /api/hotspot` body — a full replace, not a merge.
+     *
+     *     Deliberately not a PATCH. Merging a partial body would let a request that
+     *     says nothing about `hidden` silently inherit a previous `false`, which is
+     *     exactly the security-relevant field an operator most expects to be
+     *     explicit. The passphrase is the single exception, and only because omitting
+     *     it is the mechanism that keeps the secret write-only.
+     */
+    HotspotConfigRequest: {
+      /**
+       * Band
+       * @description bg is 2.4 GHz, a is 5 GHz
+       * @default bg
+       * @enum {string}
+       */
+      band: 'bg' | 'a'
+      /**
+       * Channel
+       * @description 0 chooses automatically
+       * @default 0
+       */
+      channel: number
+      /**
+       * Confirm Uplink Loss
+       * @description Acknowledges that the chosen interface currently carries a connection which raising the hotspot will drop
+       * @default false
+       */
+      confirm_uplink_loss: boolean
+      /**
+       * Enabled
+       * @description Whether the hotspot should be running after this call
+       * @default false
+       */
+      enabled: boolean
+      /**
+       * Gateway Cidr
+       * @description The Pi's address on the hotspot network; omit to use the configured default
+       */
+      gateway_cidr?: string | null
+      /**
+       * Hidden
+       * @description Suppress SSID broadcast so clients must know the name in advance. Not a security control on its own
+       * @default true
+       */
+      hidden: boolean
+      /**
+       * Interface
+       * @description Wireless interface to use; omit to choose one automatically
+       */
+      interface?: string | null
+      /**
+       * Passphrase
+       * @description Omit to keep the currently stored password unchanged
+       */
+      passphrase?: string | null
+      /**
+       * Security
+       * @description wpa3 is experimental on Raspberry Pi radios
+       * @default wpa2
+       * @enum {string}
+       */
+      security: 'wpa2' | 'wpa3'
+      /**
+       * Ssid
+       * @description The network name clients look for; 1-32 UTF-8 bytes
+       */
+      ssid: string
+    }
+    /**
+     * HotspotErrorSummary
+     * @description The last control failure, kept so the UI can explain a hotspot that is not up.
+     */
+    HotspotErrorSummary: {
+      /** Code */
+      code: string
+      /** Message */
+      message: string
+      /**
+       * Ts
+       * @description Unix ms
+       */
+      ts: number
+    }
+    /**
+     * HotspotStateResponse
+     * @description `GET /api/hotspot` and every mutator's success body.
+     *
+     *     Never 503s: a host that cannot do any of this answers 200 with
+     *     `available: false`, matching how the app already degrades when `librtlsdr`
+     *     is missing. A client can therefore always render *something*.
+     */
+    HotspotStateResponse: {
+      /**
+       * Active
+       * @description Whether the hotspot is running right now
+       */
+      active: boolean
+      /**
+       * Auth Token Configured
+       * @description Whether SENTRY_AUTH_TOKEN is set
+       */
+      auth_token_configured: boolean
+      /**
+       * Available
+       * @description Whether access-point control works on this host
+       */
+      available: boolean
+      /**
+       * Band
+       * @default bg
+       * @enum {string}
+       */
+      band: 'bg' | 'a'
+      /**
+       * Channel
+       * @default 0
+       */
+      channel: number
+      /**
+       * Configured
+       * @description Whether a hotspot profile exists
+       */
+      configured: boolean
+      /**
+       * Confirm Deadline Ms
+       * @description Unix ms by which POST /api/hotspot/confirm must arrive
+       */
+      confirm_deadline_ms?: number | null
+      /**
+       * Control Enabled
+       * @description Whether SENTRY_HOTSPOT_CONTROL_ENABLED is set
+       */
+      control_enabled: boolean
+      /**
+       * Enabled
+       * @description Whether the profile is set to come up on boot
+       */
+      enabled: boolean
+      /**
+       * Gateway Address
+       * @description The address a joined client should point Sentinel at, e.g. 10.42.0.1
+       */
+      gateway_address?: string | null
+      /** Gateway Cidr */
+      gateway_cidr?: string | null
+      /**
+       * Generated At
+       * @description Unix ms
+       */
+      generated_at: number
+      /**
+       * Hidden
+       * @default true
+       */
+      hidden: boolean
+      /** Interface */
+      interface?: string | null
+      last_error?: components['schemas']['HotspotErrorSummary'] | null
+      /**
+       * Passphrase Set
+       * @description Whether a password is stored; never the password itself
+       * @default false
+       */
+      passphrase_set: boolean
+      /**
+       * Pending Confirmation
+       * @description A hotspot change is awaiting confirmation and will roll back without it
+       * @default false
+       */
+      pending_confirmation: boolean
+      /**
+       * Security
+       * @default wpa2
+       * @enum {string}
+       */
+      security: 'wpa2' | 'wpa3'
+      /** Ssid */
+      ssid?: string | null
+      /**
+       * Uplink Interface Is Hotspot Interface
+       * @description True when raising the hotspot would drop this host's own connection
+       * @default false
+       */
+      uplink_interface_is_hotspot_interface: boolean
+      /**
+       * Warnings
+       * @default []
+       */
+      warnings: (
+        | 'auth_token_missing'
+        | 'advertised_host_overrides_gateway'
+        | 'single_radio_uplink_loss'
+        | 'nm_unavailable'
+      )[]
+    }
+    /**
      * OutputInfo
      * @description The public IQ/control endpoint for a configured device.
      */
@@ -882,6 +1289,59 @@ export interface components {
       /** Error Type */
       type: string
     }
+    /**
+     * WirelessInterfaceItem
+     * @description One selectable wireless interface in `GET /api/hotspot/interfaces`.
+     */
+    WirelessInterfaceItem: {
+      /**
+       * Carries Default Route
+       * @default false
+       */
+      carries_default_route: boolean
+      /**
+       * In Use By
+       * @description The connection currently active on this interface, if any
+       */
+      in_use_by?: string | null
+      /**
+       * Ipv4 Addresses
+       * @default []
+       */
+      ipv4_addresses: string[]
+      /** Mac Address */
+      mac_address?: string | null
+      /** Name */
+      name: string
+      /** State */
+      state: string
+      /**
+       * Station Ssid
+       * @description The network this interface is joined to as a client, if any
+       */
+      station_ssid?: string | null
+      /**
+       * Supports Ap
+       * @description null when this NetworkManager version does not report it
+       */
+      supports_ap?: boolean | null
+    }
+    /**
+     * WirelessInterfacesResponse
+     * @description `GET /api/hotspot/interfaces` body. Empty when nothing can be enumerated.
+     */
+    WirelessInterfacesResponse: {
+      /**
+       * Generated At
+       * @description Unix ms
+       */
+      generated_at: number
+      /**
+       * Interfaces
+       * @default []
+       */
+      interfaces: components['schemas']['WirelessInterfaceItem'][]
+    }
   }
   responses: never
   parameters: never
@@ -1049,6 +1509,203 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['HealthResponse']
+        }
+      }
+    }
+  }
+  get_hotspot_api_hotspot_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HotspotStateResponse']
+        }
+      }
+    }
+  }
+  put_hotspot_api_hotspot_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HotspotConfigRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HotspotStateResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  delete_hotspot_api_hotspot_delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  list_clients_api_hotspot_clients_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HotspotClientsResponse']
+        }
+      }
+    }
+  }
+  confirm_hotspot_api_hotspot_confirm_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HotspotStateResponse']
+        }
+      }
+    }
+  }
+  disable_hotspot_api_hotspot_disable_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HotspotActivationRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HotspotStateResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  enable_hotspot_api_hotspot_enable_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HotspotActivationRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HotspotStateResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_interfaces_api_hotspot_interfaces_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WirelessInterfacesResponse']
         }
       }
     }

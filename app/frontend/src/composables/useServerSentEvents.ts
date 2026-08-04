@@ -1,6 +1,6 @@
 import { isRef, onScopeDispose, ref, watch, type Ref } from 'vue'
 
-import type { ConnectionState } from '@/types/fleet'
+import type { ConnectionState } from '@/types/sdrs'
 
 export type { ConnectionState }
 

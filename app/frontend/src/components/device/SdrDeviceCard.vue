@@ -9,7 +9,7 @@ import DeviceAntennaField from '@/components/forms/DeviceAntennaField.vue'
 import DeviceNameField from '@/components/forms/DeviceNameField.vue'
 import DeviceNotesField from '@/components/forms/DeviceNotesField.vue'
 import PortAssignmentField from '@/components/forms/PortAssignmentField.vue'
-import { useFleetStore } from '@/stores/fleet'
+import { useSdrsStore } from '@/stores/sdrs'
 
 import DeviceAbsentNotice from './DeviceAbsentNotice.vue'
 import DeviceStatusBadge from './DeviceStatusBadge.vue'
@@ -33,7 +33,7 @@ const emit = defineEmits<{
   'request-serial-flash': [deviceId: string]
 }>()
 
-const fleetStore = useFleetStore()
+const sdrsStore = useSdrsStore()
 
 const nameDraft = ref(props.device.name)
 const portDraft = ref<number | null>(props.device.output?.iq_port ?? null)
@@ -43,7 +43,7 @@ const notesDraft = ref(props.device.notes)
 watch(
   () => props.device.name,
   (nextName) => {
-    if (fleetStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
+    if (sdrsStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
       nameDraft.value = nextName
     }
   },
@@ -51,7 +51,7 @@ watch(
 watch(
   () => props.device.output?.iq_port ?? null,
   (nextPort) => {
-    if (fleetStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
+    if (sdrsStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
       portDraft.value = nextPort
     }
   },
@@ -59,7 +59,7 @@ watch(
 watch(
   () => props.device.antenna,
   (nextAntenna) => {
-    if (fleetStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
+    if (sdrsStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
       antennaDraft.value = nextAntenna
     }
   },
@@ -67,7 +67,7 @@ watch(
 watch(
   () => props.device.notes,
   (nextNotes) => {
-    if (fleetStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
+    if (sdrsStore.pendingPatchesByDeviceId[props.device.device_id] === undefined) {
       notesDraft.value = nextNotes
     }
   },
@@ -89,7 +89,7 @@ function commitName(name: string): void {
     attemptFirstConfigurationCommit()
     return
   }
-  void fleetStore.patchDevice(props.device.device_id, { name })
+  void sdrsStore.patchDevice(props.device.device_id, { name })
 }
 
 function commitPort(port: number): void {
@@ -98,36 +98,36 @@ function commitPort(port: number): void {
     attemptFirstConfigurationCommit()
     return
   }
-  void fleetStore.patchDevice(props.device.device_id, { output_port: port })
+  void sdrsStore.patchDevice(props.device.device_id, { output_port: port })
 }
 
 function attemptFirstConfigurationCommit(): void {
   if (validatedNameDraft.value === null || validatedPortDraft.value === null) {
     return
   }
-  void fleetStore.patchDevice(props.device.device_id, {
+  void sdrsStore.patchDevice(props.device.device_id, {
     name: validatedNameDraft.value,
     output_port: validatedPortDraft.value,
   })
 }
 
 function commitEnabled(enabled: boolean): void {
-  void fleetStore.patchDevice(props.device.device_id, { enabled })
+  void sdrsStore.patchDevice(props.device.device_id, { enabled })
 }
 
 function commitVisibility(visibility: 'public' | 'private'): void {
-  void fleetStore.patchDevice(props.device.device_id, { visibility })
+  void sdrsStore.patchDevice(props.device.device_id, { visibility })
 }
 
 // Antenna and notes are only ever offered on a device that already has a
 // persisted row, so — unlike name and port — they never need the combined
 // first-configuration PATCH above and can always be committed alone.
 function commitAntenna(antenna: string): void {
-  void fleetStore.patchDevice(props.device.device_id, { antenna })
+  void sdrsStore.patchDevice(props.device.device_id, { antenna })
 }
 
 function commitNotes(notes: string): void {
-  void fleetStore.patchDevice(props.device.device_id, { notes })
+  void sdrsStore.patchDevice(props.device.device_id, { notes })
 }
 
 const isEditable = computed(() => !props.device.needs_identification)
@@ -211,7 +211,7 @@ const identitySerial = computed(
         <DeviceNameField v-model="nameDraft" class="w-[160px]" @commit="commitName" />
         <PortAssignmentField
           v-model="portDraft"
-          :constraints="fleetStore.constraints"
+          :constraints="sdrsStore.constraints"
           :own-reserved-ports="ownReservedPorts"
           @commit="commitPort"
         />

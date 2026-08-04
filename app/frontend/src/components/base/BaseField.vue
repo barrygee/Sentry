@@ -42,7 +42,13 @@ const props = withDefaults(
     label: string
     error?: string | null
     hint?: string | null
-    type?: 'text' | 'number'
+    /**
+     * The input type. `password` masks the value; the *logic* around a
+     * password — a reveal toggle, or "leave blank to keep the stored one" —
+     * deliberately lives in the composing field, not here, so this stays the
+     * single label/error/aria primitive rather than growing a second job.
+     */
+    type?: 'text' | 'number' | 'password'
     inputMode?: 'text' | 'numeric'
     disabled?: boolean
     /**
@@ -57,6 +63,15 @@ const props = withDefaults(
     rows?: number
     /** Extra id(s) to merge into `aria-describedby`, for content the caller renders outside this component. */
     describedBy?: string | null
+    /**
+     * Forwarded to the input's `autocomplete` attribute.
+     *
+     * Needed for `type="password"`: `new-password` is what lets a password
+     * manager offer to generate and store the value (WCAG 3.3.8 Accessible
+     * Authentication), and omitting it leaves an operator hand-typing a long
+     * random key from memory.
+     */
+    autocomplete?: string | null
   }>(),
   {
     error: null,
@@ -67,6 +82,7 @@ const props = withDefaults(
     multiline: false,
     rows: 3,
     describedBy: null,
+    autocomplete: null,
   },
 )
 
@@ -129,19 +145,29 @@ defineExpose({
       ]"
       @blur="emit('blur')"
     />
-    <input
-      v-else
-      :id="fieldId"
-      ref="inputElement"
-      v-model="modelValue"
-      :type="type"
-      :inputmode="inputMode"
-      :disabled="disabled"
-      :aria-invalid="error ? 'true' : undefined"
-      :aria-describedby="resolvedDescribedBy"
-      :class="[CONTROL_CLASSES, error ? 'shadow-[inset_0_-2px_0_theme(colors.signal.danger)]' : '']"
-      @blur="emit('blur')"
-    />
+    <!-- The trailing action (a password reveal toggle, say) sits inside the
+         field's underline rather than beside the whole control, so the
+         underline still reads as one input. `items-end` keeps a 24px-tall
+         button aligned to the text baseline rather than floating. -->
+    <div v-else class="flex items-end gap-2">
+      <input
+        :id="fieldId"
+        ref="inputElement"
+        v-model="modelValue"
+        :type="type"
+        :inputmode="inputMode"
+        :disabled="disabled"
+        :autocomplete="autocomplete ?? undefined"
+        :aria-invalid="error ? 'true' : undefined"
+        :aria-describedby="resolvedDescribedBy"
+        :class="[
+          CONTROL_CLASSES,
+          error ? 'shadow-[inset_0_-2px_0_theme(colors.signal.danger)]' : '',
+        ]"
+        @blur="emit('blur')"
+      />
+      <slot name="trailingAction" />
+    </div>
     <p v-if="hint && !error" :id="hintId" class="mt-2 text-[11px] text-signal-muted">{{ hint }}</p>
     <p v-if="error" :id="errorId" class="mt-2 text-[11px] text-signal-danger" role="alert">
       {{ error }}
