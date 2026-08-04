@@ -8,6 +8,7 @@ import AbsentDeviceGroup from '@/components/sdrs/AbsentDeviceGroup.vue'
 import NoticeList from '@/components/sdrs/NoticeList.vue'
 import SdrDeviceCard from '@/components/device/SdrDeviceCard.vue'
 import ForgetDeviceDialog from '@/components/device/ForgetDeviceDialog.vue'
+import ConfigDialog from '@/components/config/ConfigDialog.vue'
 import HotspotDialog from '@/components/hotspot/HotspotDialog.vue'
 import SerialConflictBanner from '@/components/serial/SerialConflictBanner.vue'
 import SerialFlashDialog from '@/components/serial/SerialFlashDialog.vue'
@@ -157,5 +158,6 @@ const hasDevices = computed(() => sdrsStore.devices.length > 0)
     <!-- Mounted once here, beside the other teleported dialogs, and opened from
          the store by the header's control several components away. -->
     <HotspotDialog />
+    <ConfigDialog />
   </div>
 </template>

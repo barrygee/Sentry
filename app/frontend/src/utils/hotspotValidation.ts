@@ -94,3 +94,56 @@ export function channelOptionsForBand(band: 'bg' | 'a'): { value: string; label:
     ...channels.map((channel) => ({ value: String(channel), label: `Channel ${channel}` })),
   ]
 }
+
+/** Mirrors `GATEWAY_MIN_PREFIX` / `GATEWAY_MAX_PREFIX`. */
+export const GATEWAY_MIN_PREFIX = 16
+export const GATEWAY_MAX_PREFIX = 30
+
+const IPV4_CIDR_PATTERN = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/
+
+/**
+ * Validate the hotspot's own address, returning a message or `null`.
+ *
+ * Mirrors `validate_gateway_cidr` on the server. Private ranges only: this
+ * address is handed out by a DHCP server Sentry raises, and a public range
+ * there would blackhole real internet destinations for every joined client.
+ */
+export function validateGatewayCidrClientSide(gatewayCidr: string): string | null {
+  const match = IPV4_CIDR_PATTERN.exec(gatewayCidr.trim())
+  if (!match) {
+    return 'Address must look like 10.42.0.1/24.'
+  }
+  const octets = [match[1], match[2], match[3], match[4]].map((part) => Number(part))
+  const prefixLength = Number(match[5])
+  if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return 'Each part of the address must be between 0 and 255.'
+  }
+  if (prefixLength < GATEWAY_MIN_PREFIX || prefixLength > GATEWAY_MAX_PREFIX) {
+    return `Network size must be between /${GATEWAY_MIN_PREFIX} and /${GATEWAY_MAX_PREFIX}.`
+  }
+  if (!isPrivateIpv4(octets)) {
+    return 'Address must be in a private range (10.x, 172.16-31.x or 192.168.x).'
+  }
+  // The host bits must not be all-zero (the network address) or all-one (the
+  // broadcast address) — neither is usable as this Sentry's own address.
+  const addressAsInteger =
+    ((octets[0] ?? 0) << 24) | ((octets[1] ?? 0) << 16) | ((octets[2] ?? 0) << 8) | (octets[3] ?? 0)
+  const hostBitCount = 32 - prefixLength
+  const hostMask = hostBitCount === 32 ? 0xffffffff : (1 << hostBitCount) - 1
+  const hostBits = addressAsInteger & hostMask
+  if (hostBits === 0) {
+    return 'Address must not be the network address itself.'
+  }
+  if (hostBits === hostMask) {
+    return 'Address must not be the broadcast address.'
+  }
+  return null
+}
+
+function isPrivateIpv4(octets: number[]): boolean {
+  const [first = 0, second = 0] = octets
+  if (first === 10) return true
+  if (first === 172 && second >= 16 && second <= 31) return true
+  if (first === 192 && second === 168) return true
+  return false
+}
