@@ -2,19 +2,20 @@ import { computed, watch } from 'vue'
 
 import type { DeviceStatus, HealthResponse, StatusResponse } from '@/api/client'
 import { useAuthToken } from '@/composables/useAuthToken'
-import { useFleetStore } from '@/stores/fleet'
-import type { DeviceRemovedEvent, NoticeEvent } from '@/types/fleet'
+import { useSdrsStore } from '@/stores/sdrs'
+import { useHotspotStore } from '@/stores/hotspot'
+import type { DeviceRemovedEvent, NoticeEvent } from '@/types/sdrs'
 
 import { useServerSentEvents, type ServerSentEventsHandle } from './useServerSentEvents'
 
 /**
- * Wires the `/api/events` SSE stream (architecture §7.3) to `stores/fleet`.
+ * Wires the `/api/events` SSE stream (architecture §7.3) to `stores/sdrs`.
  * This is the single place liveness is managed — every component renders
  * from the store, never from this composable's return value directly,
  * except to display connection state (`ConnectionPill`).
  */
-export function useFleetStream(streamPath = '/api/events'): ServerSentEventsHandle {
-  const fleetStore = useFleetStore()
+export function useSdrsStream(streamPath = '/api/events'): ServerSentEventsHandle {
+  const sdrsStore = useSdrsStore()
   const { token } = useAuthToken()
 
   // `EventSource` cannot set an `Authorization` header, so an operator token
@@ -27,16 +28,27 @@ export function useFleetStream(streamPath = '/api/events'): ServerSentEventsHand
   const handle = useServerSentEvents(
     streamUrl,
     {
-      snapshot: (data) => fleetStore.applySnapshot(data as StatusResponse),
-      device_changed: (data) => fleetStore.applyDeviceChanged(data as DeviceStatus),
+      snapshot: (data) => sdrsStore.applySnapshot(data as StatusResponse),
+      device_changed: (data) => sdrsStore.applyDeviceChanged(data as DeviceStatus),
       device_removed: (data) =>
-        fleetStore.applyDeviceRemoved((data as DeviceRemovedEvent).device_id),
-      health: (data) => fleetStore.applyHealth(data as HealthResponse),
-      notice: (data) => fleetStore.applyNotice(data as NoticeEvent),
+        sdrsStore.applyDeviceRemoved((data as DeviceRemovedEvent).device_id),
+      health: (data) => sdrsStore.applyHealth(data as HealthResponse),
+      notice: (data) => {
+        const notice = data as NoticeEvent
+        sdrsStore.applyNotice(notice)
+        // A hotspot rollback happens on the server's timer, not in response to
+        // anything this tab did, so it has to be surfaced wherever the operator
+        // happens to be — including with the settings dialog closed. Routed
+        // here rather than inside the SDRs store so that store keeps knowing
+        // nothing about the hotspot.
+        if (notice.code === 'hotspot_rollback' || notice.code === 'hotspot_rollback_failed') {
+          useHotspotStore().handleRollbackNotice(notice.message)
+        }
+      },
     },
     {
       onMalformedEvent: (eventName, _raw, error) => {
-        fleetStore.applyNotice({
+        sdrsStore.applyNotice({
           level: 'warn',
           code: 'malformed_event',
           message: `Received a malformed "${eventName}" event from the server: ${
@@ -50,11 +62,11 @@ export function useFleetStream(streamPath = '/api/events'): ServerSentEventsHand
   )
 
   // Mirror connection state into the store so any component can read
-  // `fleetStore.connection` without importing this composable directly.
+  // `sdrsStore.connection` without importing this composable directly.
   watch(
     handle.connection,
     (nextConnection) => {
-      fleetStore.setConnection(nextConnection)
+      sdrsStore.setConnection(nextConnection)
     },
     { immediate: true },
   )

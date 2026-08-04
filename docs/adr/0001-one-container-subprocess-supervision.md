@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07-29
 - **Deciders:** project owner, architect
-- **Context spec:** [`docs/architecture/sentry-fleet-manager.md`](../architecture/sentry-fleet-manager.md)
+- **Context spec:** [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md)
 
 ## Context
 

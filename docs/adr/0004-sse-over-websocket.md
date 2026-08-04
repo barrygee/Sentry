@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07-29
 - **Deciders:** project owner, architect
-- **Context spec:** [`docs/architecture/sentry-fleet-manager.md`](../architecture/sentry-fleet-manager.md) §7.3
+- **Context spec:** [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md) §7.3
 
 ## Context
 
@@ -74,5 +74,5 @@ Design details that follow from the choice:
 - **Polling `GET /api/status` every second.** Simplest of all, and genuinely tempting at this
   scale. Rejected because "live-reloading as dongles are plugged/unplugged" (requirement 1) wants
   sub-second feedback, and a 1 s poll either feels laggy or wastes the Pi's CPU re-serialising an
-  unchanged fleet. SSE gives an event the moment udev fires.
+  unchanged set of SDRs. SSE gives an event the moment udev fires.
 - **Long-polling.** All of SSE's constraints with none of its browser support.

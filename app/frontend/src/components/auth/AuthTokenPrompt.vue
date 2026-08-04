@@ -32,7 +32,7 @@ function submit(): void {
   <BaseDialog :open="promptRequired" :labelled-by="headingId" @close="dismissPrompt">
     <!-- A `<div>`, not `<header>`: teleported to `<body>`, outside any
          sectioning root, so `<header>` would double up as a second
-         page-level "banner" landmark alongside `FleetHeader`'s. -->
+         page-level "banner" landmark alongside `SdrsHeader`'s. -->
     <div class="flex flex-col gap-2">
       <SectionHeading :id="headingId">Authentication required</SectionHeading>
       <p class="m-0 text-[12.5px] leading-[1.55] text-signal-muted">

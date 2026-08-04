@@ -188,7 +188,7 @@ export default {
          * its five read-only cells need 621px on one line (measured), plus the
          * box's own 30px padding either side, plus slack for a longer model
          * string than the fixtures carry. Boxes are this wide at every viewport
-         * rather than stretching to the page, so a fleet reads as a consistent
+         * rather than stretching to the page, so a set of SDRs reads as a consistent
          * column instead of as bands whose length depends on the window.
          */
         content: '860px',

@@ -41,7 +41,7 @@ let sharedHandle: AuthTokenHandle | null = null
  * The operator-supplied `SENTRY_AUTH_TOKEN` (architecture §7.9), held in
  * `sessionStorage` rather than a component ref so it survives the whole tab
  * session. A module-level singleton, like `useLiveAnnouncer`, because
- * `api/client.ts` and `useFleetStream` are plain modules/composables (not
+ * `api/client.ts` and `useSdrsStream` are plain modules/composables (not
  * components) that both need to read and react to the same token.
  */
 export function useAuthToken(): AuthTokenHandle {

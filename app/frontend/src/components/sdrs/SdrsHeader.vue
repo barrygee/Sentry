@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LogoMark from '@/components/base/LogoMark.vue'
+import HotspotSettingsButton from '@/components/sdrs/HotspotSettingsButton.vue'
 
 /**
  * The top bar: Sentinel's `#nav` — a full-width black band, 68px tall, with
@@ -27,5 +28,11 @@ import LogoMark from '@/components/base/LogoMark.vue'
     >
       Sentry
     </h1>
+    <!-- Pushed to the far end of the bar, where Sentinel puts its settings
+         control, so the two consoles put the same kind of thing in the same
+         place. -->
+    <div class="ml-auto">
+      <HotspotSettingsButton />
+    </div>
   </header>
 </template>

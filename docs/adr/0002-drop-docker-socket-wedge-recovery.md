@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07-29
 - **Deciders:** project owner, architect
-- **Context spec:** [`docs/architecture/sentry-fleet-manager.md`](../architecture/sentry-fleet-manager.md) §2.1
+- **Context spec:** [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md) §2.1
 
 ## Context
 
@@ -59,7 +59,7 @@ instead of calling Docker. The supervisor sees exit 75, raises a `notice`, and k
 - Recovery is **faster** — a fork/exec versus a container stop/start cycle on a Pi.
 - Recovery is **scoped**. One wedged dongle no longer requires restarting a container; the other
   dongles keep streaming, untouched. Under the old model with N dongles in one container, a single
-  wedge would have restarted the whole fleet.
+  wedge would have restarted every SDR.
 - The relay's dependency on Docker disappears entirely, so it runs identically under systemd,
   under Docker, or straight from a shell in a test.
 - The exit-75 branch is trivially testable: the fake `rtl_tcp` has a `wedge` mode that accepts

@@ -1,0 +1,2 @@
+# Deliberately holds no .leases file: this is the "cannot tell" case,
+# where list_clients() must return None rather than an empty tuple.

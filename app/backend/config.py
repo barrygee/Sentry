@@ -7,11 +7,14 @@ default; nothing else in the codebase should call `os.getenv` directly.
 
 from __future__ import annotations
 
+import ipaddress
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.backend.schemas.hotspot import validate_gateway_cidr
 
 # The vendored relay ships inside this package, so its location is derived from
 # the package itself rather than hard-coded. An absolute default would be wrong
@@ -78,6 +81,69 @@ class Settings(BaseSettings):
             "closes CORS entirely (the SPA is same-origin in production)"
         ),
     )
+
+    hotspot_control_enabled: bool = Field(
+        default=False,
+        description=(
+            "Allows the API to reconfigure this host's WiFi (ADR-0007). OFF by default: "
+            "it is the one setting that gives a LAN-facing API control of host networking"
+        ),
+    )
+    hotspot_require_auth_token: bool = Field(
+        default=True,
+        description=(
+            "Refuse every hotspot change while auth_token is unset — an access point puts "
+            "strangers one join away from this API"
+        ),
+    )
+    hotspot_connection_name: str = Field(
+        default="sentry-hotspot",
+        pattern=r"^[A-Za-z0-9_-]{1,32}$",
+        description="The single NetworkManager profile Sentry owns; never any other",
+    )
+    hotspot_interface: str | None = Field(
+        default=None,
+        pattern=r"^[A-Za-z0-9_.-]{1,15}$",
+        description="Wireless interface for the hotspot; unset chooses an unused one automatically",
+    )
+    hotspot_gateway_cidr: str = Field(
+        default="10.42.0.1/24",
+        description="The Pi's address on the hotspot network — what a client points Sentinel at",
+    )
+    hotspot_confirm_timeout_s: float = Field(
+        default=120.0,
+        ge=15,
+        le=900,
+        description="How long a hotspot activation has to be confirmed before it rolls back",
+    )
+    nmcli_path: str = Field(default="nmcli", description="nmcli binary path")
+    nmcli_timeout_s: float = Field(
+        default=20.0, gt=0, le=120, description="Per-command timeout for nmcli invocations"
+    )
+    nm_state_root: str = Field(
+        default="/var/lib/NetworkManager",
+        description="Where NetworkManager keeps its dnsmasq lease files; overridden by tests",
+    )
+
+    @field_validator("hotspot_gateway_cidr")
+    @classmethod
+    def _validate_hotspot_gateway_cidr(cls, gateway_cidr: str) -> str:
+        """Reject a gateway address that would strand every client that joins.
+
+        Validated here rather than only at the request edge because this value
+        is the fallback used whenever a request does not name one — a typo in
+        `.env` would otherwise surface as a hotspot that comes up and hands out
+        unusable leases, which is a far worse failure than refusing at startup.
+        """
+        return validate_gateway_cidr(gateway_cidr)
+
+    def hotspot_gateway_address(self) -> str:
+        """Return just the gateway IP (`"10.42.0.1"`) without its prefix length.
+
+        This is the address a human types into Sentinel by hand, so it is
+        surfaced on its own rather than making every caller re-split the CIDR.
+        """
+        return str(ipaddress.IPv4Interface(self.hotspot_gateway_cidr).ip)
 
     def reserved_port_numbers(self) -> frozenset[int]:
         """Parse `reserved_ports` into a set of integers, ignoring blank entries.

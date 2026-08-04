@@ -1,7 +1,7 @@
 [project]
 name = "sentry"
 version = "0.1.0"
-description = "Sentry — multi-dongle RTL-SDR fleet manager for a Raspberry Pi"
+description = "Sentry — multi-dongle RTL-SDR controller for a Raspberry Pi"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.121",

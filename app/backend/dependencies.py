@@ -22,6 +22,7 @@ from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.eeprom import EepromService
 from app.backend.services.event_bus import EventBus
 from app.backend.services.health import HealthService
+from app.backend.services.hotspot import HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
 from app.backend.services.supervisor import SupervisorService
 
@@ -72,6 +73,12 @@ def get_supervisor(request: Request) -> SupervisorService:
     """Return the process-wide `SupervisorService`."""
     supervisor: SupervisorService = request.app.state.container.supervisor
     return supervisor
+
+
+def get_hotspot_service(request: Request) -> HotspotService:
+    """Return the process-wide `HotspotService`."""
+    hotspot_service: HotspotService = request.app.state.container.hotspot_service
+    return hotspot_service
 
 
 def get_control_follower(request: Request) -> ControlFollowerService:

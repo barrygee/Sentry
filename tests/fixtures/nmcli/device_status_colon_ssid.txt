@@ -1,0 +1,2 @@
+wlan0:wifi:connected:Sentry\:Field
+eth0:ethernet:connected:Wired connection 1

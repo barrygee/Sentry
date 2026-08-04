@@ -87,7 +87,7 @@ async def _event_stream(
     """The full named-event stream: `retry:`, an immediate `snapshot`, then the live bus.
 
     A `health` event is additionally injected every `HEALTH_HEARTBEAT_INTERVAL_S`
-    regardless of bus activity, so a quiet fleet still keeps the connection
+    regardless of bus activity, so a quiet SDR still keeps the connection
     alive. `Last-Event-ID` is deliberately never read here (architecture
     §7.3): there is no replay buffer, so every connection — including a
     browser's native reconnect — gets a fresh `snapshot` rather than a
@@ -153,7 +153,7 @@ async def _event_stream(
                 await aclose()
 
 
-@router.get("/events", summary="Realtime fleet events (Server-Sent Events)")
+@router.get("/events", summary="Realtime SDR events (Server-Sent Events)")
 async def get_events(
     request: Request,
     device_registry: DeviceRegistry = Depends(get_device_registry),
@@ -162,7 +162,7 @@ async def get_events(
     clock: Clock = Depends(get_clock),
     settings: Settings = Depends(get_settings_dependency),
 ) -> StreamingResponse:
-    """Open an SSE stream of fleet events.
+    """Open an SSE stream of SDR events.
 
     The response is `text/event-stream` and is not one flat JSON schema — the
     frozen shape of each named event is documented in `schemas/device.py`,

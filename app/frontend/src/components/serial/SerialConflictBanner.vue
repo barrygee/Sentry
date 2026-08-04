@@ -9,7 +9,7 @@ import NoticeBox from '@/components/base/NoticeBox.vue'
  * devices report the same serial, so neither can be trusted as a
  * persistence key until the operator flashes a unique one.
  *
- * This is the fleet-level summary of the same condition
+ * This is the SDR-level summary of the same condition
  * `NeedsIdentificationNotice` already surfaces inline on each affected
  * card — one banner per duplicate serial, offering the destructive action
  * directly against whichever of the conflicting devices the operator

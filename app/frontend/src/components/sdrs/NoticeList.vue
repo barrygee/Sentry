@@ -3,12 +3,12 @@ import { computed } from 'vue'
 
 import ConfirmIconAction from '@/components/base/ConfirmIconAction.vue'
 import NoticeBox, { type NoticeTone } from '@/components/base/NoticeBox.vue'
-import { useFleetStore } from '@/stores/fleet'
-import type { NoticeLevel } from '@/types/fleet'
+import { useSdrsStore } from '@/stores/sdrs'
+import type { NoticeLevel } from '@/types/sdrs'
 
 /**
- * The fleet-wide operational notice log (architecture §7.3 SSE `notice`
- * events, plus every failed PATCH/serial-flash attempt) — `stores/fleet`
+ * The SDR-wide operational notice log (architecture §7.3 SSE `notice`
+ * events, plus every failed PATCH/serial-flash attempt) — `stores/sdrs`
  * has always collected these, but until this component nothing rendered
  * them: `crash_loop`, `spawn_failed`, `index_unresolved`, `relay_wedge_exit`
  * and `port_conflict` were silently swallowed, and `dismissNotice` was
@@ -18,9 +18,9 @@ import type { NoticeLevel } from '@/types/fleet'
  * app-root live announcer (this list is the persistent record, not the
  * announcement itself).
  */
-const fleetStore = useFleetStore()
+const sdrsStore = useSdrsStore()
 
-const visibleNotices = computed(() => fleetStore.notices.filter((notice) => !notice.dismissed))
+const visibleNotices = computed(() => sdrsStore.notices.filter((notice) => !notice.dismissed))
 
 function roleFor(level: NoticeLevel): 'status' | 'alert' {
   return level === 'info' ? 'status' : 'alert'
@@ -55,7 +55,7 @@ function toneFor(level: NoticeLevel): NoticeTone {
             cancel-accessible-name="Cancel dismissing notice"
             armed-announcement="Confirm dismissing this notice, or cancel."
             cancelled-announcement="Dismissing notice cancelled."
-            @confirm="fleetStore.dismissNotice(notice.id)"
+            @confirm="sdrsStore.dismissNotice(notice.id)"
           />
         </div>
       </NoticeBox>

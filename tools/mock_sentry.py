@@ -39,6 +39,16 @@ from app.backend.schemas.device import (
 from app.backend.schemas.errors import error_detail
 from app.backend.schemas.events import DeviceRemovedEvent, NoticeItem
 from app.backend.schemas.health import DeviceCounts, HealthResponse, HotplugHealth
+from app.backend.schemas.hotspot import (
+    HotspotActivationRequest,
+    HotspotClientItem,
+    HotspotClientsResponse,
+    HotspotConfigRequest,
+    HotspotStateResponse,
+    HotspotWarning,
+    WirelessInterfaceItem,
+    WirelessInterfacesResponse,
+)
 from app.backend.schemas.sdr_export import (
     SDR_EXPORT_API_VERSION,
     SdrExportItem,
@@ -55,7 +65,7 @@ MOCK_VERSION = "0.1.0-mock"
 STARTED_AT_MS = int(time.time() * 1000)
 API_VERSION_HEADER = "X-Sentry-Sdr-Api-Version"
 
-# ── Fixture fleet: two dongles. One is stable and streaming throughout; the
+# ── Fixture set: two dongles. One is stable and streaming throughout; the
 #    other cycles detected → configuring → streaming → unplugged → replugged
 #    so the frontend's hotplug/live-update paths have something to render.
 
@@ -118,7 +128,7 @@ _STABLE_DEVICE = DeviceStatus(
 # `00000001` serial, so neither can be trusted as a persistence key until the
 # operator flashes a unique one. Exercises `NeedsIdentificationNotice`,
 # `SerialConflictBanner` and `SerialFlashDialog`, none of which the fixture
-# fleet previously reached.
+# fixture set previously reached.
 _CONFLICT_USB_A = UsbInfo(
     topology_path="1-3.1",
     bus_number=1,
@@ -375,8 +385,8 @@ _HOTPLUG_TIMELINE: tuple[tuple[float, DeviceStatus | None], ...] = (
 )
 
 
-class MockFleetState:
-    """The mock server's mutable in-memory fleet — a dev convenience, not production code."""
+class MockSdrsState:
+    """The mock server's mutable in-memory SDR set — a dev convenience, not production code."""
 
     def __init__(self) -> None:
         self.devices: dict[str, DeviceStatus] = {
@@ -423,7 +433,7 @@ class MockFleetState:
         )
 
 
-_fleet_state = MockFleetState()
+_sdrs_state = MockSdrsState()
 _subscriber_queues: set[asyncio.Queue[str]] = set()
 
 
@@ -441,7 +451,7 @@ async def _run_hotplug_script() -> None:
             await asyncio.sleep(delay_s)
             if device is None:
                 removed_id = "serial:ADSB-02"
-                _fleet_state.devices.pop(removed_id, None)
+                _sdrs_state.devices.pop(removed_id, None)
                 _broadcast(
                     "device_removed",
                     json.loads(
@@ -449,7 +459,7 @@ async def _run_hotplug_script() -> None:
                     ),
                 )
             else:
-                _fleet_state.devices[device.device_id] = device
+                _sdrs_state.devices[device.device_id] = device
                 _broadcast("device_changed", json.loads(device.model_dump_json()))
         _broadcast(
             "notice",
@@ -469,7 +479,7 @@ async def _run_health_heartbeat() -> None:
     """Broadcast `health` every 5s, doubling as the SSE keepalive (architecture §7.3)."""
     while True:
         await asyncio.sleep(5.0)
-        _broadcast("health", json.loads(_fleet_state.health_response().model_dump_json()))
+        _broadcast("health", json.loads(_sdrs_state.health_response().model_dump_json()))
 
 
 @asynccontextmanager
@@ -497,18 +507,18 @@ app.add_middleware(
 @app.get("/api/health", response_model=HealthResponse)
 async def mock_health() -> HealthResponse:
     """Serve the current mock health snapshot."""
-    return _fleet_state.health_response()
+    return _sdrs_state.health_response()
 
 
 @app.get("/api/status", response_model=StatusResponse)
 async def mock_status() -> StatusResponse:
     """Serve the current mock realtime status."""
-    return _fleet_state.status_response()
+    return _sdrs_state.status_response()
 
 
 @app.get("/api/devices", response_model=DevicesListResponse)
 async def mock_list_devices() -> DevicesListResponse:
-    """Serve a configuration-centric device list derived from the mock fleet."""
+    """Serve a configuration-centric device list derived from the mock SDR set."""
     records = tuple(
         DeviceRecord(
             device_id=device.device_id,
@@ -539,7 +549,7 @@ async def mock_list_devices() -> DevicesListResponse:
             created_at=STARTED_AT_MS,
             updated_at=STARTED_AT_MS,
         )
-        for device in _fleet_state.devices.values()
+        for device in _sdrs_state.devices.values()
     )
     return DevicesListResponse(
         devices=records,
@@ -551,7 +561,7 @@ async def mock_list_devices() -> DevicesListResponse:
             internal_range=(14000, 14008),
             in_use=tuple(
                 port
-                for device in _fleet_state.devices.values()
+                for device in _sdrs_state.devices.values()
                 if device.output
                 for port in (device.output.iq_port, device.output.control_port)
             ),
@@ -560,7 +570,7 @@ async def mock_list_devices() -> DevicesListResponse:
 
 
 # The `DevicePatch` fields that live directly on `DeviceStatus` under the same
-# name, so a mock PATCH can apply them to the fleet by copying them across.
+# name, so a mock PATCH can apply them to the SDRs by copying them across.
 # `output_port` and the tuner fields are deliberately excluded: they land on the
 # nested `output`/`tuner` objects, and the mock has never needed to model that.
 _PATCHABLE_STATUS_FIELDS = ("name", "description", "notes", "antenna", "enabled", "visibility")
@@ -568,16 +578,16 @@ _PATCHABLE_STATUS_FIELDS = ("name", "description", "notes", "antenna", "enabled"
 
 @app.patch("/api/devices/{device_id}", response_model=DeviceRecord)
 async def mock_patch_device(device_id: str, patch: DevicePatch) -> DeviceRecord:
-    """Apply an accepted PATCH to the mock fleet, then echo back the resulting record.
+    """Apply an accepted PATCH to the mock SDR set, then echo back the resulting record.
 
-    The patch is applied to `_fleet_state` (and broadcast as `device_changed`)
+    The patch is applied to `_sdrs_state` (and broadcast as `device_changed`)
     rather than only echoed, because the frontend clears a pending optimistic
     patch by comparing the *streamed* device against what it sent. Echoing
     alone left every committed edit pending until something else happened to
     republish the device, which made a toggle look like it had sprung back.
     """
     updated_fields = patch.model_dump(exclude_unset=True)
-    device = _fleet_state.devices.get(device_id)
+    device = _sdrs_state.devices.get(device_id)
     if device is not None:
         applied = {
             field: value
@@ -586,7 +596,7 @@ async def mock_patch_device(device_id: str, patch: DevicePatch) -> DeviceRecord:
         }
         if applied:
             device = device.model_copy(update=applied)
-            _fleet_state.devices[device_id] = device
+            _sdrs_state.devices[device_id] = device
             _broadcast("device_changed", json.loads(device.model_dump_json()))
 
     devices_response = await mock_list_devices()
@@ -599,7 +609,7 @@ async def mock_patch_device(device_id: str, patch: DevicePatch) -> DeviceRecord:
 @app.delete("/api/devices/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def mock_delete_device(device_id: str) -> Response:
     """Mock the forget flow: `404` unknown, `409 device_present` while plugged, else `204`."""
-    device = _fleet_state.devices.get(device_id)
+    device = _sdrs_state.devices.get(device_id)
     if device is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -612,7 +622,7 @@ async def mock_delete_device(device_id: str) -> Response:
                 "device_present", "Device is currently present; unplug it before forgetting it."
             ),
         )
-    del _fleet_state.devices[device_id]
+    del _sdrs_state.devices[device_id]
     _broadcast(
         "device_removed",
         json.loads(
@@ -631,7 +641,7 @@ async def mock_flash_serial(device_id: str, request: SerialFlashRequest) -> Seri
     """Mock the guarded EEPROM flash flow: the same guards as the real endpoint (architecture
     §7.6), then a scripted 202 followed by a delayed SSE `notice` — never touches real hardware.
     """
-    device = _fleet_state.devices.get(device_id)
+    device = _sdrs_state.devices.get(device_id)
     if device is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -644,7 +654,7 @@ async def mock_flash_serial(device_id: str, request: SerialFlashRequest) -> Seri
                 "device_busy", f"Device is currently {device.state}; disable it before flashing."
             ),
         )
-    for other_id, other_device in _fleet_state.devices.items():
+    for other_id, other_device in _sdrs_state.devices.items():
         if other_id == device_id:
             continue
         if other_device.usb is not None and other_device.usb.serial == request.serial:
@@ -680,10 +690,10 @@ async def _mock_run_flash(device_id: str, serial: str) -> None:
             ).model_dump_json()
         ),
     )
-    device = _fleet_state.devices.get(device_id)
+    device = _sdrs_state.devices.get(device_id)
     if device is not None:
         updated = device.model_copy(update={"state": "stopped", "state_reason": "awaiting_replug"})
-        _fleet_state.devices[device_id] = updated
+        _sdrs_state.devices[device_id] = updated
         _broadcast("device_changed", json.loads(updated.model_dump_json()))
 
 
@@ -695,11 +705,11 @@ async def mock_sdrs(
     include_disabled: bool = Query(default=False),
     available_only: bool = Query(default=False),
 ) -> SdrExportResponse:
-    """Serve the mock Sentinel export, derived from the mock fleet."""
+    """Serve the mock Sentinel export, derived from the mock SDR set."""
     del request
     response.headers[API_VERSION_HEADER] = str(SDR_EXPORT_API_VERSION)
     items = []
-    for device in _fleet_state.devices.values():
+    for device in _sdrs_state.devices.values():
         # Mirrors the real router: a private device is never published, in any
         # query-parameter combination.
         if device.visibility != "public":
@@ -747,7 +757,7 @@ async def _subscriber_stream() -> AsyncIterator[str]:
     _subscriber_queues.add(queue)
     try:
         yield "retry: 3000\n\n"
-        yield f"event: snapshot\ndata: {_fleet_state.status_response().model_dump_json()}\n\n"
+        yield f"event: snapshot\ndata: {_sdrs_state.status_response().model_dump_json()}\n\n"
         while True:
             yield await queue.get()
     finally:
@@ -762,6 +772,398 @@ async def mock_events() -> StreamingResponse:
         media_type="text/event-stream",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Hotspot (ADR-0007) ────────────────────────────────────────────────────────
+#
+# The hardest paths in the hotspot UI — the uplink-loss warning and the
+# commit-confirm countdown that rolls back on its own — are exactly the ones
+# that need a Raspberry Pi with two radios to reach for real. So the mock
+# implements them properly rather than stubbing them: a real confirmation
+# window, a real timer, a real rollback, and a real `notice` broadcast when it
+# fires. That is what makes the whole flow developable on a laptop.
+
+MOCK_HOTSPOT_CONFIRM_TIMEOUT_S = 45.0
+"""Shorter than production's 120s so a developer is not waiting two minutes to
+watch the rollback they are trying to build the UI for."""
+
+MOCK_GATEWAY_CIDR = "10.42.0.1/24"
+
+_MOCK_SCENARIOS = frozenset(
+    {"ok", "unavailable", "command_failed", "no_wireless_interface", "auth_token_missing"}
+)
+"""Set with `?scenario=` on any hotspot route to reach an error branch that would
+otherwise need broken hardware. Mirrors the existing hotplug-script idiom."""
+
+_MOCK_INTERFACES = (
+    # wlan0 carries the uplink, so choosing it must raise the "this will drop
+    # your connection" warning; wlan1 is idle and should be auto-selected.
+    WirelessInterfaceItem(
+        name="wlan0",
+        mac_address="b8:27:eb:11:22:33",
+        supports_ap=True,
+        state="connected",
+        station_ssid="Home-2G",
+        ipv4_addresses=("192.168.1.45/24",),
+        carries_default_route=True,
+        in_use_by="Home-2G",
+    ),
+    WirelessInterfaceItem(
+        name="wlan1",
+        mac_address="b8:27:eb:44:55:66",
+        supports_ap=True,
+        state="disconnected",
+        station_ssid=None,
+        ipv4_addresses=(),
+        carries_default_route=False,
+        in_use_by=None,
+    ),
+)
+
+
+class MockHotspotState:
+    """The mock's in-memory hotspot.
+
+    Holds `passphrase_set` and **never a passphrase**, exactly like the real
+    thing — a mock that stashed the secret would quietly teach the frontend a
+    habit the real API does not permit.
+    """
+
+    def __init__(self) -> None:
+        self.configured = False
+        self.ssid: str | None = None
+        self.hidden = True
+        self.security = "wpa2"
+        self.band = "bg"
+        self.channel = 0
+        self.interface: str | None = None
+        self.gateway_cidr: str | None = None
+        self.passphrase_set = False
+        self.active = False
+        self.autoconnect = False
+        self.pending_confirmation = False
+        self.confirm_deadline_ms: int | None = None
+        self.leases: list[HotspotClientItem] = []
+        self.rollback_task: asyncio.Task[None] | None = None
+        self.lease_task: asyncio.Task[None] | None = None
+
+
+_hotspot_state = MockHotspotState()
+
+
+def _hotspot_scenario(request: Request) -> str:
+    """Read the `?scenario=` knob, defaulting to the happy path."""
+    scenario = request.query_params.get("scenario", "ok")
+    return scenario if scenario in _MOCK_SCENARIOS else "ok"
+
+
+def _hotspot_state_response(scenario: str = "ok") -> HotspotStateResponse:
+    """Assemble the current mock `GET /api/hotspot` body."""
+    state = _hotspot_state
+    warnings: list[HotspotWarning] = []
+    if scenario == "unavailable":
+        warnings.append("nm_unavailable")
+    if scenario == "auth_token_missing":
+        warnings.append("auth_token_missing")
+    if state.interface == "wlan0":
+        warnings.append("single_radio_uplink_loss")
+
+    return HotspotStateResponse(
+        available=scenario != "unavailable",
+        control_enabled=True,
+        auth_token_configured=scenario != "auth_token_missing",
+        configured=state.configured,
+        enabled=state.autoconnect,
+        active=state.active,
+        interface=state.interface,
+        ssid=state.ssid,
+        hidden=state.hidden,
+        security=state.security,  # type: ignore[arg-type]
+        band=state.band,  # type: ignore[arg-type]
+        channel=state.channel,
+        gateway_address=state.gateway_cidr.split("/", 1)[0] if state.gateway_cidr else None,
+        gateway_cidr=state.gateway_cidr,
+        passphrase_set=state.passphrase_set,
+        uplink_interface_is_hotspot_interface=state.interface == "wlan0",
+        pending_confirmation=state.pending_confirmation,
+        confirm_deadline_ms=state.confirm_deadline_ms,
+        last_error=None,
+        warnings=tuple(warnings),
+        generated_at=int(time.time() * 1000),
+    )
+
+
+def _hotspot_error(status_code: int, code: str, message: str, **context: object) -> HTTPException:
+    """Build a hotspot error in the uniform envelope the real router uses."""
+    return HTTPException(status_code=status_code, detail=error_detail(code, message, **context))
+
+
+def _guard_hotspot_scenario(scenario: str) -> None:
+    """Raise whichever failure the requested scenario is meant to reproduce."""
+    if scenario == "unavailable":
+        raise _hotspot_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "hotspot_unavailable",
+            "This host cannot manage a WiFi hotspot: NetworkManager was not reachable.",
+        )
+    if scenario == "auth_token_missing":
+        raise _hotspot_error(
+            status.HTTP_409_CONFLICT,
+            "auth_token_required",
+            "Set SENTRY_AUTH_TOKEN before starting a hotspot.",
+        )
+    if scenario == "no_wireless_interface":
+        raise _hotspot_error(
+            status.HTTP_409_CONFLICT,
+            "no_wireless_interface",
+            "This host has no wireless interface that can host a network.",
+        )
+    if scenario == "command_failed":
+        raise _hotspot_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "hotspot_command_failed",
+            "The network command failed.",
+            stderr_tail="Error: Connection activation failed: (7) Secrets were required.",
+        )
+
+
+def _choose_mock_interface(requested: str | None, confirm_uplink_loss: bool) -> str:
+    """Mirror the real service's selection rule, including its refusal."""
+    if requested is None:
+        idle = [entry for entry in _MOCK_INTERFACES if not entry.carries_default_route]
+        if idle:
+            return idle[0].name
+        requested = _MOCK_INTERFACES[0].name
+
+    match = next((entry for entry in _MOCK_INTERFACES if entry.name == requested), None)
+    if match is None:
+        raise _hotspot_error(
+            status.HTTP_409_CONFLICT,
+            "interface_not_found",
+            f"No wireless interface named {requested} was found.",
+            interface=requested,
+            available=[entry.name for entry in _MOCK_INTERFACES],
+        )
+    in_use = match.in_use_by is not None or match.carries_default_route
+    if in_use and not confirm_uplink_loss:
+        raise _hotspot_error(
+            status.HTTP_409_CONFLICT,
+            "uplink_loss_unconfirmed",
+            f"{match.name} is currently connected to {match.station_ssid or 'a network'}. "
+            "Starting the hotspot will disconnect it. Confirm to continue.",
+            interface=match.name,
+            station_ssid=match.station_ssid,
+            carries_default_route=match.carries_default_route,
+        )
+    return match.name
+
+
+async def _mock_rollback_after_timeout() -> None:
+    """Undo an unconfirmed activation, exactly as the real rollback timer does."""
+    await asyncio.sleep(MOCK_HOTSPOT_CONFIRM_TIMEOUT_S)
+    _hotspot_state.active = False
+    _hotspot_state.autoconnect = False
+    _hotspot_state.pending_confirmation = False
+    _hotspot_state.confirm_deadline_ms = None
+    _hotspot_state.rollback_task = None
+    _cancel_mock_lease_growth()
+    _hotspot_state.leases.clear()
+    _broadcast(
+        "notice",
+        json.loads(
+            NoticeItem(
+                level="warn",
+                code="hotspot_rollback",
+                message="The hotspot was not confirmed in time and has been rolled back.",
+                device_id=None,
+                ts=int(time.time() * 1000),
+            ).model_dump_json()
+        ),
+    )
+
+
+async def _mock_grow_leases() -> None:
+    """Add a client a few seconds after the hotspot comes up, so the list is not static."""
+    await asyncio.sleep(10.0)
+    _hotspot_state.leases.append(
+        HotspotClientItem(
+            mac_address="a4:83:e7:9c:1d:02",
+            ip_address="10.42.0.37",
+            hostname="sentinel-laptop",
+            lease_expires_at_ms=int(time.time() * 1000) + 3_600_000,
+            expired=False,
+        )
+    )
+    await asyncio.sleep(15.0)
+    _hotspot_state.leases.append(
+        HotspotClientItem(
+            mac_address="f0:18:98:44:55:66",
+            ip_address="10.42.0.51",
+            hostname=None,
+            lease_expires_at_ms=int(time.time() * 1000) - 60_000,
+            expired=True,
+        )
+    )
+
+
+def _cancel_mock_rollback() -> None:
+    """Cancel any armed rollback and clear its window."""
+    task = _hotspot_state.rollback_task
+    _hotspot_state.rollback_task = None
+    _hotspot_state.pending_confirmation = False
+    _hotspot_state.confirm_deadline_ms = None
+    if task is not None:
+        task.cancel()
+
+
+def _cancel_mock_lease_growth() -> None:
+    """Stop the scripted lease-growth task."""
+    task = _hotspot_state.lease_task
+    _hotspot_state.lease_task = None
+    if task is not None:
+        task.cancel()
+
+
+def _activate_mock_hotspot() -> None:
+    """Bring the mock hotspot up provisionally and arm its rollback."""
+    _cancel_mock_rollback()
+    _cancel_mock_lease_growth()
+    _hotspot_state.active = True
+    _hotspot_state.pending_confirmation = True
+    _hotspot_state.confirm_deadline_ms = int(
+        time.time() * 1000 + MOCK_HOTSPOT_CONFIRM_TIMEOUT_S * 1000
+    )
+    _hotspot_state.rollback_task = asyncio.create_task(_mock_rollback_after_timeout())
+    _hotspot_state.lease_task = asyncio.create_task(_mock_grow_leases())
+
+
+@app.get("/api/hotspot", response_model=HotspotStateResponse)
+async def mock_get_hotspot(request: Request) -> HotspotStateResponse:
+    """Serve the current mock hotspot state; always 200, like the real route."""
+    return _hotspot_state_response(_hotspot_scenario(request))
+
+
+@app.get("/api/hotspot/interfaces", response_model=WirelessInterfacesResponse)
+async def mock_hotspot_interfaces(request: Request) -> WirelessInterfacesResponse:
+    """List the two scripted radios, or none under the `no_wireless_interface` scenario."""
+    scenario = _hotspot_scenario(request)
+    interfaces = () if scenario in {"unavailable", "no_wireless_interface"} else _MOCK_INTERFACES
+    return WirelessInterfacesResponse(interfaces=interfaces, generated_at=int(time.time() * 1000))
+
+
+@app.get("/api/hotspot/clients", response_model=HotspotClientsResponse)
+async def mock_hotspot_clients(request: Request) -> HotspotClientsResponse:
+    """Serve the scripted lease list, or `null` when the host could not be asked.
+
+    `null` and `[]` stay distinct here for the same reason they do in the real
+    route: the UI renders "cannot tell" differently from "nobody connected",
+    and a mock that collapsed them would leave that branch untested.
+    """
+    if _hotspot_scenario(request) == "unavailable":
+        return HotspotClientsResponse(clients=None, generated_at=int(time.time() * 1000))
+    return HotspotClientsResponse(
+        clients=tuple(_hotspot_state.leases), generated_at=int(time.time() * 1000)
+    )
+
+
+@app.put("/api/hotspot", response_model=HotspotStateResponse)
+async def mock_put_hotspot(request: Request, config: HotspotConfigRequest) -> HotspotStateResponse:
+    """Apply a whole hotspot configuration, honouring the write-only passphrase rule."""
+    scenario = _hotspot_scenario(request)
+    _guard_hotspot_scenario(scenario)
+
+    if config.passphrase is None and not _hotspot_state.passphrase_set:
+        raise _hotspot_error(
+            status.HTTP_409_CONFLICT,
+            "passphrase_required",
+            "Set a password for the hotspot before enabling it.",
+            reason="no_stored_passphrase",
+        )
+
+    interface = _choose_mock_interface(config.interface, config.confirm_uplink_loss)
+
+    state = _hotspot_state
+    state.configured = True
+    state.ssid = config.ssid
+    state.hidden = config.hidden
+    state.security = config.security
+    state.band = config.band
+    state.channel = config.channel
+    state.interface = interface
+    state.gateway_cidr = config.gateway_cidr or MOCK_GATEWAY_CIDR
+    # Never stores the value — only that one exists.
+    state.passphrase_set = state.passphrase_set or config.passphrase is not None
+
+    if config.enabled:
+        _activate_mock_hotspot()
+    else:
+        _cancel_mock_rollback()
+        _cancel_mock_lease_growth()
+        state.active = False
+        state.autoconnect = False
+        state.leases.clear()
+    return _hotspot_state_response(scenario)
+
+
+@app.post("/api/hotspot/enable", response_model=HotspotStateResponse)
+async def mock_enable_hotspot(
+    request: Request, activation: HotspotActivationRequest
+) -> HotspotStateResponse:
+    """Start the mock hotspot provisionally."""
+    scenario = _hotspot_scenario(request)
+    _guard_hotspot_scenario(scenario)
+    if not _hotspot_state.configured:
+        raise _hotspot_error(
+            status.HTTP_409_CONFLICT,
+            "hotspot_not_configured",
+            "Configure the hotspot's network name and password first.",
+        )
+    _hotspot_state.interface = _choose_mock_interface(
+        _hotspot_state.interface, activation.confirm_uplink_loss
+    )
+    _activate_mock_hotspot()
+    return _hotspot_state_response(scenario)
+
+
+@app.post("/api/hotspot/disable", response_model=HotspotStateResponse)
+async def mock_disable_hotspot(
+    request: Request, activation: HotspotActivationRequest
+) -> HotspotStateResponse:
+    """Stop the mock hotspot."""
+    scenario = _hotspot_scenario(request)
+    _guard_hotspot_scenario(scenario)
+    _cancel_mock_rollback()
+    _cancel_mock_lease_growth()
+    _hotspot_state.active = False
+    _hotspot_state.autoconnect = False
+    _hotspot_state.leases.clear()
+    return _hotspot_state_response(scenario)
+
+
+@app.post("/api/hotspot/confirm", response_model=HotspotStateResponse)
+async def mock_confirm_hotspot(request: Request) -> HotspotStateResponse:
+    """Keep the hotspot on trial and make it persistent."""
+    scenario = _hotspot_scenario(request)
+    if _hotspot_state.rollback_task is None:
+        raise _hotspot_error(
+            status.HTTP_409_CONFLICT,
+            "no_pending_confirmation",
+            "There is no hotspot change waiting to be confirmed.",
+        )
+    _cancel_mock_rollback()
+    _hotspot_state.autoconnect = True
+    return _hotspot_state_response(scenario)
+
+
+@app.delete("/api/hotspot", status_code=status.HTTP_204_NO_CONTENT)
+async def mock_delete_hotspot(request: Request) -> Response:
+    """Forget the mock hotspot entirely, password included."""
+    _guard_hotspot_scenario(_hotspot_scenario(request))
+    _cancel_mock_rollback()
+    _cancel_mock_lease_growth()
+    global _hotspot_state
+    _hotspot_state = MockHotspotState()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 if __name__ == "__main__":

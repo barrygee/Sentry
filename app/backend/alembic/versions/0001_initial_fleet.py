@@ -1,10 +1,18 @@
-"""initial fleet — create sdr_devices (architecture §6.1, §6.2)
+"""initial — create sdr_devices (architecture §6.1, §6.2)
 
 Creates the single table Sentry persists: one row per operator-configured
 RTL-SDR device, keyed by its resolved identity rather than USB enumeration
 order. There is no data migration — the previous single-dongle deployment has
 no database, so the one hard-wired dongle is re-registered through the UI, a
 one-time operator action documented in the README.
+
+**The `0001_initial_fleet` identifier deliberately keeps its original name**,
+even though "fleet" is no longer this project's vocabulary. A revision id is
+written verbatim into every deployment's `alembic_version` table; renaming it
+would leave any Pi already running Sentry pointing at a revision that no longer
+exists, and the next `alembic upgrade head` — which runs unattended on every
+startup — would fail rather than no-op. The filename is kept in step with the id
+for the same reason: so the two never have to be reconciled by hand.
 
 Revision ID: 0001_initial_fleet
 Revises:

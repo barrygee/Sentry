@@ -1,0 +1,4 @@
+wlan0:wifi:connected:Home-2G
+wlan1:wifi:disconnected:
+eth0:ethernet:connected:Wired connection 1
+lo:loopback:unmanaged:

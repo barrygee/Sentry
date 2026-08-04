@@ -14,6 +14,7 @@ and update the old one's status to `Superseded by ADR-NNNN`.
 | [0004](0004-sse-over-websocket.md) | Server-Sent Events, not WebSocket, for realtime status | Accepted |
 | [0005](0005-sqlite-wal-persistence.md) | SQLite with WAL for configuration persistence | Accepted |
 | [0006](0006-adopt-sentinel-visual-language.md) | Adopt Sentinel's visual language, palette included | Accepted |
+| [0007](0007-nmcli-over-host-dbus-for-the-hotspot.md) | Drive the host's NetworkManager over the system D-Bus socket, not a privileged sidecar | Accepted |
 
 The design these decisions serve is
-[`docs/architecture/sentry-fleet-manager.md`](../architecture/sentry-fleet-manager.md).
+[`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md).
