@@ -1,4 +1,4 @@
-import type { HealthResponse } from '@/api/client'
+import type { HealthResponse } from '../api/client.js'
 
 /**
  * SSE payload shapes that are documented in architecture §7.3 but are not

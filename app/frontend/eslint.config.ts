@@ -1,43 +1,33 @@
 import eslintConfigPrettier from 'eslint-config-prettier'
-import pluginVue from 'eslint-plugin-vue'
-import pluginVueA11y from 'eslint-plugin-vuejs-accessibility'
 import tseslint from 'typescript-eslint'
 
+/**
+ * Lint config for the static TypeScript UI.
+ *
+ * `eslint-plugin-vue` and `eslint-plugin-vuejs-accessibility` are gone with the
+ * Vue SPA. Losing the second one is a real reduction in cover: it caught
+ * missing labels, unlabelled controls and handlers on static elements
+ * *statically*, and it only ever worked on `.vue` templates — no equivalent
+ * rule set exists for markup built imperatively with `core/dom.ts`.
+ *
+ * The replacement is runtime rather than static: the Playwright + axe smoke
+ * suite. Anything that relied on a lint rule to stay accessible has to be
+ * asserted there instead, which is why that suite is not optional.
+ */
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '.legacy-vue/**'],
   },
-  // Order matters: typescript-eslint's recommended config applies to every
-  // file (no `files` restriction) and would otherwise clobber Vue's
-  // file-scoped parser assignment; loading it first means the later,
-  // more-specific `**/*.vue` config from `pluginVue` wins for template files.
   ...tseslint.configs.recommended,
-  ...pluginVue.configs['flat/recommended'],
   {
-    files: ['**/*.vue'],
-    languageOptions: {
-      parserOptions: {
-        parser: tseslint.parser,
-      },
-    },
-  },
-  {
-    files: ['**/*.vue', '**/*.ts'],
-    plugins: {
-      'vuejs-accessibility': pluginVueA11y,
-    },
+    files: ['**/*.ts'],
     rules: {
-      ...pluginVueA11y.configs.recommended.rules,
-      // The plugin's default requires EVERY strategy (both nesting the
-      // control AND a for/id pair) to accept a label. This codebase uses
-      // either strategy correctly on its own (BaseToggle nests its
-      // checkbox; BaseField uses for/id) — requiring only one still
-      // guarantees a real accessible name/control association.
-      'vuejs-accessibility/label-has-for': ['error', { required: { some: ['nesting', 'id'] } }],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      'vue/multi-word-component-names': 'off',
-      'vue/no-unused-properties': 'error',
+      // Single-letter identifiers are banned project-wide: a name has to state
+      // the thing's role, including loop counters, lambda parameters and catch
+      // bindings.
+      'id-length': ['error', { min: 2, properties: 'never' }],
     },
   },
   eslintConfigPrettier,

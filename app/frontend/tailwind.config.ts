@@ -56,7 +56,7 @@ import type { Config } from 'tailwindcss'
  * Structural tokens (square corners, 22px card padding, 860px measure) follow.
  */
 export default {
-  content: ['./index.html', './src/**/*.{vue,ts}'],
+  content: ['./index.html', './src/**/*.ts'],
   theme: {
     extend: {
       colors: {

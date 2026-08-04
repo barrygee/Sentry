@@ -11,10 +11,297 @@
     <!-- Sentinel's page ground, so the browser chrome matches the app. -->
     <meta name="theme-color" content="#000000" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/app.css" />
     <title>Sentry — SDR Controller</title>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
+    <!-- The app shell is static markup rather than built in JS: it never
+         changes shape, and keeping it here means the header, rail and headings
+         are in the document before a single module has parsed. Only the parts
+         that vary — the device list, the notices, the dialogs — are built by
+         `src/main.ts`, into the containers marked `data-ref` below. -->
+
+    <a
+      href="#devices-heading"
+      class="sr-only-focusable fixed left-2 top-2 z-[100] rounded-rack bg-signal-accent px-4 py-3 font-sans text-[10px] font-semibold uppercase tracking-control text-ink-on-accent"
+    >
+      Skip to devices
+    </a>
+
+    <!-- The two live regions (architecture §9.4), written into by
+         `core/liveAnnouncer.ts`. Visually hidden, always in the a11y tree. -->
+    <div id="live-region-polite" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div id="live-region-assertive" class="sr-only" role="alert" aria-atomic="true"></div>
+
+    <!-- Sentinel's shell: a black bar across the top, a dark icon rail down the
+         left, and the light body filling what is left. The rail sits beside the
+         body rather than beneath the header so it starts below the bar, as its
+         settings sidebar does.
+
+         The shell is exactly one viewport tall and the device list scrolls
+         *inside* `main`, rather than the whole page scrolling. That is how
+         Sentinel's chrome behaves, and it is what keeps the rail — and the
+         show/hide control at its foot — on screen: with the page scrolling as a
+         whole, that control sat at the bottom of the full device list and could
+         only be reached by scrolling past every card.
+
+         `h-full` rather than `h-screen`, riding the `html, body { height: 100% }`
+         chain in `styles/input.css`. `h-screen` measures the viewport directly
+         and so ignores anything else in the document, which left the shell
+         taller than its container and reintroduced a second, outer scrollbar. -->
+    <div class="flex h-full flex-col overflow-hidden bg-ground-page">
+      <!-- The top bar: Sentinel's `#nav` — a full-width black band, 68px tall,
+           with the ⊙ mark and wordmark at the left.
+
+           Both marks match Sentinel's `assets/logo.svg` rather than
+           approximating it. That file sets "SENTINEL" in Inter 500 at -1.5%
+           tracking — not Barlow, which is the app's face everywhere else — and
+           converts it to paths so it needs no font at runtime. Sentry's
+           wordmark has to say something different, so it stays live text and
+           vendors the one Inter weight (`styles/fonts.css`).
+
+           Sizes are derived from that artboard, not eyeballed: at the 26px mark
+           height Sentinel renders, the artboard scales by 26/34.9, putting its
+           22.5-unit cap height at 16.8px on screen. Inter's cap height is
+           1490/2048 em, giving a 23px font size. The 8px gap is its own 11.35
+           unit gap at that scale. -->
+      <header
+        class="flex h-[68px] shrink-0 items-center gap-2 bg-ground-header pl-[10px] pr-[22px]"
+      >
+        <!-- The ⊙ mark, identical to Sentinel's — a white ring with a lime
+             centre dot. Proportions are ratios of its 34.90 artboard: ring
+             radius 14.41, stroke 4.08, dot radius 5.69, about centre 17.4497.
+             Decorative — the wordmark beside it already names the app. -->
+        <svg
+          width="26"
+          height="26"
+          viewBox="0 0 34.9 34.9"
+          aria-hidden="true"
+          focusable="false"
+          class="shrink-0"
+        >
+          <circle
+            cx="17.449658203125"
+            cy="17.449658203125"
+            r="14.41"
+            fill="none"
+            stroke="#ffffff"
+            stroke-width="4.08"
+          />
+          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#c8ff00" />
+        </svg>
+        <h1
+          class="m-0 font-wordmark text-[23px] font-medium uppercase leading-none tracking-wordmark text-ink-inverse"
+        >
+          Sentry
+        </h1>
+        <!-- Pushed to the far end of the bar, where Sentinel puts its settings
+             control, so the two consoles put the same kind of thing in the same
+             place.
+
+             Neither is a `BaseButton`: these are icon affordances in a bare
+             title bar, where the button primitive's filled uppercase slab would
+             read as a call to action rather than a settings entry point. They
+             still meet the same floor — a 44px touch target, the global
+             `:focus-visible` ring, and an accessible name, since each glyph is
+             `aria-hidden`. `aria-haspopup="dialog"` plus `aria-expanded` tell a
+             screen-reader user that these open a modal and whether it is open. -->
+        <div class="ml-auto flex items-center">
+          <button
+            type="button"
+            data-ref="hotspot-settings-button"
+            class="inline-flex h-11 w-11 items-center justify-center rounded-rack border-none bg-transparent text-signal-muted transition-colors hover:text-ink-inverse"
+            aria-label="WiFi hotspot settings"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+          >
+            <!-- A broadcast/hotspot mark rather than a gear: this button opens
+                 one specific thing, and naming it in the glyph beats a generic
+                 settings icon that implies a settings area that does not exist. -->
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <circle cx="10" cy="14" r="1.6" fill="currentColor" stroke="none" />
+              <path d="M6.8 11.2a4.4 4.4 0 0 1 6.4 0" />
+              <path d="M4.3 8.5a8 8 0 0 1 11.4 0" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            data-ref="config-settings-button"
+            class="inline-flex h-11 w-11 items-center justify-center rounded-rack border-none bg-transparent text-signal-muted transition-colors hover:text-ink-inverse"
+            aria-label="Configuration export and import"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+          >
+            <!-- A document with a down-arrow: this moves a configuration file
+                 in and out, which a gear would not say. -->
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M11.5 2.5H5.5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V6.5z" />
+              <path d="M11.5 2.5v4h4" />
+              <path d="M10 9.5v5" />
+              <path d="M8 12.5 10 14.5 12 12.5" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="flex min-h-0 flex-1 items-stretch">
+        <!-- The left icon rail, matching Sentinel's settings sidebar
+             (`#settings-sidebar` / `.settings-nav-item`): a 48px dark column of
+             full-width 40px buttons, the active one carrying a 2px accent left
+             border and a faint accent wash.
+
+             One destination today — the SDR list — with a WiFi view planned. A
+             `<nav>` with a real list rather than a row of buttons, so adding the
+             second entry is a markup change and assistive tech announces "1 of
+             2" when it arrives. The single button is still rendered, and still
+             marked current, rather than hidden until there are two: a rail that
+             appeared the day a second view landed would move every page's
+             content sideways at that moment.
+
+             Hidden with `display:none` rather than removed, because the toggle's
+             `aria-controls` has to keep pointing at an element that exists. -->
+        <nav
+          id="nav-rail"
+          data-ref="nav-rail"
+          aria-label="Views"
+          class="flex w-12 shrink-0 flex-col bg-ground-rail"
+        >
+          <ul class="m-0 flex list-none flex-col p-0">
+            <li>
+              <button
+                type="button"
+                class="flex h-10 w-full items-center justify-center border-l-2 border-signal-accent bg-signal-accent/[0.08] text-signal-accent transition-colors"
+                aria-current="page"
+                title="SDR devices"
+              >
+                <span class="sr-only">SDR devices</span>
+                <!-- A list glyph: this destination is the list of SDRs, and the
+                     rail is meant to say what each view *is*. Stroke weights and
+                     the 19px box match Sentinel's own rail icons so the planned
+                     second entry can sit beside it without redrawing either. -->
+                <svg
+                  width="19"
+                  height="19"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="5" cy="6" r="1.4" fill="currentColor" stroke="none" />
+                  <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+                  <circle cx="5" cy="18" r="1.4" fill="currentColor" stroke="none" />
+                  <line x1="10" y1="6" x2="20" y2="6" stroke-width="1.8" />
+                  <line x1="10" y1="12" x2="20" y2="12" stroke-width="1.8" />
+                  <line x1="10" y1="18" x2="20" y2="18" stroke-width="1.8" />
+                </svg>
+              </button>
+            </li>
+          </ul>
+        </nav>
+
+        <!-- The rail's show/hide control, matching Sentinel's footer side-panel
+             button (`#map-sidebar-btn`): 36px tall, rail-width, 60% opacity,
+             brightening on hover.
+
+             It has a fill only while the rail is shown — the rail's own dark
+             tone, so the button is indistinguishable from the column it sits at
+             the foot of. Once the rail is hidden the fill goes with it and the
+             glyph sits directly on the page canvas, which means it also has to
+             invert: a white mark would disappear on that light ground, so it
+             switches to `ink.primary` (4.2:1 at this opacity, clearing the 3:1
+             a non-text mark needs).
+
+             Placed here, straight after the rail, so it keeps the rail's place
+             in the tab order despite being positioned — and so it outlives the
+             thing it hides, which would otherwise take the button with it and
+             leave no way back. -->
+        <button
+          type="button"
+          data-ref="nav-rail-toggle"
+          class="fixed bottom-0 left-0 z-20 flex h-9 w-12 shrink-0 items-center justify-center bg-ground-rail text-ink-inverse opacity-60 transition-opacity hover:opacity-100"
+          aria-expanded="true"
+          aria-controls="nav-rail"
+          aria-label="Hide sidebar"
+          title="Hide sidebar"
+        >
+          <!-- Sentinel's panel mark — a rounded rectangle with a rule down its
+               left — at the same 14px and 1.1 stroke, so the two apps' toggles
+               are the same control rather than two drawings of one idea. -->
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 15 15"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <rect
+              x="1.5"
+              y="1.5"
+              width="12"
+              height="12"
+              rx="1"
+              stroke="currentColor"
+              stroke-width="1.1"
+            />
+            <line x1="5.5" y1="1.5" x2="5.5" y2="13.5" stroke="currentColor" stroke-width="1.1" />
+          </svg>
+        </button>
+
+        <main class="min-w-0 flex-1 overflow-y-auto">
+          <div class="flex min-h-full flex-col">
+            <!-- Sentinel's settings body gutters. No section heading above the
+                 card: this console has one subject, so a title naming it would
+                 only repeat the card beneath. -->
+            <div class="flex w-full max-w-content flex-col gap-6 px-5 pb-16 pt-[34px] md:px-gutter">
+              <div data-ref="notice-list"></div>
+              <ul
+                data-ref="serial-conflicts"
+                class="m-0 flex list-none flex-col gap-2 p-0"
+                aria-label="Serial conflicts"
+                hidden
+              ></ul>
+              <!-- Each device is its own white box on the canvas — no wrapping
+                   card and no title above them. The heading stays in the DOM,
+                   screen-reader only: it is the skip link's destination and this
+                   section's accessible name, and the boxes below would otherwise
+                   be an unlabelled run. -->
+              <section aria-labelledby="devices-heading" class="flex flex-col gap-4">
+                <h2 id="devices-heading" tabindex="-1" class="sr-only outline-none">SDR devices</h2>
+                <div data-ref="device-list" class="flex flex-col gap-4"></div>
+              </section>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Dialogs and the auth prompt mount here, outside the shell's
+         `overflow-hidden`, which is what `<Teleport to="body">` used to buy. -->
+    <div data-ref="overlay-root"></div>
+
+    <script type="module" src="/js/main.js"></script>
   </body>
 </html>

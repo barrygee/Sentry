@@ -29,8 +29,12 @@ RUN git clone --depth 1 https://github.com/steve-m/librtlsdr.git && \
     make -j"$(nproc)" && make install
 
 # ---------------------------------------------------------------------------
-# Stage 2 — build the Vue SPA
+# Stage 2 — build the static UI
 # ---------------------------------------------------------------------------
+# No bundler and no framework: `tsc` emits browser-native ES modules, the
+# Tailwind CLI compiles one stylesheet, and a copy step moves `index.html` and
+# the vendored fonts across. Node is a build-time dependency only — it is absent
+# from the runtime image below, as it was before.
 FROM node:22-alpine AS frontend-build
 WORKDIR /app
 

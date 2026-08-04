@@ -11,7 +11,7 @@
 
 Turn the proven single-dongle relay into a **managed set of SDRs**. One Raspberry Pi, N RTL-SDR
 dongles (some behind USB hubs/extenders), each independently named, port-assigned and tuned,
-with a Vue operator console and a single JSON endpoint that Sentinel consumes to discover them.
+with a static operator console and a single JSON endpoint that Sentinel consumes to discover them.
 
 ### 1.1 Requirements traceability
 
@@ -87,8 +87,8 @@ for the exit branch (§12).
 | ORM / migrations | SQLAlchemy 2.0 async + Alembic | Team default (`fastapi-standards`). Async so the DB never blocks the SSE event loop. |
 | Database | SQLite, WAL, `synchronous=NORMAL` | Single-writer, single-host, tens of rows. The Pi loses power without warning — WAL survives it. ADR-0005. |
 | Realtime | Server-Sent Events | One-way push only; native browser reconnect; no keepalive code. ADR-0004. |
-| Frontend | Vue 3 + Vite + TypeScript strict + Tailwind + Pinia | Team default. |
-| Serving | Production: FastAPI serves the built SPA as static files on `SENTRY_HTTP_PORT` (default **8000**). Dev: Vite on 3000 proxying `/api` → 8000. | One port on the Pi (requirement 8); no reverse proxy to install. |
+| Frontend | TypeScript strict + Tailwind, compiled to browser-native ES modules by `tsc` — no framework, no bundler | The console is a fallback for the Pi itself; Sentinel is the primary UI, so this side is kept deliberately small. Dropping Vue/Vite/Pinia removes a build stage and a dependency tree from the image. |
+| Serving | Production: FastAPI serves the built UI as static files on `SENTRY_HTTP_PORT` (default **8000**). Dev: `scripts/dev.mjs` on 3000 proxying `/api` → 8000. | One port on the Pi (requirement 8); no reverse proxy to install. |
 | Container | One image, one container, subprocesses inside | ADR-0001. |
 
 ### 3.2 Per-dongle wire contract — byte-identical to today
@@ -813,7 +813,7 @@ layout and composition only, holding no formatting logic of its own. `MonoValue`
 numeric display) and `StatusDot` are the shared atoms used everywhere a port, frequency, PID or
 state appears; nothing re-implements them.
 
-### 9.2 Pinia store — `stores/sdrs.ts`
+### 9.2 Store — `state/sdrsStore.ts`
 
 ```ts
 // state
@@ -892,9 +892,9 @@ in `role="group"`. The connector lines and port lugs are pure CSS/`aria-hidden` 
 **Live updates.** Nodes appearing or disappearing must never steal or destroy focus. If the
 focused node's device is unplugged, focus moves to the nearest surviving sibling, else the
 parent, else the tree container, and the move is announced. Keys are `device_id`, never array
-index, so Vue never recycles a DOM node between two different dongles.
+index, so `keyedList` never recycles a DOM node between two different dongles.
 
-**Announcements.** Two regions, both rendered once at app root by `LiveRegion`:
+**Announcements.** Two regions, both declared once in `index.html` and written into by `core/liveAnnouncer.ts`:
 
 - `aria-live="polite"` — plug/unplug and state changes: *"AIS SDR connected on USB port 1-1.4.3,
   now streaming on port 1238."* Announcements are debounced 500 ms and coalesced ("3 devices

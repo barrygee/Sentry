@@ -1,4 +1,34 @@
 {
-  "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+  // Emits browser-native ES modules straight to `dist/js` — there is no bundler.
+  // Two consequences every module in `src/` has to respect:
+  //   * relative import specifiers only, and they must carry the `.js`
+  //     extension. TypeScript does not rewrite specifiers on emit, so a bare or
+  //     extensionless one would 404 in the browser. (This is why the retired
+  //     Vite build's `@/*` path alias is gone rather than reproduced.)
+  //   * `verbatimModuleSyntax` keeps type-only imports out of the emitted JS,
+  //     which matters when the thing imported is types-only, as `api/types.ts` is.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+
+    "rootDir": "src",
+    "outDir": "dist/js",
+    "sourceMap": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"]
 }
