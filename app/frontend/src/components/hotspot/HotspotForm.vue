@@ -12,6 +12,7 @@ import {
   SSID_MAX_BYTES,
   ssidByteLength,
   validateChannelClientSide,
+  validateGatewayCidrClientSide,
   validatePassphraseClientSide,
   validateSsidClientSide,
 } from '@/utils/hotspotValidation'
@@ -51,6 +52,7 @@ const enabled = ref(props.state.active)
 const selectedInterface = ref(props.state.interface ?? '')
 const band = ref<'bg' | 'a'>(props.state.band ?? 'bg')
 const channel = ref(String(props.state.channel ?? 0))
+const gatewayCidr = ref(props.state.gateway_cidr ?? '')
 const acknowledgedUplinkLoss = ref(false)
 const ssidTouched = ref(false)
 
@@ -68,6 +70,7 @@ watch(
     selectedInterface.value = nextState.interface ?? ''
     band.value = nextState.band ?? 'bg'
     channel.value = String(nextState.channel ?? 0)
+    gatewayCidr.value = nextState.gateway_cidr ?? ''
   },
 )
 
@@ -111,6 +114,10 @@ const wouldDropUplink = computed(
     (effectiveInterface.value.carries_default_route || effectiveInterface.value.in_use_by !== null),
 )
 
+const gatewayError = computed(() =>
+  gatewayCidr.value === '' ? null : validateGatewayCidrClientSide(gatewayCidr.value),
+)
+
 const ssidError = computed(() => (ssidTouched.value ? validateSsidClientSide(ssid.value) : null))
 const channelError = computed(() => validateChannelClientSide(Number(channel.value), band.value))
 
@@ -137,6 +144,7 @@ const canSubmit = computed(
     !props.busy &&
     validateSsidClientSide(ssid.value) === null &&
     channelError.value === null &&
+    gatewayError.value === null &&
     passphraseError.value === null &&
     !passphraseMissing.value &&
     (!wouldDropUplink.value || acknowledgedUplinkLoss.value),
@@ -154,7 +162,9 @@ function submit(): void {
     interface: selectedInterface.value === '' ? null : selectedInterface.value,
     band: band.value,
     channel: Number(channel.value),
-    gateway_cidr: null,
+    // Empty means "use whatever this deployment configured", which is what the
+    // server does with null — so an untouched field never pins an address.
+    gateway_cidr: gatewayCidr.value === '' ? null : gatewayCidr.value,
     confirm_uplink_loss: acknowledgedUplinkLoss.value,
   }
   // Present ONLY when the operator actually set one. Its absence is what tells
@@ -232,6 +242,19 @@ function submit(): void {
         hint="Automatic is right unless you are avoiding a specific channel."
       />
     </div>
+
+    <BaseField
+      v-model="gatewayCidr"
+      label="Address for clients"
+      :error="gatewayError"
+      :hint="
+        gatewayError
+          ? null
+          : 'The address a joined client points Sentinel at. Leave blank for this Sentry\u2019s default.'
+      "
+      :disabled="props.busy"
+      autocomplete="off"
+    />
 
     <HotspotUplinkWarning
       v-if="wouldDropUplink && effectiveInterface"

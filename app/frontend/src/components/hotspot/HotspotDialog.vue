@@ -9,6 +9,7 @@ import SectionHeading from '@/components/base/SectionHeading.vue'
 import HotspotClientList from '@/components/hotspot/HotspotClientList.vue'
 import HotspotConfirmCountdown from '@/components/hotspot/HotspotConfirmCountdown.vue'
 import HotspotForm from '@/components/hotspot/HotspotForm.vue'
+import HotspotSetupHelp from '@/components/hotspot/HotspotSetupHelp.vue'
 import HotspotStatusPanel from '@/components/hotspot/HotspotStatusPanel.vue'
 import { useHotspotStore } from '@/stores/hotspot'
 
@@ -135,7 +136,12 @@ async function discardHotspot(): Promise<void> {
           @discard="discardHotspot"
         />
 
-        <NoticeBox v-if="blockedReason" tone="warn" role="alert">
+        <HotspotSetupHelp
+          v-if="!state.control_enabled || !state.auth_token_configured"
+          :control-enabled="state.control_enabled"
+          :auth-token-configured="state.auth_token_configured"
+        />
+        <NoticeBox v-else-if="blockedReason" tone="warn" role="alert">
           {{ blockedReason }}
         </NoticeBox>
 
