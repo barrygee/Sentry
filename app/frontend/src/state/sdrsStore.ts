@@ -88,6 +88,20 @@ export function portsInUse(state: Readonly<SdrsState>): number[] {
     .sort((portA, portB) => portA - portB)
 }
 
+/**
+ * The name to show an operator for a device, falling back to its `device_id`.
+ *
+ * A device is nameable but not required to be named, so every surface that
+ * refers to one in prose — a live announcement, a notice, a conflict group —
+ * needs the same fallback. Sharing it keeps those references identical, which
+ * matters most where two of them sit side by side: the notice log lists one row
+ * per device, and if a card said "RTL-SDR-V4" while its notice said
+ * "serial:00000001" the two would not read as the same device.
+ */
+export function deviceLabel(state: Readonly<SdrsState>, deviceId: string): string {
+  return state.devicesById[deviceId]?.name || deviceId
+}
+
 /** Whether any known device currently reports an error state. */
 export function hasErrors(state: Readonly<SdrsState>): boolean {
   return devices(state).some((device) => device.state === 'error')
@@ -134,7 +148,7 @@ export function serialConflictGroups(
       serial,
       devices: groupedDevices.map((device) => ({
         deviceId: device.device_id,
-        label: device.name || device.device_id,
+        label: deviceLabel(state, device.device_id),
       })),
     }))
 }
@@ -194,11 +208,58 @@ export function applyHealth(payload: HealthSnapshot): void {
   sdrsStore.setState({ health: payload })
 }
 
-/** Appends a notice to the capped, drop-oldest notice log. */
+/**
+ * Adds a notice to the capped, drop-oldest notice log, coalescing repeats.
+ *
+ * A flapping dongle emits the same notice indefinitely — `crash_loop` fires
+ * once per exhausted restart budget — so without this a single failing device
+ * fills all `MAX_NOTICES` slots and evicts every unrelated notice, which is
+ * precisely when an operator most needs to see the others. An identical notice
+ * (same device, code and message) therefore bumps a counter instead of adding
+ * a row.
+ *
+ * Only an undismissed notice absorbs a repeat: dismissing is the operator
+ * saying "I have read this", so the condition recurring afterwards is news
+ * again and starts a fresh row.
+ *
+ * The absorbing notice keeps its position rather than jumping to the top. The
+ * log is newest-first, so promoting it would reorder rows under an operator
+ * mid-read — and repeatedly, for a device flapping every few seconds. Its
+ * place therefore records when the condition started, and `lastSeenTs` carries
+ * when it was last seen.
+ */
 export function applyNotice(notice: NoticeEvent): void {
+  const current = sdrsStore.state.notices
+
+  const repeatIndex = current.findIndex(
+    (candidate) =>
+      !candidate.dismissed &&
+      candidate.device_id === notice.device_id &&
+      candidate.code === notice.code &&
+      candidate.message === notice.message,
+  )
+
+  const repeated = repeatIndex === -1 ? undefined : current[repeatIndex]
+  if (repeated !== undefined) {
+    const notices = [...current]
+    notices[repeatIndex] = {
+      ...repeated,
+      repeatCount: repeated.repeatCount + 1,
+      lastSeenTs: notice.ts,
+    }
+    sdrsStore.setState({ notices })
+    return
+  }
+
   noticeSequence += 1
-  const item: NoticeItem = { ...notice, id: `${notice.ts}-${noticeSequence}`, dismissed: false }
-  const next = [item, ...sdrsStore.state.notices]
+  const item: NoticeItem = {
+    ...notice,
+    id: `${notice.ts}-${noticeSequence}`,
+    dismissed: false,
+    repeatCount: 1,
+    lastSeenTs: notice.ts,
+  }
+  const next = [item, ...current]
   sdrsStore.setState({ notices: next.slice(0, MAX_NOTICES) })
 }
 
@@ -279,8 +340,7 @@ export async function flashSerial(deviceId: string, serial: string): Promise<Ser
  * humanizes for the race where the dongle replugged mid-dialog.
  */
 export async function deleteDevice(deviceId: string): Promise<void> {
-  const device = sdrsStore.state.devicesById[deviceId]
-  const label = device?.name || deviceId
+  const label = deviceLabel(sdrsStore.state, deviceId)
   try {
     await apiClient.deleteDevice(deviceId)
     applyDeviceRemoved(deviceId)
