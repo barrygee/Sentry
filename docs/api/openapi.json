@@ -2467,7 +2467,7 @@
     },
     "/api/config/download": {
       "get": {
-        "description": "The same payload as `GET /api/config`, with a filename attached.\n\nA separate route rather than a query flag so the browser's own download\nbehaviour is driven by `Content-Disposition` and the UI does not have to\nsynthesise a blob and an object URL to save a file.",
+        "description": "The same payload as `GET /api/config`, with a filename attached.\n\nFor `curl -O` and scripted backups. The web UI deliberately does *not* use\nthis route: a plain navigation cannot set an `Authorization` header, so\nlinking at it would 401 as soon as an operator sets a token, and the usual\nworkaround \u2014 putting the token in the query string, as `EventSource` is\nforced to \u2014 would write a credential into browser history and the access\nlog. The UI fetches `GET /api/config` authenticated and saves the file\nitself instead.",
         "operationId": "download_config_api_config_download_get",
         "responses": {
           "200": {

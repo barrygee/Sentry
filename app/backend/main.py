@@ -47,6 +47,7 @@ from app.backend.adapters.reconcile_hotplug import ReconcileHotplugSource
 from app.backend.adapters.sysfs_usb import SysfsUsbDiscovery
 from app.backend.adapters.system_clock import SystemClock
 from app.backend.adapters.udev_netlink import UdevNetlinkHotplugSource
+from app.backend.api_version import ManagementApiVersionMiddleware
 from app.backend.config import Settings, get_settings
 from app.backend.db import create_sentry_engine, create_sentry_session_factory
 from app.backend.example_fixtures import SENTRY_VERSION
@@ -566,6 +567,9 @@ def create_app() -> FastAPI:
         lifespan=_lifespan,
     )
     application.add_middleware(ReferrerPolicyMiddleware)
+    # Advertises the management API version to Sentinel, which is deployed and
+    # upgraded independently of this Pi (ADR-0009).
+    application.add_middleware(ManagementApiVersionMiddleware)
 
     # CORS is closed by default (architecture §7.9): the SPA is same-origin in
     # production, and only an explicit SENTRY_CORS_ORIGINS list opens it for a
