@@ -139,7 +139,7 @@ and a relay crash must not take the API down with it. The supervisor only spawns
 | `SENTRY_RECONCILE_INTERVAL_S` | `2.0` | Sysfs sweep period (hotplug safety net) |
 | `SENTRY_RTL_TCP_PATH` | `rtl_tcp` | Binary path |
 | `SENTRY_RTL_EEPROM_PATH` | `rtl_eeprom` | Binary path |
-| `SENTRY_RELAY_PATH` | *derived from the package* | The unchanged relay. Resolves to `<backend package>/relay/rtl_tcp_relay.py` — `/app/app/backend/relay/` in the container. Do not hard-code it: any absolute value is wrong in either the container or a non-Docker checkout |
+| `SENTRY_RELAY_PATH` | *derived from the package* | The unchanged relay. Resolves to `<backend package>/relay/rtl_tcp_relay.py` — `/srv/sentry/app/backend/relay/` in the container. Do not hard-code it: any absolute value is wrong in either the container or a non-Docker checkout |
 | `SENTRY_LOG_LEVEL` | `INFO` | |
 
 Nothing secret is ever committed; `.env` is git-ignored and `.env.example` documents every

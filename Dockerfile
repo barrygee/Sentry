@@ -36,7 +36,7 @@ RUN git clone --depth 1 https://github.com/steve-m/librtlsdr.git && \
 # the vendored fonts across. Node is a build-time dependency only — it is absent
 # from the runtime image below, as it was before.
 FROM node:22-alpine AS frontend-build
-WORKDIR /app
+WORKDIR /src/frontend
 
 # Manifests + lockfile before source so the dependency layer survives source-only edits.
 COPY app/frontend/package.json app/frontend/package-lock.json ./
@@ -44,7 +44,7 @@ RUN npm ci
 
 COPY app/frontend/ ./
 RUN npm run build
-# -> /app/dist
+# -> /src/frontend/dist
 
 # ---------------------------------------------------------------------------
 # Stage 3 — Python dependencies (uv, frozen, no dev deps)
@@ -52,7 +52,7 @@ RUN npm run build
 FROM python:3.12-slim AS backend-build
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY --from=ghcr.io/astral-sh/uv:0.9.5 /uv /usr/local/bin/uv
-WORKDIR /app
+WORKDIR /srv/sentry
 
 # Manifests first: this layer is cached across every source-only change.
 COPY pyproject.toml uv.lock ./
@@ -109,11 +109,14 @@ COPY --from=rtlsdr-build \
 COPY --from=rtlsdr-build /opt/rtlsdr/lib/ /usr/local/lib/
 RUN ldconfig
 
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/app/.venv/bin:$PATH"
-WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/srv/sentry/.venv/bin:$PATH"
+WORKDIR /srv/sentry
 
-COPY --from=backend-build /app /app
-COPY --from=frontend-build /app/dist /app/app/frontend/dist
+# /srv/sentry is the repo root inside the image, so the backend package lands at
+# /srv/sentry/app/backend/ — mirroring the checkout exactly, one level down
+# rather than the /app/app/ that a WORKDIR of /app produced.
+COPY --from=backend-build /srv/sentry /srv/sentry
+COPY --from=frontend-build /src/frontend/dist /srv/sentry/app/frontend/dist
 
 # Sentry's default DB URL (config.py) is sqlite+aiosqlite:////data/sentry.db —
 # a named volume is mounted here in compose so names/ports survive
