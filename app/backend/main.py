@@ -27,12 +27,14 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from starlette.responses import Response
@@ -552,6 +554,33 @@ class ReferrerPolicyMiddleware:
         await self._app(scope, receive, _send_with_header)
 
 
+async def _redacted_validation_handler(_request: Request, exception: Exception) -> Response:
+    """Render a 422 without echoing the value that failed.
+
+    FastAPI's default handler includes an `input` key carrying the offending
+    value verbatim. For most fields that is a convenience; for
+    `HotspotConfigRequest.passphrase` and `HotspotConfigEntry.passphrase` it
+    hands the rejected WiFi password straight back in the response body — and
+    into every access log, proxy and browser devtools panel along the way.
+
+    `SecretStr` does not help here: it keeps the value out of `repr` and out of
+    serialisation, but Pydantic records the *raw input* on the error before any
+    of that applies. So the redaction has to happen at the boundary.
+
+    Applied to every validation error rather than only the secret ones. A list
+    of fields to redact is a list somebody has to remember to update the day a
+    second secret is added, and `loc` plus `msg` already tell a client which
+    field was wrong and why — `input` only tells it what it just sent.
+    """
+    errors = []
+    for error in cast(RequestValidationError, exception).errors():
+        redacted = {key: value for key, value in error.items() if key not in {"input", "ctx"}}
+        errors.append(redacted)
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": errors}
+    )
+
+
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application instance.
 
@@ -566,6 +595,7 @@ def create_app() -> FastAPI:
         version=SENTRY_VERSION,
         lifespan=_lifespan,
     )
+    application.add_exception_handler(RequestValidationError, _redacted_validation_handler)
     application.add_middleware(ReferrerPolicyMiddleware)
     # Advertises the management API version to Sentinel, which is deployed and
     # upgraded independently of this Pi (ADR-0009).
