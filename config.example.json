@@ -1,5 +1,5 @@
 {
-  "_comment": "Example Sentry configuration file. Export a real one from a working instance (Configuration > Download configuration, or GET /api/config) rather than hand-writing this — the shape is validated on import and an exported file is always correct. Deliberately absent: the hotspot password, and the .env-only deploy gates SENTRY_HOTSPOT_CONTROL_ENABLED and SENTRY_AUTH_TOKEN. See docs/adr/0007 for why.",
+  "_comment": "Example Sentry configuration file. Export a real one from a working instance (Configuration > Download configuration, or GET /api/config) rather than hand-writing this — the shape is validated on import and an exported file is always correct. An export NEVER contains the hotspot password: `passphrase_set` only reports whether the source had one. To provision a fresh Pi to a working hotspot in one import, hand-add a \"passphrase\" key to the hotspot section below — it is read on import and, being import-only, can never reappear in a file Sentry exports. Treat any file you add one to as a secret. Still absent entirely: the .env-only deploy gates SENTRY_HOTSPOT_CONTROL_ENABLED and SENTRY_AUTH_TOKEN. See docs/adr/0007 for why.",
   "version": 1,
   "generated_at": 0,
   "sentry_version": "0.1.0",

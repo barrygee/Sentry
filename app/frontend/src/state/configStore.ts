@@ -1,4 +1,10 @@
-import { apiClient, ApiError, type ConfigImportResult, type SentryConfig } from '../api/client.js'
+import {
+  apiClient,
+  ApiError,
+  type ConfigImportResult,
+  type SentryConfig,
+  type SentryConfigImport,
+} from '../api/client.js'
 import { liveAnnouncer } from '../core/liveAnnouncer.js'
 import { createStore, type Store } from '../core/observable.js'
 import * as sdrsStore from './sdrsStore.js'
@@ -21,8 +27,11 @@ export type ConfigPhase = 'idle' | 'loading' | 'importing' | 'imported' | 'faile
 export interface ConfigStoreState {
   /** The instance's current configuration, for preview before download. */
   preview: SentryConfig | null
-  /** The parsed contents of a file the operator picked, awaiting confirmation. */
-  pendingImport: SentryConfig | null
+  /** The parsed contents of a file the operator picked, awaiting confirmation.
+   *
+   * The inbound shape, not the exported one: a hand-written provisioning file
+   * may carry `hotspot.passphrase`, which an export never does. */
+  pendingImport: SentryConfigImport | null
   /** The name of that file, so the UI can say what is about to be applied. */
   pendingFileName: string | null
   lastResult: ConfigImportResult | null
@@ -151,7 +160,7 @@ export function stagePickedFile(fileName: string, contents: string): void {
     return
   }
   configStore.setState({
-    pendingImport: parsed as SentryConfig,
+    pendingImport: parsed as SentryConfigImport,
     pendingFileName: fileName,
     phase: 'idle',
   })

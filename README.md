@@ -560,13 +560,41 @@ outcome rather than an error:
 Entries are replayed through the same validation `PATCH /api/devices/{id}` uses,
 so an import can never write a configuration the normal endpoint would refuse.
 
-**Two things are deliberately absent, and both absences matter.**
+**The hotspot password goes in, but never comes out.**
 
-*The hotspot password.* A config file is the most copied, emailed and committed
-artefact a project has, so WiFi credentials in one would leak by default. The
-file records only whether a password was set. Importing hotspot settings writes
-the network's name, band and address but never starts it — a fresh Pi needs the
-password typed once, in the hotspot panel.
+A config file is the most copied, emailed and committed artefact a project has,
+so an *export* never contains WiFi credentials — it records only whether a
+password was set (`passphrase_set`). `GET /api/config` is reachable by anyone
+who can reach the API, and a password falling out of a routine export is not a
+risk worth the convenience.
+
+An *import* may carry one. Add a `passphrase` to the file's `hotspot` section
+and it is applied, which is what lets a fresh Pi be provisioned to a working
+hotspot in a single import:
+
+```jsonc
+"hotspot": {
+  "ssid": "Sentry Field",
+  "hidden": true,
+  "security": "wpa2",
+  "passphrase": "your-wifi-password"   // import-only; never appears in an export
+}
+```
+
+The asymmetry is the point: a file you hand-wrote is one you chose to make
+sensitive and control, whereas one Sentry produced could be anywhere. The field
+is structurally excluded from serialisation, so a file Sentry wrote cannot
+contain a password however it was produced. **Treat any file you add one to as
+a secret** — do not commit it.
+
+Setting a password this way needs `SENTRY_AUTH_TOKEN` configured, the same gate
+every other hotspot change passes. Importing hotspot settings writes the
+network's name, band and address but **never starts it**, with or without a
+password — you turn it on yourself, from a panel that shows what you are about
+to broadcast. Without a password in the file, a Pi with none stored refuses the
+hotspot section rather than writing an SSID it could never use.
+
+**One thing is absent entirely.**
 
 *The deploy-time settings* `SENTRY_HOTSPOT_CONTROL_ENABLED` and
 `SENTRY_AUTH_TOKEN`. Those are `.env`-only because they are precisely the
@@ -605,7 +633,7 @@ shows the exact lines to paste, with a copy button, rather than editing them.
 | `DELETE /api/hotspot`           | Forget the hotspot, password included                                              |
 | `GET /api/config`               | Export this instance's configuration — devices and hotspot, never a password       |
 | `GET /api/config/download`      | The same payload with a `Content-Disposition` filename attached                    |
-| `POST /api/config`              | Import an exported configuration, reporting each entry's outcome                   |
+| `POST /api/config`              | Import a configuration, reporting each entry's outcome. May carry a hotspot password |
 
 `/api/health` deliberately stays healthy while an individual dongle is degraded —
 otherwise a single wedged dongle would restart the container and take the healthy
