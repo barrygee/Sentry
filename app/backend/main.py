@@ -102,7 +102,10 @@ class CacheAwareSpaStaticFiles(StaticFiles):
 
     def file_response(
         self,
-        full_path: PathLike[str],
+        # Widened to match Starlette's own signature. Narrowing it to
+        # `PathLike[str]` was a Liskov violation mypy rejects: a caller holding
+        # a `StaticFiles` may legitimately pass a plain `str`.
+        full_path: str | PathLike[str],
         stat_result: os.stat_result,
         scope: Scope,
         status_code: int = 200,

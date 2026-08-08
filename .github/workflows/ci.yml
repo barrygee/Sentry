@@ -1,0 +1,127 @@
+# CI: every gate that must pass before a change reaches `main`.
+#
+# These commands are not new — they are the ones already run by hand on every
+# change. The point of this file is that nobody has to remember to.
+#
+# Split into three jobs rather than one so a failure names itself in the PR
+# checks list: "backend" red and "frontend" green says where to look without
+# opening a log. They are independent and run in parallel.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A second push to the same PR makes the first run irrelevant. Cancelling it
+# frees the runner immediately rather than paying for a result nobody reads.
+# `main` is exempt: those runs are the record of what was merged.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  # Matches the Dockerfile's runtime stage, so CI cannot pass on a version the
+  # image does not ship.
+  PYTHON_VERSION: "3.12"
+  # Matches the Dockerfile's frontend-build stage, for the same reason.
+  NODE_VERSION: "22"
+
+jobs:
+  backend:
+    name: Backend — ruff, mypy, pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          # Pinned to the Dockerfile's uv, and cache-keyed on the lockfile so a
+          # dependency change is the only thing that costs a cold install.
+          version: "0.9.5"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        # --frozen: fail if uv.lock disagrees with pyproject.toml rather than
+        # silently resolving something the lockfile never described.
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check app/backend tests tools
+
+      - name: Format check
+        # Scoped to Python directories: `ruff format .` also reformats fenced
+        # code blocks inside docs/, which mangles the architecture spec's
+        # deliberately aligned comments.
+        run: uv run ruff format --check app/backend tests tools
+
+      - name: Type check
+        run: uv run mypy app/backend
+
+      - name: Tests
+        run: uv run pytest -q
+
+  frontend:
+    name: Frontend — lint, types, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+
+      - name: Install dependencies
+        # `npm ci` over `install`: installs exactly the lockfile, and fails if
+        # package.json and the lockfile have drifted apart.
+        run: npm ci
+
+      - name: Lint and format check
+        run: npm run lint
+
+      - name: Type check
+        # Covers both the app and the test suite — see tsconfig.vitest.json.
+        run: npm run typecheck
+
+      - name: Tests with coverage gate
+        # Thresholds are per file (vitest.config.ts): 100% on the files that
+        # have a suite, and files join that list as tests for them land.
+        run: npm run test:coverage
+
+      - name: Build
+        # The production build is a gate in its own right: `tsc` emitting the
+        # real browser modules catches what `--noEmit` does not.
+        run: npm run build
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        # Build only — never pushed. This catches the failure mode neither other
+        # job can: a Dockerfile that no longer assembles even though both halves
+        # of the source are green. Layer cache via GitHub Actions, since the
+        # librtlsdr compile stage is far too slow to repeat on every PR.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
