@@ -39,7 +39,6 @@ export interface ConfigStoreState {
   errorMessage: string | null
   applyDevices: boolean
   applyHotspot: boolean
-  dialogOpen: boolean
 }
 
 /** Export/import state for the whole Sentry instance's device and hotspot configuration. */
@@ -55,7 +54,6 @@ export const configStore: Store<ConfigStoreState> = createStore<ConfigStoreState
   // network this Pi serves, and the file never carries a password to start
   // it with anyway.
   applyHotspot: false,
-  dialogOpen: false,
 })
 
 /** How many configured devices the current instance would export. */
@@ -101,15 +99,15 @@ function describeError(error: unknown, fallback: string): string {
   return fallback
 }
 
-/** Opens the import/export dialog and kicks off a fresh preview load. */
-export function openDialog(): void {
-  configStore.setState({ dialogOpen: true })
-  void loadPreview()
-}
-
-/** Closes the dialog, discarding any picked-but-unapplied import. */
-export function closeDialog(): void {
-  configStore.setState({ dialogOpen: false })
+/**
+ * Discard a picked-but-unapplied import and clear the last result.
+ *
+ * Was `closeDialog`. Dropping the staged file matters more than it looks:
+ * leaving the screen with one selected and returning later would show a file
+ * primed to apply, chosen for reasons the operator no longer remembers, one
+ * button away from rewriting every device's configuration.
+ */
+export function resetTransientState(): void {
   clearPendingImport()
   configStore.setState({ errorMessage: null, lastResult: null, phase: 'idle' })
 }

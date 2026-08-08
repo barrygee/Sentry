@@ -3,7 +3,6 @@ import type { Component } from '../../core/component.js'
 import { watchStore } from '../../core/observable.js'
 import type { ConfigImportResult } from '../../api/client.js'
 import { baseButton } from '../base/baseButton.js'
-import { baseDialog } from '../base/baseDialog.js'
 import { baseToggle } from '../base/baseToggle.js'
 import { dataCell } from '../base/dataCell.js'
 import { nextElementId } from '../base/idGenerator.js'
@@ -12,7 +11,6 @@ import { sectionHeading } from '../base/sectionHeading.js'
 import {
   applyPendingImport,
   clearPendingImport,
-  closeDialog,
   configStore,
   exportDeviceCount,
   loadPreview,
@@ -37,7 +35,7 @@ import { configImportReport } from './configImportReport.js'
  * Takes no props — it is rendered once near the app root and driven entirely
  * by `configStore`.
  */
-export function configDialog(): Component<void> {
+export function configPanel(): Component<void> {
   const headingId = nextElementId('config-dialog-heading')
 
   const heading = sectionHeading({ level: 2, children: ['Configuration'] })
@@ -176,29 +174,18 @@ export function configDialog(): Component<void> {
     [importHeading.element, fileInput, noPendingImportBlock, pendingImportBlock, importReportSlot],
   )
 
-  const closeButton = baseButton({
-    variant: 'ghost',
-    onClick: () => closeDialog(),
-    children: ['Close'],
-  })
-
-  const dialogBody = el('div', { class: 'flex max-h-[80vh] flex-col gap-6 overflow-y-auto' }, [
-    headerBlock,
-    busyStatusRegion,
-    errorAlertRegion,
-    errorNotice.element,
-    exportSection,
-    importSection,
-    el('div', {}, [closeButton.element]),
-  ])
-
-  const dialog = baseDialog({
-    open: false,
-    labelledBy: headingId,
-    disableDismiss: false,
-    onClose: () => closeDialog(),
-    children: [dialogBody],
-  })
+  const panelRoot = el(
+    'section',
+    { class: 'flex flex-col gap-6', attrs: { 'aria-labelledby': headingId } },
+    [
+      headerBlock,
+      busyStatusRegion,
+      errorAlertRegion,
+      errorNotice.element,
+      exportSection,
+      importSection,
+    ],
+  )
 
   let importReport: Component<{ result: ConfigImportResult }> | null = null
 
@@ -341,27 +328,12 @@ export function configDialog(): Component<void> {
         importReport.update({ result: state.lastResult })
       }
     }
-
-    closeButton.update({
-      variant: 'ghost',
-      disabled: isBusy,
-      onClick: () => closeDialog(),
-      children: ['Close'],
-    })
-
-    dialog.update({
-      open: state.dialogOpen,
-      labelledBy: headingId,
-      disableDismiss: isBusy,
-      onClose: () => closeDialog(),
-      children: [dialogBody],
-    })
   }
 
   const unsubscribe = watchStore(configStore, render)
 
   return {
-    element: dialog.element,
+    element: panelRoot,
 
     update(): void {
       // Store-driven; nothing to do for a prop this component does not take.
@@ -370,7 +342,6 @@ export function configDialog(): Component<void> {
     destroy(): void {
       unsubscribe()
       importReport?.destroy()
-      dialog.destroy()
     },
   }
 }

@@ -3,17 +3,13 @@ import type { Component } from '../../core/component.js'
 import { watchStore } from '../../core/observable.js'
 import type { HotspotState } from '../../api/client.js'
 import { baseButton } from '../base/baseButton.js'
-import { baseDialog } from '../base/baseDialog.js'
 import { nextElementId } from '../base/idGenerator.js'
 import { noticeBox } from '../base/noticeBox.js'
 import { sectionHeading } from '../base/sectionHeading.js'
 import {
-  closeDialog,
   confirm as confirmHotspot,
   disable as disableHotspot,
   hotspotStore,
-  isAwaitingConfirmation,
-  refresh,
   save,
   type HotspotStoreState,
 } from '../../state/hotspotStore.js'
@@ -31,16 +27,17 @@ import type { HotspotStatusPanelProps } from './hotspotStatusPanel.js'
 /**
  * The hotspot settings surface: status, form, confirmation window, leases.
  *
- * Rendered once near the app root and opened from the store, the same shape
- * `SerialFlashDialog` uses — the invoking control (the header gear) is
- * several components away from where the dialog is mounted, so a shared
- * store field is the only sensible source of truth for "is it open".
+ * A section of the Settings view rather than a modal. It was a dialog, which
+ * suited a control reached from a header icon but suited nothing else: the
+ * panel is long, frequently read rather than acted on, and its confirmation
+ * countdown wants to stay visible while an operator checks whether their WiFi
+ * still works — none of which a modal is good at.
  *
- * Dismissal is suppressed while a request is in flight **and** while a
- * change is awaiting confirmation. A stray Escape during the confirmation
- * window would read as walking away from a network change that is already
- * live on the hardware, which is exactly when an operator most needs the
- * countdown in front of them.
+ * The countdown's guard did not survive the move unchanged. A modal could
+ * refuse to close; a section cannot refuse to be navigated away from, so the
+ * guard moved to the navigation itself (`main.ts`) rather than being dropped.
+ * Walking away mid-countdown abandons a network change already applied to the
+ * hardware, which is the one thing the countdown exists to prevent.
  */
 
 function blockedReason(state: HotspotState): string | null {
@@ -99,11 +96,11 @@ function buildHotspotFormActions(
 }
 
 /**
- * Builds the `HotspotDialog`. Takes no props — it is rendered once near the
- * app root and driven entirely by `hotspotStore`.
+ * Builds the hotspot settings section. Takes no props — it is mounted once by
+ * the Settings view and driven entirely by `hotspotStore`.
  */
-export function hotspotDialog(): Component<void> {
-  const headingId = nextElementId('hotspot-dialog-heading')
+export function hotspotPanel(): Component<void> {
+  const headingId = nextElementId('hotspot-panel-heading')
 
   const heading = sectionHeading({ level: 2, children: ['WiFi hotspot'] })
   heading.element.id = headingId
@@ -148,43 +145,19 @@ export function hotspotDialog(): Component<void> {
     clientListSlot,
   ])
 
-  // Outside `contentBlock`, and outside the form, so it exists in every state.
-  // It used to live in the form's action row, which is rendered only when the
-  // hotspot is manageable — so the states that render no form (control disabled
-  // in .env, no auth token, NetworkManager unreachable) offered no way out at
-  // all. Those are exactly the states an operator lands in by accident and most
-  // needs to leave. `Escape` still worked, but a modal whose only dismissal is
-  // an invisible keystroke is not dismissible in any sense that matters.
-  const dismissButton = baseButton({
-    variant: 'ghost',
-    onClick: () => closeDialog(),
-    children: ['Close'],
-  })
-
-  const dialogBody = el('div', { class: 'flex max-h-[80vh] flex-col gap-6 overflow-y-auto' }, [
-    headerBlock,
-    busyStatusRegion,
-    errorAlertRegion,
-    loadingParagraph,
-    contentBlock,
-    el('div', {}, [dismissButton.element]),
-  ])
-
-  const dialog = baseDialog({
-    open: false,
-    labelledBy: headingId,
-    disableDismiss: false,
-    onClose: () => closeDialog(),
-    children: [dialogBody],
-  })
+  // No Close control, and no height cap: as a section this scrolls with the
+  // page rather than inside its own box, and there is nothing to dismiss.
+  const panelRoot = el(
+    'section',
+    { class: 'flex flex-col gap-6', attrs: { 'aria-labelledby': headingId } },
+    [headerBlock, busyStatusRegion, errorAlertRegion, loadingParagraph, contentBlock],
+  )
 
   let statusPanel: Component<HotspotStatusPanelProps> | null = null
   let confirmCountdown: Component<HotspotConfirmCountdownProps> | null = null
   let setupHelp: Component<HotspotSetupHelpProps> | null = null
   let form: Component<HotspotFormProps> | null = null
   let clientList: Component<HotspotClientListProps> | null = null
-
-  let previousDialogOpen = false
 
   function render(storeState: HotspotStoreState): void {
     const isBusy = storeState.phase === 'submitting'
@@ -291,40 +264,12 @@ export function hotspotDialog(): Component<void> {
         }
       }
     }
-
-    // The button mirrors `disableDismiss` rather than being unconditionally
-    // enabled: suppression during a request, and during the confirmation
-    // window, is deliberate (see this module's docstring). A Close that stayed
-    // live would walk an operator away from a network change already applied to
-    // the hardware — the precise thing the countdown exists to prevent.
-    const dismissSuppressed = isBusy || isAwaitingConfirmation(storeState)
-    dismissButton.update({
-      variant: 'ghost',
-      disabled: dismissSuppressed,
-      onClick: () => closeDialog(),
-      children: ['Close'],
-    })
-
-    dialog.update({
-      open: storeState.dialogOpen,
-      labelledBy: headingId,
-      disableDismiss: dismissSuppressed,
-      onClose: () => closeDialog(),
-      children: [dialogBody],
-    })
-
-    // Refetch whenever the dialog opens so a hotspot changed elsewhere (or
-    // rolled back while the tab was closed) is never shown stale.
-    if (storeState.dialogOpen && !previousDialogOpen) {
-      void refresh()
-    }
-    previousDialogOpen = storeState.dialogOpen
   }
 
   const unsubscribe = watchStore(hotspotStore, render)
 
   return {
-    element: dialog.element,
+    element: panelRoot,
 
     update(): void {
       // Store-driven; nothing to do for a prop this component does not take.
@@ -340,7 +285,6 @@ export function hotspotDialog(): Component<void> {
       blockedNotice.destroy()
       advertisedHostNotice.destroy()
       errorNotice.destroy()
-      dialog.destroy()
     },
   }
 }
