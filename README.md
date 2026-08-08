@@ -310,6 +310,27 @@ that no longer assembles even though both halves of the source are green.
 Python and Node versions are pinned in the workflow to match the Dockerfile's
 stages, so CI cannot pass on a version the image does not ship.
 
+### Changelog
+
+`CHANGELOG.md` is **generated, not written**. A second workflow
+(`.github/workflows/changelog.yml`) runs on every push to `main`, regenerates the
+file from the repository's Conventional Commits with `git-cliff` (`cliff.toml`),
+and commits it back with `[skip ci]`.
+
+Two things follow from that:
+
+- **Never hand-edit `CHANGELOG.md`** — the next merge overwrites it. To fix a
+  changelog line, fix the commit message it came from.
+- **A vague commit becomes a vague changelog line.** The commit subjects are the
+  input, which is the practical reason `commit-standards` matters here.
+
+It regenerates on `main` rather than on each PR deliberately: writing the file
+back to a feature branch leaves that branch ahead of your local checkout, so the
+next push is rejected and has to be reconciled by hand.
+
+Merge commits are filtered out — every PR lands as one, and `main` keeps the
+original commits, so the individual changes are already listed.
+
 To run the whole set locally before pushing:
 
 ```bash
