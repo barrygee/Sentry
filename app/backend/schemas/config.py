@@ -4,33 +4,46 @@ The point of this file is standing up a second Pi quickly: export from a working
 Sentry, import into a fresh one, and its dongles come up already named, ported
 and published exactly as the first one's are.
 
-**Two things are deliberately absent, and both absences are load-bearing.**
+**The hotspot passphrase travels one way: in, never out.**
 
-*The hotspot passphrase.* A config file is the single most copied, emailed and
-committed artefact a project has. WiFi credentials in one would leak by default.
-The export carries `passphrase_set` so an operator can see a password exists, and
-importing never sets one — a fresh instance asks for it once, in the UI.
+A config file is the single most copied, emailed and committed artefact a project
+has, and `GET /api/config` is reachable by anyone who can reach the API. WiFi
+credentials in an *exported* file would therefore leak by default, so the export
+carries only `passphrase_set` — enough for an operator to see that a password
+exists on the source, never the password itself.
 
-*The deploy-time gates* (`SENTRY_HOTSPOT_CONTROL_ENABLED`, `SENTRY_AUTH_TOKEN`).
+An *import* may carry one. `HotspotConfigEntry.passphrase` is declared
+`exclude=True`, so Pydantic parses it inbound and drops it from every dump
+outbound: the field cannot appear in a file Sentry produced, and there is no
+"remember to strip the password" branch anywhere to forget. Hand-adding it to a
+provisioning file you control is a deliberate act with a deliberate blast radius;
+having it fall out of a routine export is not. Setting one this way is still
+gated on `apply_hotspot` and on the same auth token every other hotspot mutation
+requires.
+
+**The deploy-time gates are absent entirely**
+(`SENTRY_HOTSPOT_CONTROL_ENABLED`, `SENTRY_AUTH_TOKEN`).
 Those live in `.env` because they are the controls that require shell access to
 the Pi (ADR-0007). A config file that could turn on host-network control, or set
 the API's own credential, would hand exactly that away to anyone who can reach
 the API — which is unauthenticated by default. They stay out of both this file
-and the UI's editable surface.
+and the UI's editable surface. Note the asymmetry that makes the passphrase
+acceptable and these not: a password lets someone onto a network whose API is
+already token-guarded, whereas these two *are* the guard.
 """
 
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from app.backend.schemas.device import (
     DeviceVisibility,
     DirectSamplingMode,
     IdentityKind,
 )
-from app.backend.schemas.hotspot import HotspotBand, HotspotSecurity
+from app.backend.schemas.hotspot import HotspotBand, HotspotSecurity, validate_passphrase
 
 CONFIG_VERSION: Literal[1] = 1
 """Bumped only on a breaking change to this file's shape.
@@ -70,7 +83,7 @@ class DeviceConfigEntry(BaseModel):
 
 
 class HotspotConfigEntry(BaseModel):
-    """The hotspot's shape, minus its secret.
+    """The hotspot's shape. Its secret travels one way only — in.
 
     `passphrase_set` is reported so an operator importing this file knows
     whether the source instance had one, and therefore whether the destination
@@ -94,6 +107,46 @@ class HotspotConfigEntry(BaseModel):
         default=False,
         description="Whether the source had a password stored. Never the password itself",
     )
+    passphrase: SecretStr | None = Field(
+        default=None,
+        exclude=True,
+        description=(
+            "Write-only: hand-added to a provisioning file to set the destination's "
+            "hotspot password. Never present in an exported file"
+        ),
+    )
+    """The one credential this file may carry, and only inwards.
+
+    `exclude=True` is the whole guarantee, and it is structural rather than a
+    convention someone has to remember: Pydantic parses this field on the way in
+    and omits it from every `model_dump`/`model_dump_json` on the way out. The
+    export path builds a `HotspotConfigEntry` like any other, so there is no
+    separate "remember not to include the password" branch to forget — a file
+    Sentry produced cannot contain one, however it was produced.
+
+    That asymmetry is the point. Exports are the artefact that gets copied,
+    emailed and committed; a hand-written provisioning file is one an operator
+    made deliberately and controls. Setting a password this way still needs
+    `apply_hotspot` opted into, and still passes the auth-token gate that every
+    other hotspot mutation does.
+
+    `SecretStr` so it cannot leak through a log line, a traceback or a
+    validation error that echoes the model back.
+    """
+
+    @field_validator("passphrase")
+    @classmethod
+    def _check_passphrase(cls, passphrase: SecretStr | None) -> SecretStr | None:
+        """Reject a password the AP could never accept, at parse time.
+
+        The same rule `PUT /api/hotspot` applies. Without it an 8-character
+        minimum would fail deep inside `nmcli` during an import, reported as a
+        profile-write failure rather than as the typo it is.
+        """
+        if passphrase is None:
+            return None
+        validate_passphrase(passphrase.get_secret_value())
+        return passphrase
 
 
 class SentryConfig(BaseModel):

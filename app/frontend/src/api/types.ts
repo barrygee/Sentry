@@ -39,9 +39,13 @@ export interface paths {
      * Export the configuration as a downloadable file
      * @description The same payload as `GET /api/config`, with a filename attached.
      *
-     *     A separate route rather than a query flag so the browser's own download
-     *     behaviour is driven by `Content-Disposition` and the UI does not have to
-     *     synthesise a blob and an object URL to save a file.
+     *     For `curl -O` and scripted backups. The web UI deliberately does *not* use
+     *     this route: a plain navigation cannot set an `Authorization` header, so
+     *     linking at it would 401 as soon as an operator sets a token, and the usual
+     *     workaround — putting the token in the query string, as `EventSource` is
+     *     forced to — would write a credential into browser history and the access
+     *     log. The UI fetches `GET /api/config` authenticated and saves the file
+     *     itself instead.
      */
     get: operations['download_config_api_config_download_get']
     put?: never
@@ -454,7 +458,7 @@ export interface components {
        * @default false
        */
       apply_hotspot: boolean
-      config: components['schemas']['SentryConfig']
+      config: components['schemas']['SentryConfig-Input']
     }
     /**
      * ConfigImportResult
@@ -944,14 +948,70 @@ export interface components {
     }
     /**
      * HotspotConfigEntry
-     * @description The hotspot's shape, minus its secret.
+     * @description The hotspot's shape. Its secret travels one way only — in.
      *
      *     `passphrase_set` is reported so an operator importing this file knows
      *     whether the source instance had one, and therefore whether the destination
      *     will need a password typing in before the hotspot can start. It is never
      *     a credential and never round-trips one.
      */
-    HotspotConfigEntry: {
+    'HotspotConfigEntry-Input': {
+      /**
+       * Band
+       * @default bg
+       * @enum {string}
+       */
+      band: 'bg' | 'a'
+      /**
+       * Channel
+       * @default 0
+       */
+      channel: number
+      /**
+       * Enabled
+       * @description Whether the source instance had the hotspot starting on boot
+       * @default false
+       */
+      enabled: boolean
+      /** Gateway Cidr */
+      gateway_cidr?: string | null
+      /**
+       * Hidden
+       * @default true
+       */
+      hidden: boolean
+      /** Interface */
+      interface?: string | null
+      /**
+       * Passphrase
+       * @description Write-only: hand-added to a provisioning file to set the destination's hotspot password. Never present in an exported file
+       */
+      passphrase?: string | null
+      /**
+       * Passphrase Set
+       * @description Whether the source had a password stored. Never the password itself
+       * @default false
+       */
+      passphrase_set: boolean
+      /**
+       * Security
+       * @default wpa2
+       * @enum {string}
+       */
+      security: 'wpa2' | 'wpa3'
+      /** Ssid */
+      ssid?: string | null
+    }
+    /**
+     * HotspotConfigEntry
+     * @description The hotspot's shape. Its secret travels one way only — in.
+     *
+     *     `passphrase_set` is reported so an operator importing this file knows
+     *     whether the source instance had one, and therefore whether the destination
+     *     will need a password typing in before the hotspot can start. It is never
+     *     a credential and never round-trips one.
+     */
+    'HotspotConfigEntry-Output': {
       /**
        * Band
        * @default bg
@@ -1371,7 +1431,7 @@ export interface components {
      * SentryConfig
      * @description The whole exportable configuration of one Sentry instance.
      */
-    SentryConfig: {
+    'SentryConfig-Input': {
       /**
        * Comment
        * @description Free-text note carried in the file and otherwise ignored
@@ -1389,7 +1449,43 @@ export interface components {
        * @default 0
        */
       generated_at: number
-      hotspot?: components['schemas']['HotspotConfigEntry'] | null
+      hotspot?: components['schemas']['HotspotConfigEntry-Input'] | null
+      /**
+       * Sentry Version
+       * @description The app version that wrote it
+       * @default
+       */
+      sentry_version: string
+      /**
+       * Version
+       * @description Config-file format version, not the app version
+       * @default 1
+       */
+      version: number
+    }
+    /**
+     * SentryConfig
+     * @description The whole exportable configuration of one Sentry instance.
+     */
+    'SentryConfig-Output': {
+      /**
+       * Comment
+       * @description Free-text note carried in the file and otherwise ignored
+       * @default
+       */
+      _comment: string
+      /**
+       * Devices
+       * @default []
+       */
+      devices: components['schemas']['DeviceConfigEntry'][]
+      /**
+       * Generated At
+       * @description Unix ms the file was exported
+       * @default 0
+       */
+      generated_at: number
+      hotspot?: components['schemas']['HotspotConfigEntry-Output'] | null
       /**
        * Sentry Version
        * @description The app version that wrote it
@@ -1659,7 +1755,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['SentryConfig']
+          'application/json': components['schemas']['SentryConfig-Output']
         }
       }
     }

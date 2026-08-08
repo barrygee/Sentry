@@ -47,7 +47,7 @@
             "type": "boolean"
           },
           "config": {
-            "$ref": "#/components/schemas/SentryConfig"
+            "$ref": "#/components/schemas/SentryConfig-Input"
           }
         },
         "required": [
@@ -1175,9 +1175,106 @@
         "title": "HotspotClientsResponse",
         "type": "object"
       },
-      "HotspotConfigEntry": {
+      "HotspotConfigEntry-Input": {
         "additionalProperties": false,
-        "description": "The hotspot's shape, minus its secret.\n\n`passphrase_set` is reported so an operator importing this file knows\nwhether the source instance had one, and therefore whether the destination\nwill need a password typing in before the hotspot can start. It is never\na credential and never round-trips one.",
+        "description": "The hotspot's shape. Its secret travels one way only \u2014 in.\n\n`passphrase_set` is reported so an operator importing this file knows\nwhether the source instance had one, and therefore whether the destination\nwill need a password typing in before the hotspot can start. It is never\na credential and never round-trips one.",
+        "properties": {
+          "band": {
+            "default": "bg",
+            "enum": [
+              "bg",
+              "a"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "channel": {
+            "default": 0,
+            "maximum": 196.0,
+            "minimum": 0.0,
+            "title": "Channel",
+            "type": "integer"
+          },
+          "enabled": {
+            "default": false,
+            "description": "Whether the source instance had the hotspot starting on boot",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "gateway_cidr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Cidr"
+          },
+          "hidden": {
+            "default": true,
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "interface": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface"
+          },
+          "passphrase": {
+            "anyOf": [
+              {
+                "format": "password",
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Write-only: hand-added to a provisioning file to set the destination's hotspot password. Never present in an exported file",
+            "title": "Passphrase"
+          },
+          "passphrase_set": {
+            "default": false,
+            "description": "Whether the source had a password stored. Never the password itself",
+            "title": "Passphrase Set",
+            "type": "boolean"
+          },
+          "security": {
+            "default": "wpa2",
+            "enum": [
+              "wpa2",
+              "wpa3"
+            ],
+            "title": "Security",
+            "type": "string"
+          },
+          "ssid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssid"
+          }
+        },
+        "title": "HotspotConfigEntry",
+        "type": "object"
+      },
+      "HotspotConfigEntry-Output": {
+        "additionalProperties": false,
+        "description": "The hotspot's shape. Its secret travels one way only \u2014 in.\n\n`passphrase_set` is reported so an operator importing this file knows\nwhether the source instance had one, and therefore whether the destination\nwill need a password typing in before the hotspot can start. It is never\na credential and never round-trips one.",
         "properties": {
           "band": {
             "default": "bg",
@@ -1889,7 +1986,7 @@
         "title": "SdrExportSource",
         "type": "object"
       },
-      "SentryConfig": {
+      "SentryConfig-Input": {
         "additionalProperties": false,
         "description": "The whole exportable configuration of one Sentry instance.",
         "properties": {
@@ -1916,7 +2013,57 @@
           "hotspot": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/HotspotConfigEntry"
+                "$ref": "#/components/schemas/HotspotConfigEntry-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sentry_version": {
+            "default": "",
+            "description": "The app version that wrote it",
+            "title": "Sentry Version",
+            "type": "string"
+          },
+          "version": {
+            "default": 1,
+            "description": "Config-file format version, not the app version",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "SentryConfig",
+        "type": "object"
+      },
+      "SentryConfig-Output": {
+        "additionalProperties": false,
+        "description": "The whole exportable configuration of one Sentry instance.",
+        "properties": {
+          "_comment": {
+            "default": "",
+            "description": "Free-text note carried in the file and otherwise ignored",
+            "title": "Comment",
+            "type": "string"
+          },
+          "devices": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DeviceConfigEntry"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "generated_at": {
+            "default": 0,
+            "description": "Unix ms the file was exported",
+            "title": "Generated At",
+            "type": "integer"
+          },
+          "hotspot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HotspotConfigEntry-Output"
               },
               {
                 "type": "null"
@@ -2412,7 +2559,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SentryConfig"
+                  "$ref": "#/components/schemas/SentryConfig-Output"
                 }
               }
             },

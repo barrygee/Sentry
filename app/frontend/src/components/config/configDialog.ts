@@ -139,8 +139,10 @@ export function configDialog(): Component<void> {
     label: 'Apply hotspot settings',
     accessibleName: 'Apply hotspot settings from the file',
   })
-  const hotspotNoPasswordParagraph = el('p', { class: '-mt-1 m-0 text-[11px] text-signal-muted' }, [
-    'The file carries no password, so this writes the network’s settings but never starts it. A Sentry with no hotspot password stored will refuse until one is set.',
+  const hotspotPasswordParagraph = el('p', { class: '-mt-1 m-0 text-[11px] text-signal-muted' }, [
+    'This writes the network’s settings but never starts it — you turn the hotspot on yourself. ' +
+      'An exported file never contains the password; a file you wrote by hand may add a `passphrase` ' +
+      'to set one. Without either, a Sentry with no password stored will refuse.',
   ])
 
   const applyImportButton = baseButton({
@@ -162,7 +164,7 @@ export function configDialog(): Component<void> {
     pendingNotice.element,
     applyDevicesToggle.element,
     applyHotspotToggle.element,
-    hotspotNoPasswordParagraph,
+    hotspotPasswordParagraph,
     pendingActionsRow,
   ])
 
@@ -305,7 +307,7 @@ export function configDialog(): Component<void> {
 
       const showHotspotToggle = pendingHasHotspot(state)
       setVisible(applyHotspotToggle.element, showHotspotToggle)
-      setVisible(hotspotNoPasswordParagraph, showHotspotToggle)
+      setVisible(hotspotPasswordParagraph, showHotspotToggle)
       if (showHotspotToggle) {
         applyHotspotToggle.update({
           value: state.applyHotspot,

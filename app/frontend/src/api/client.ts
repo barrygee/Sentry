@@ -20,7 +20,19 @@ export type HotspotClientsResponse = components['schemas']['HotspotClientsRespon
 export type HotspotClient = components['schemas']['HotspotClientItem']
 export type WirelessInterface = components['schemas']['WirelessInterfaceItem']
 export type WirelessInterfacesResponse = components['schemas']['WirelessInterfacesResponse']
-export type SentryConfig = components['schemas']['SentryConfig']
+/**
+ * A configuration as the server *returns* it — never carrying a hotspot
+ * passphrase, which is import-only server-side.
+ */
+export type SentryConfig = components['schemas']['SentryConfig-Output']
+/**
+ * A configuration as the server *accepts* it. Differs from `SentryConfig` by
+ * the optional `hotspot.passphrase`, so a file an operator hand-wrote to
+ * provision a Pi types correctly on the way in. The generator splits these two
+ * the moment a field is input-only; keeping both names means the direction of
+ * travel is visible at each call site rather than assumed.
+ */
+export type SentryConfigImport = components['schemas']['SentryConfig-Input']
 export type ConfigImportRequest = components['schemas']['ConfigImportRequest']
 export type ConfigImportResult = components['schemas']['ConfigImportResult']
 export type DeviceImportOutcome = components['schemas']['DeviceImportOutcome']

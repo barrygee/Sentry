@@ -9,9 +9,10 @@ same path `PATCH /api/devices/{id}` uses, so an imported port goes through the
 identical six-rule allocation check. An import can never write a configuration
 the normal endpoint would have refused.
 
-Neither the hotspot passphrase nor the deploy-time gates
-(`SENTRY_HOTSPOT_CONTROL_ENABLED`, `SENTRY_AUTH_TOKEN`) are exportable or
-importable — see `schemas/config.py` for why both absences matter.
+The hotspot passphrase is importable but never exportable, so a provisioning
+file an operator wrote can carry one while a file Sentry produced cannot. The
+deploy-time gates (`SENTRY_HOTSPOT_CONTROL_ENABLED`, `SENTRY_AUTH_TOKEN`) are
+neither — see `schemas/config.py` for why that line falls where it does.
 """
 
 from __future__ import annotations
@@ -239,28 +240,52 @@ async def _import_hotspot(
 ) -> tuple[bool, str]:
     """Apply the file's hotspot settings, returning `(applied, why_not)`.
 
-    Never starts the hotspot. The file carries no passphrase by design, so a
-    destination with no stored password could not raise the network anyway —
-    and one that *does* have a stored password should not have a different SSID
-    silently put on the air by a file import. The settings are written; an
-    operator turns it on deliberately.
+    Never starts the hotspot, even when the file sets a password and could.
+    A file import should not put a network on the air — an operator turns it on
+    deliberately, from a UI that shows them what they are about to broadcast.
+    The settings are written and nothing is activated.
+
+    A file may carry a passphrase (`HotspotConfigEntry.passphrase`, inbound
+    only), which is what lets a fresh Pi be provisioned to a working hotspot in
+    one import. Without one the old precondition still holds: a destination with
+    no stored password has nothing to raise the network with later, so writing
+    an SSID it can never use would be a silent half-success.
     """
     if not settings.hotspot_control_enabled:
         return False, "Hotspot control is switched off on this Sentry."
     if entry.ssid is None:
         return False, "The file has no hotspot network name."
 
-    snapshot = await hotspot_service.get_snapshot()
-    if not snapshot.state.passphrase_set:
+    file_passphrase = entry.passphrase.get_secret_value() if entry.passphrase else None
+
+    # Same gate as every other hotspot mutation (`routers/hotspot.py`), applied
+    # here too because a file that sets a password is one, and an import must
+    # not be a way around it.
+    if (
+        file_passphrase is not None
+        and settings.hotspot_require_auth_token
+        and settings.auth_token is None
+    ):
         return False, (
-            "No hotspot password is set on this Sentry, and a config file never carries one. "
-            "Set a password in the hotspot panel first."
+            "Set SENTRY_AUTH_TOKEN before importing a hotspot password: anyone who joins "
+            "the network can otherwise reach this API without credentials."
         )
+
+    if file_passphrase is None:
+        snapshot = await hotspot_service.get_snapshot()
+        if not snapshot.state.passphrase_set:
+            return False, (
+                "No hotspot password is set on this Sentry, and this file does not carry one. "
+                "Set a password in the hotspot panel first, or add a `passphrase` to the "
+                "file's hotspot section."
+            )
 
     try:
         await hotspot_service.apply_configuration(
             ssid=entry.ssid,
-            passphrase=None,  # never from a file — see the module docstring
+            # `None` leaves whatever is already stored alone, which is what an
+            # export-shaped file (no passphrase key) should do.
+            passphrase=file_passphrase,
             security=entry.security,
             hidden=entry.hidden,
             enabled=False,
