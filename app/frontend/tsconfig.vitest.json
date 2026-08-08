@@ -1,0 +1,13 @@
+{
+  // Type-checks the test suite, which the build's `tsconfig.json` deliberately
+  // excludes: tests live outside `src/` so `tsc` never emits them into `dist/`.
+  // Same strictness as the app — a test that only compiles under looser rules
+  // is not exercising the code the browser runs.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "types": ["vitest/globals", "jest-axe"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+}

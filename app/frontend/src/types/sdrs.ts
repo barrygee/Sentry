@@ -25,6 +25,14 @@ export interface NoticeEvent {
 export interface NoticeItem extends NoticeEvent {
   id: string
   dismissed: boolean
+  /**
+   * How many times this identical notice has arrived. Client-side only —
+   * hence the camelCase among the wire fields — the server emits one event
+   * per occurrence and does not count them.
+   */
+  repeatCount: number
+  /** `ts` of the most recent occurrence; equal to `ts` until one repeats. */
+  lastSeenTs: number
 }
 
 export type ConnectionState = 'connecting' | 'live' | 'reconnecting' | 'offline'
