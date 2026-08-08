@@ -1,21 +1,20 @@
 import { authTokenPrompt } from './components/auth/authTokenPrompt.js'
-import { configDialog } from './components/config/configDialog.js'
-import { hotspotDialog } from './components/hotspot/hotspotDialog.js'
 import { serialFlashDialog } from './components/serial/serialFlashDialog.js'
+import { liveAnnouncer } from './core/liveAnnouncer.js'
 import { ref, setAttribute, setVisible } from './core/dom.js'
-import { watchStore } from './core/observable.js'
-import { configStore, openDialog as openConfigDialog } from './state/configStore.js'
-import { hotspotStore, openDialog as openHotspotDialog } from './state/hotspotStore.js'
+import { hotspotStore, isAwaitingConfirmation } from './state/hotspotStore.js'
 import { openSdrsStream } from './stream/sdrsStream.js'
 import { mountSdrsView } from './views/sdrsView.js'
+import { createNavigation } from './views/navigation.js'
+import { mountSettingsView } from './views/settingsView.js'
 
 /**
  * Application entry point.
  *
  * The shell — header, nav rail, headings, live regions — is already in
  * `index.html` and is never rebuilt. This wires behaviour to it: the rail
- * toggle, the two header buttons, the always-mounted dialogs, the device view,
- * and the SSE stream that feeds everything.
+ * toggle, navigation between the two destinations, the per-device dialogs, the
+ * views, and the SSE stream that feeds everything.
  */
 
 const shell = document.body
@@ -58,39 +57,46 @@ applyRailVisibility()
 // ---------------------------------------------------------------------------
 // Header controls
 // ---------------------------------------------------------------------------
-// Each opens a modal, so each mirrors its dialog's open state into
-// `aria-expanded` — without it the dialog appears with no indication of what
-// produced it.
-const hotspotButton = ref(shell, 'hotspot-settings-button', HTMLButtonElement)
-const configButton = ref(shell, 'config-settings-button', HTMLButtonElement)
-
-hotspotButton.addEventListener('click', () => {
-  openHotspotDialog()
-})
-configButton.addEventListener('click', () => {
-  openConfigDialog()
-})
-
-watchStore(hotspotStore, (state) => {
-  setAttribute(hotspotButton, 'aria-expanded', state.dialogOpen)
-})
-watchStore(configStore, (state) => {
-  setAttribute(configButton, 'aria-expanded', state.dialogOpen)
-})
-
-// ---------------------------------------------------------------------------
 // Overlays
 // ---------------------------------------------------------------------------
-// Each of these mounts itself onto `document.body` when it opens (what
-// `<Teleport to="body">` used to buy), so they are constructed once here and
-// never appended.
-hotspotDialog()
-configDialog()
+// Per-device confirmations only. Each mounts itself onto `document.body` when
+// it opens (what `<Teleport to="body">` used to buy), so they are constructed
+// once here and never appended. The hotspot and configuration surfaces used to
+// be here too; they are sections of the Settings destination now.
 serialFlashDialog()
 authTokenPrompt()
 
 // ---------------------------------------------------------------------------
-// The view, and the stream that feeds it
+// The views, and the stream that feeds them
 // ---------------------------------------------------------------------------
 mountSdrsView(shell)
+const settingsView = mountSettingsView(shell)
+
+// ---------------------------------------------------------------------------
+// Navigation
+// ---------------------------------------------------------------------------
+createNavigation({
+  devices: {
+    view: ref(shell, 'devices-view', HTMLElement),
+    navButton: ref(shell, 'nav-devices', HTMLButtonElement),
+    heading: ref(shell, 'devices-heading-anchor', HTMLElement),
+  },
+  settings: {
+    view: ref(shell, 'settings-view', HTMLElement),
+    navButton: ref(shell, 'nav-settings', HTMLButtonElement),
+    heading: ref(shell, 'settings-heading-anchor', HTMLElement),
+    onShown: () => settingsView.onShown(),
+    onHidden: () => settingsView.onHidden(),
+  },
+  // Leaving mid-countdown abandons a network change already applied to the
+  // hardware; the rollback would then strand an operator who walked away
+  // believing it had stuck. The modal used to prevent this by refusing to
+  // close, which a section cannot do.
+  blockDeparture: (from) =>
+    from === 'settings' && isAwaitingConfirmation(hotspotStore.state)
+      ? 'Confirm or discard the hotspot change before leaving settings.'
+      : null,
+  announce: (message) => liveAnnouncer().announceAssertive(message),
+})
+
 openSdrsStream()

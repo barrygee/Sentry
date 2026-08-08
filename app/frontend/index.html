@@ -99,70 +99,9 @@
              control, so the two consoles put the same kind of thing in the same
              place.
 
-             Neither is a `BaseButton`: these are icon affordances in a bare
-             title bar, where the button primitive's filled uppercase slab would
-             read as a call to action rather than a settings entry point. They
-             still meet the same floor — a 44px touch target, the global
-             `:focus-visible` ring, and an accessible name, since each glyph is
-             `aria-hidden`. `aria-haspopup="dialog"` plus `aria-expanded` tell a
-             screen-reader user that these open a modal and whether it is open. -->
-        <div class="ml-auto flex items-center">
-          <button
-            type="button"
-            data-ref="hotspot-settings-button"
-            class="inline-flex h-11 w-11 items-center justify-center rounded-rack border-none bg-transparent text-signal-muted transition-colors hover:text-ink-inverse"
-            aria-label="WiFi hotspot settings"
-            aria-haspopup="dialog"
-            aria-expanded="false"
-          >
-            <!-- A broadcast/hotspot mark rather than a gear: this button opens
-                 one specific thing, and naming it in the glyph beats a generic
-                 settings icon that implies a settings area that does not exist. -->
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <circle cx="10" cy="14" r="1.6" fill="currentColor" stroke="none" />
-              <path d="M6.8 11.2a4.4 4.4 0 0 1 6.4 0" />
-              <path d="M4.3 8.5a8 8 0 0 1 11.4 0" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            data-ref="config-settings-button"
-            class="inline-flex h-11 w-11 items-center justify-center rounded-rack border-none bg-transparent text-signal-muted transition-colors hover:text-ink-inverse"
-            aria-label="Configuration export and import"
-            aria-haspopup="dialog"
-            aria-expanded="false"
-          >
-            <!-- A document with a down-arrow: this moves a configuration file
-                 in and out, which a gear would not say. -->
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M11.5 2.5H5.5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V6.5z" />
-              <path d="M11.5 2.5v4h4" />
-              <path d="M10 9.5v5" />
-              <path d="M8 12.5 10 14.5 12 12.5" />
-            </svg>
-          </button>
-        </div>
+             The hotspot and configuration icons that used to sit here are gone:
+             both are destinations in the rail now, and an app whose navigation
+             lives in two places at once teaches neither. -->
       </header>
 
       <div class="flex min-h-0 flex-1 items-stretch">
@@ -191,6 +130,7 @@
             <li>
               <button
                 type="button"
+                data-ref="nav-devices"
                 class="flex h-10 w-full items-center justify-center border-l-2 border-signal-accent bg-signal-accent/[0.08] text-signal-accent transition-colors"
                 aria-current="page"
                 title="SDR devices"
@@ -215,6 +155,37 @@
                   <line x1="10" y1="6" x2="20" y2="6" stroke-width="1.8" />
                   <line x1="10" y1="12" x2="20" y2="12" stroke-width="1.8" />
                   <line x1="10" y1="18" x2="20" y2="18" stroke-width="1.8" />
+                </svg>
+              </button>
+            </li>
+            <!-- Settings: the two instance-wide surfaces (hotspot, configuration
+                 export/import), which were modals opened from header icons. A
+                 gear is right here where it was wrong there — this entry does
+                 lead to a settings *area*, which is exactly what did not exist
+                 before. -->
+            <li>
+              <button
+                type="button"
+                data-ref="nav-settings"
+                class="flex h-10 w-full items-center justify-center border-l-2 border-transparent text-signal-muted transition-colors hover:text-ink-inverse"
+                title="Settings"
+              >
+                <span class="sr-only">Settings</span>
+                <svg
+                  width="19"
+                  height="19"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+                  />
                 </svg>
               </button>
             </li>
@@ -275,23 +246,54 @@
             <!-- Sentinel's settings body gutters. No section heading above the
                  card: this console has one subject, so a title naming it would
                  only repeat the card beneath. -->
+            <!-- One gutter wrapper, two destinations inside it. Only one is
+                 visible at a time; `main.ts` swaps them and moves focus to the
+                 new one's heading, because a keyboard user who activates a rail
+                 button would otherwise be left with focus on the rail and no
+                 signal that the page changed. -->
             <div class="flex w-full max-w-content flex-col gap-6 px-5 pb-16 pt-[34px] md:px-gutter">
-              <div data-ref="notice-list"></div>
-              <ul
-                data-ref="serial-conflicts"
-                class="m-0 flex list-none flex-col gap-2 p-0"
-                aria-label="Serial conflicts"
-                hidden
-              ></ul>
-              <!-- Each device is its own white box on the canvas — no wrapping
+              <div data-ref="devices-view" class="flex flex-col gap-6">
+                <div data-ref="notice-list"></div>
+                <ul
+                  data-ref="serial-conflicts"
+                  class="m-0 flex list-none flex-col gap-2 p-0"
+                  aria-label="Serial conflicts"
+                  hidden
+                ></ul>
+                <!-- Each device is its own white box on the canvas — no wrapping
                    card and no title above them. The heading stays in the DOM,
                    screen-reader only: it is the skip link's destination and this
                    section's accessible name, and the boxes below would otherwise
                    be an unlabelled run. -->
-              <section aria-labelledby="devices-heading" class="flex flex-col gap-4">
-                <h2 id="devices-heading" tabindex="-1" class="sr-only outline-none">SDR devices</h2>
-                <div data-ref="device-list" class="flex flex-col gap-4"></div>
-              </section>
+                <section aria-labelledby="devices-heading" class="flex flex-col gap-4">
+                  <h2
+                    id="devices-heading"
+                    data-ref="devices-heading-anchor"
+                    tabindex="-1"
+                    class="sr-only outline-none"
+                  >
+                    SDR devices
+                  </h2>
+                  <div data-ref="device-list" class="flex flex-col gap-4"></div>
+                </section>
+              </div>
+
+              <!-- The Settings destination. Its heading is visible rather than
+                   screen-reader only: unlike the devices view, whose single
+                   subject is obvious from the cards, this one holds two
+                   unrelated surfaces and needs to say which is which. -->
+              <div data-ref="settings-view" class="flex flex-col gap-10" hidden>
+                <h2
+                  id="settings-heading"
+                  data-ref="settings-heading-anchor"
+                  tabindex="-1"
+                  class="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-primary outline-none"
+                >
+                  Settings
+                </h2>
+                <div data-ref="hotspot-panel"></div>
+                <div data-ref="config-panel"></div>
+              </div>
             </div>
           </div>
         </main>

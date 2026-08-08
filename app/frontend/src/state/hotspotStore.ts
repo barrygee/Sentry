@@ -37,7 +37,6 @@ export interface HotspotStoreState {
   /** The last operator-facing failure message, or null. Never contains a secret. */
   errorMessage: string | null
   errorCode: string | null
-  dialogOpen: boolean
 }
 
 /**
@@ -96,7 +95,6 @@ export const hotspotStore: Store<HotspotStoreState> = createStore<HotspotStoreSt
   phase: 'loading',
   errorMessage: null,
   errorCode: null,
-  dialogOpen: false,
 })
 
 /** Whether a hotspot change is currently on trial and will revert if unconfirmed. */
@@ -124,15 +122,16 @@ export function canMutate(state: Readonly<HotspotStoreState>): boolean {
   )
 }
 
-/** Opens the hotspot dialog and kicks off a fresh read of the current settings. */
-export function openDialog(): void {
-  hotspotStore.setState({ dialogOpen: true })
-  void refresh()
-}
-
-/** Closes the hotspot dialog and clears any leftover error state. */
-export function closeDialog(): void {
-  hotspotStore.setState({ dialogOpen: false, errorMessage: null, errorCode: null })
+/**
+ * Clear leftover error state when the settings screen is left.
+ *
+ * Was `closeDialog`. The dialog is gone, but the reset it performed is not
+ * incidental: a failure message left standing would greet the operator again
+ * the next time they open Settings, describing an attempt they made minutes ago
+ * and have very likely forgotten.
+ */
+export function resetTransientState(): void {
+  hotspotStore.setState({ errorMessage: null, errorCode: null })
 }
 
 /** Apply a fresh state payload, deriving the phase from what the server reports. */
