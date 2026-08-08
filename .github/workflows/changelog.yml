@@ -16,6 +16,10 @@ name: changelog
 on:
   push:
     branches: [main]
+  # Manual re-run. Two things need it: rolling `Unreleased` into a dated section
+  # after a release tag is pushed (tagging is not a push to main, so nothing
+  # else triggers it), and regenerating after a commit message is corrected.
+  workflow_dispatch:
 
 # Needed to push the regenerated CHANGELOG.md back to main.
 permissions:
