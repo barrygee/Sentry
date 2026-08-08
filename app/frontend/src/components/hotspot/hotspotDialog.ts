@@ -75,16 +75,10 @@ function buildHotspotFormActions(
     disabled: !props.canSubmit,
     children: [props.busy ? 'Saving…' : 'Save hotspot settings'],
   })
-  const closeButton = baseButton({
-    variant: 'ghost',
-    disabled: props.busy,
-    onClick: () => closeDialog(),
-    children: ['Close'],
-  })
-  const root = el('div', { class: 'flex flex-wrap items-center gap-2' }, [
-    saveButton.element,
-    closeButton.element,
-  ])
+  // No Close here: the dialog owns one, unconditionally. This row is rendered
+  // only when the hotspot is manageable, so a Close living here disappeared in
+  // precisely the states that needed it.
+  const root = el('div', { class: 'flex flex-wrap items-center gap-2' }, [saveButton.element])
 
   return {
     element: root,
@@ -96,17 +90,10 @@ function buildHotspotFormActions(
         disabled: !nextProps.canSubmit,
         children: [nextProps.busy ? 'Saving…' : 'Save hotspot settings'],
       })
-      closeButton.update({
-        variant: 'ghost',
-        disabled: nextProps.busy,
-        onClick: () => closeDialog(),
-        children: ['Close'],
-      })
     },
 
     destroy(): void {
       saveButton.destroy()
-      closeButton.destroy()
     },
   }
 }
@@ -161,12 +148,26 @@ export function hotspotDialog(): Component<void> {
     clientListSlot,
   ])
 
+  // Outside `contentBlock`, and outside the form, so it exists in every state.
+  // It used to live in the form's action row, which is rendered only when the
+  // hotspot is manageable — so the states that render no form (control disabled
+  // in .env, no auth token, NetworkManager unreachable) offered no way out at
+  // all. Those are exactly the states an operator lands in by accident and most
+  // needs to leave. `Escape` still worked, but a modal whose only dismissal is
+  // an invisible keystroke is not dismissible in any sense that matters.
+  const dismissButton = baseButton({
+    variant: 'ghost',
+    onClick: () => closeDialog(),
+    children: ['Close'],
+  })
+
   const dialogBody = el('div', { class: 'flex max-h-[80vh] flex-col gap-6 overflow-y-auto' }, [
     headerBlock,
     busyStatusRegion,
     errorAlertRegion,
     loadingParagraph,
     contentBlock,
+    el('div', {}, [dismissButton.element]),
   ])
 
   const dialog = baseDialog({
@@ -291,10 +292,23 @@ export function hotspotDialog(): Component<void> {
       }
     }
 
+    // The button mirrors `disableDismiss` rather than being unconditionally
+    // enabled: suppression during a request, and during the confirmation
+    // window, is deliberate (see this module's docstring). A Close that stayed
+    // live would walk an operator away from a network change already applied to
+    // the hardware — the precise thing the countdown exists to prevent.
+    const dismissSuppressed = isBusy || isAwaitingConfirmation(storeState)
+    dismissButton.update({
+      variant: 'ghost',
+      disabled: dismissSuppressed,
+      onClick: () => closeDialog(),
+      children: ['Close'],
+    })
+
     dialog.update({
       open: storeState.dialogOpen,
       labelledBy: headingId,
-      disableDismiss: isBusy || isAwaitingConfirmation(storeState),
+      disableDismiss: dismissSuppressed,
       onClose: () => closeDialog(),
       children: [dialogBody],
     })
