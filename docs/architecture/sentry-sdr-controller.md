@@ -17,7 +17,7 @@ with a static operator console and a single JSON endpoint that Sentinel consumes
 
 | # | Requirement | Where it is satisfied |
 |---|---|---|
-| 1 | Live view of which USB ports hold dongles | §4 `usb_discovery` + `hotplug`; §7 `GET /api/events`; §9 `UsbTopologyTree` |
+| 1 | Live view of which USB ports hold dongles | §4 `usb_discovery` + `hotplug`; §7 `GET /api/events`; §9 the device card list (each card reports its `usb.topology_path`) |
 | 2 | Per-dongle name + output port, consumed exactly as today | §6 `sdr_devices`; §7 `PATCH /api/devices/{device_id}`; §8 port rules |
 | 3 | Independent, concurrent tuning per dongle | §4 `supervisor` (one `rtl_tcp`+relay pair per dongle); wire contract §3.2 |
 | 4 | Dongles behind hubs/extenders | §5 identity tier 2 (topology path encodes the hub tree) |
@@ -788,32 +788,53 @@ supervisor therefore treats a spawn-time `EADDRINUSE` as `state=error`,
 
 ### 9.1 Structure
 
+Framework-free TypeScript, compiled to browser-native ES modules by `tsc`
+([ADR-0008](../adr/0008-static-ui-over-vue-spa.md)). There is no bundler and no reactivity
+system, so the two mechanisms below carry what a framework would have: `core/component.ts`
+defines the component contract, and `core/observable.ts` the store.
+
 ```
-frontend/
+app/frontend/
+  index.html                    the app shell and every <template>; never rebuilt
   src/
-    api/            client.ts, types.ts (generated from OpenAPI), sse.ts
-    stores/         sdrs.ts
-    composables/    useServerSentEvents.ts  useSdrsStream.ts  useLiveAnnouncer.ts
-                    usePortValidation.ts    useTreeNavigation.ts  useDeviceActions.ts
+    main.ts                     composition root
+    api/            client.ts   types.ts (generated from OpenAPI)
+    core/           component.ts  dom.ts  observable.ts  focusTrap.ts  liveAnnouncer.ts
+    state/          sdrsStore.ts  hotspotStore.ts  configStore.ts  authToken.ts
+    stream/         serverSentEvents.ts  sdrsStream.ts
+    utils/          deviceState.ts  portValidation.ts  serialValidation.ts
+                    hotspotValidation.ts
+    types/          sdrs.ts
+    views/          sdrsView.ts
     components/
-      base/         BaseButton BaseDialog BaseField BaseBadge BaseToggle
-                    StatusDot EmptyState LiveRegion CopyButton MonoValue
-      SDRs/        SdrsHeader ConnectionPill SDRsToolbar SDRsLayout
-      topology/     UsbTopologyTree UsbTopologyNode HubBadge PortLug TopologyLegend
-      device/       DeviceCard DeviceIdentityBlock DeviceStateBadge DevicePortPair
-                    DeviceTunerReadout DeviceProcessStats DeviceActionsBar
-                    NeedsIdentificationNotice DeviceAbsentNotice
-      forms/        DeviceConfigForm DeviceNameField OutputPortField
-                    TuningFieldset EnabledToggle
-      serial/       SerialFlashDialog SerialFlashWarning SerialFlashSerialField
-      health/       HealthSummaryBar HealthMetric
-      consumer/     SentinelEndpointCard
-    views/          SdrsView.vue
+      base/         baseButton  baseDialog  baseField  baseSelect  baseToggle
+                    statusBadge  statusDot  emptyState  baseCopyButton  monoValue
+                    noticeBox  panelStack  sectionHeading  dataCell  chevronIcon
+                    svg  childrenSync  confirmIconAction  idGenerator
+      sdrs/         noticeList  absentDeviceGroup
+      device/       sdrDeviceCard  deviceStatusBadge  deviceVisibilityToggle
+                    needsIdentificationNotice  deviceAbsentNotice  forgetDeviceDialog
+      forms/        deviceNameField  portAssignmentField  deviceAntennaField
+                    deviceNotesField
+      serial/       serialFlashDialog  serialConflictBanner
+      hotspot/      hotspotDialog  hotspotForm  hotspotStatusPanel  hotspotClientList
+                    hotspotPassphraseField  hotspotUplinkWarning  hotspotSetupHelp
+                    hotspotConfirmCountdown
+      config/       configDialog  configImportReport
+      auth/         authTokenPrompt
+  tests/            state/  components/   (Vitest + jsdom; see §12)
 ```
 
-Every component is single-responsibility and composes the `base/` primitives — `DeviceCard` is
-layout and composition only, holding no formatting logic of its own. `MonoValue` (tabular-figure
-numeric display) and `StatusDot` are the shared atoms used everywhere a port, frequency, PID or
+A component is a factory returning `{ element, update, destroy }` that builds its DOM once and
+then **mutates it in place**. That is not a style preference: the name, port, notes and antenna
+fields are edited inline, and replacing a subtree while an operator is typing moves focus and
+drops the caret. `keyedList` in `core/component.ts` is the one place that creates, updates,
+reorders and destroys children, keyed by a stable identity so a card survives a status refresh
+with a half-typed name intact.
+
+Every component is single-responsibility and composes the `base/` primitives — `sdrDeviceCard` is
+layout and composition only, holding no formatting logic of its own. `monoValue` (tabular-figure
+numeric display) and `statusDot` are the shared atoms used everywhere a port, frequency, PID or
 state appears; nothing re-implements them.
 
 ### 9.2 Store — `state/sdrsStore.ts`
@@ -845,16 +866,31 @@ flashSerial(deviceId, serial)
 dismissNotice(id)
 ```
 
-The store never calls `EventSource` itself — `useSdrsStream` owns the subscription and calls
-store actions, so the store is trivially unit-testable with plain objects.
+The store never calls `EventSource` itself — `stream/sdrsStream.ts` owns the subscription and
+calls store actions, so the store is trivially unit-testable with plain objects.
 
-### 9.3 `useServerSentEvents` composable
+One immutable state object, replaced through `setState` and never mutated in place, with
+subscriber notifications coalesced to a microtask — a single `snapshot` frame rewrites every
+device at once, and without batching each subscriber would run once per field touched.
 
-Generic, app-agnostic:
+### 9.3 `stream/serverSentEvents.ts`
+
+Generic, app-agnostic, and framework-free — `url` may be a function returning the current URL,
+which is how a caller supplies a value that changes over time (once an operator supplies an auth
+token) without this module depending on any reactivity system:
 
 ```ts
-useServerSentEvents(url: Ref<string> | string, handlers: Record<string, (data: unknown) => void>, options?)
-  → { connection: Ref<ConnectionState>, lastEventAt: Ref<number | null>, close(): void, reopen(): void }
+openServerSentEvents(
+  url: string | (() => string),
+  handlers: Record<string, (data: unknown) => void>,
+  options?: ServerSentEventsOptions,
+) → {
+  getConnection(): ConnectionState
+  subscribeConnection(listener): () => void
+  getLastEventAt(): number | null
+  close(): void
+  reopen(): void
+}
 ```
 
 - Registers one `addEventListener` per named handler; parses JSON in one place with a typed
@@ -863,39 +899,28 @@ useServerSentEvents(url: Ref<string> | string, handlers: Record<string, (data: u
   **stall detector** on top: if no event of any kind arrives within 15 s (the server sends
   `health` every 5 s), it force-closes and reopens — this catches the case the native reconnect
   misses, a proxy holding a dead-but-open stream.
-- Reports `connection` as `connecting | live | reconnecting | offline`, which `ConnectionPill`
-  renders and `useLiveAnnouncer` announces.
-- Closes on `onScopeDispose` and on `visibilitychange` → hidden for > 60 s (a phone in a pocket
+- Reports `connection` as `connecting | live | reconnecting | offline` through
+  `subscribeConnection`, which the header's connection indicator renders and
+  `core/liveAnnouncer.ts` announces.
+- Closes on `close()` and on `visibilitychange` → hidden for > 60 s (a phone in a pocket
   should not hold a stream open), reopening on visible with a fresh snapshot.
 
-### 9.4 USB topology tree — accessibility
+### 9.4 Accessibility
 
-The tree is the app's primary navigation surface, is rebuilt live as devices are plugged, and is
-therefore where accessibility is easiest to get wrong. Required behaviour (WCAG 2.2 AA, ARIA
-Authoring Practices *Tree View* pattern):
+> **The USB topology tree this section used to specify no longer exists.** It was a `role="tree"`
+> navigation surface with roving `tabindex`, type-ahead and expand/collapse, removed along with
+> the header's streaming counter in `57c5964` — the card list is the whole device surface now, and
+> a tree over one flat level of dongles was ceremony rather than navigation. What follows is the
+> accessibility surface as built.
 
-**Roles and structure.** Container `role="tree"` with `aria-label="USB topology"`. Each node
-`role="treeitem"` with `aria-level`, `aria-setsize`, `aria-posinset`, and `aria-selected`. Hub
-nodes additionally carry `aria-expanded`; leaf (dongle) nodes must **not**. Children are wrapped
-in `role="group"`. The connector lines and port lugs are pure CSS/`aria-hidden` decoration.
+**Structure.** A flat list of device cards, each an `<article>` with an accessible name. Keys are
+`device_id`, never array index, so `keyedList` never recycles a DOM node between two different
+dongles — and never detaches one that currently holds focus, which is why it moves a child into
+position only when it is not already there.
 
-**Keyboard.** Exactly one tab stop for the whole tree (roving `tabindex`, managed by
-`useTreeNavigation`):
-
-| Key | Action |
-|---|---|
-| `↓` / `↑` | Next / previous *visible* node |
-| `→` | Collapsed hub → expand; expanded hub → first child; leaf → no-op |
-| `←` | Expanded hub → collapse; otherwise → parent |
-| `Home` / `End` | First / last visible node |
-| `*` | Expand all siblings at the current level |
-| `Enter` / `Space` | Select — moves focus to the matching `DeviceCard` (the node carries `aria-controls` pointing at the card's id) |
-| Type-ahead | Printable characters jump to the next node whose name starts with them |
-
-**Live updates.** Nodes appearing or disappearing must never steal or destroy focus. If the
-focused node's device is unplugged, focus moves to the nearest surviving sibling, else the
-parent, else the tree container, and the move is announced. Keys are `device_id`, never array
-index, so `keyedList` never recycles a DOM node between two different dongles.
+**Live updates.** Cards appearing or disappearing must never steal or destroy focus. Because
+components mutate in place rather than re-rendering, a device changing state does not rebuild its
+card at all; the fields the operator is editing keep both their values and the caret.
 
 **Announcements.** Two regions, both declared once in `index.html` and written into by `core/liveAnnouncer.ts`:
 
@@ -904,17 +929,17 @@ index, so `keyedList` never recycles a DOM node between two different dongles.
   connected") so a hub power-cycle does not produce a torrent.
 - `role="alert"` (assertive) — errors and serial-flash outcomes only.
 
-**Colour is never the sole indicator.** Every `DeviceStateBadge` carries a text label *and* a
-distinct glyph as well as its colour; `StatusDot` is always accompanied by a visible or
+**Colour is never the sole indicator.** Every `deviceStatusBadge` carries a text label *and* a
+distinct glyph as well as its colour; `statusDot` is always accompanied by a visible or
 screen-reader-only label. Contrast is verified ≥ 4.5:1 for text and ≥ 3:1 for the state stripes
 and focus rings.
 
-**Forms.** `OutputPortField` validates on blur (not per keystroke — a partially typed port is
+**Forms.** `portAssignmentField` validates on blur (not per keystroke — a partially typed port is
 not an error), links its message with `aria-describedby`, sets `aria-invalid`, and moves focus to
 the first invalid field on submit. The server's `409` reason is rendered in the same message
 slot as client-side validation, so there is one place to look.
 
-**Serial-flash dialog.** `BaseDialog` provides a focus trap, `Escape` to close, focus return to
+**Serial-flash dialog.** `baseDialog` provides a focus trap, `Escape` to close, focus return to
 the trigger, `aria-labelledby`/`aria-describedby`, and an explicitly-checked destructive
 confirmation. The warning text is in the accessible description, not only in a coloured banner.
 
@@ -1178,16 +1203,20 @@ applied on a real connection (`PRAGMA journal_mode` returns `wal`); both unique 
 both CHECK constraints enforced; upsert-by-identity semantics; `updated_at` maintained; a
 simulated crash (connection killed mid-transaction) leaves the DB readable and consistent.
 
-**12.14 Frontend** — `stores/sdrs` actions against plain fixture objects, including
-`applySnapshot` replacing a stale device and `applyDeviceChanged` clearing a matching pending
-patch and *not* clearing a non-matching one; `useServerSentEvents` open/named-event/parse-
-error/stall-detector/close paths against a mocked `EventSource`; `useTreeNavigation` for every
-key in the §9.4 table plus focus recovery when the focused node is removed; `usePortValidation`
-mirroring each server rule; `OutputPortField` rendering a server `409` in the same slot as client
-validation; `SerialFlashDialog` focus trap, Escape, and focus return; `vitest-axe` on every
-component plus the assembled `SdrsView` in the states empty / one streaming device / a
-needs-identification device / an error device; a reduced-motion snapshot; the tree's ARIA
-attributes (`aria-level`/`setsize`/`posinset`/`expanded`) asserted against a three-level fixture.
+**12.14 Frontend** — Vitest + jsdom, in `app/frontend/tests/`. `state/sdrsStore` actions against
+plain fixture objects, including `applySnapshot` replacing a stale device and
+`applyDeviceChanged` clearing a matching pending patch and *not* clearing a non-matching one;
+the notice log's repeat coalescing, its dismissal rule and the 50-entry cap;
+`stream/serverSentEvents` open/named-event/parse-error/stall-detector/close paths against an
+injected `eventSourceFactory`; `utils/portValidation` mirroring each server rule;
+`portAssignmentField` rendering a server `409` in the same slot as client validation;
+`serialFlashDialog` focus trap, Escape, and focus return; `jest-axe` on every component plus the
+assembled `sdrsView` in the states empty / one streaming device / a needs-identification device /
+an error device; a reduced-motion snapshot.
+
+Coverage is gated per file rather than repo-wide (`vitest.config.ts`), and a file joins the gate
+as tests for it land — a global 100% threshold on a codebase whose test pass is still in progress
+fails on day one and gets switched off on day two.
 
 **12.15 Explicitly untestable thin edges** — these carry `# pragma: no cover` with a one-line
 justification, are kept to a handful of statements each, and contain **no branching logic**:
