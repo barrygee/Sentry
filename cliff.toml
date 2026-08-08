@@ -1,6 +1,11 @@
 # git-cliff configuration — Conventional Commits → Keep a Changelog.
-# Regenerated automatically on every push to main by
-# .github/workflows/changelog.yml. Reference: https://git-cliff.org/docs/configuration
+#
+# Run by hand when cutting a release (see the README's Changelog section), not
+# by a workflow: `main` requires status checks, and a bot's commit carries
+# [skip ci] so it can never have any. GitHub rejects the push, and the Actions
+# app cannot be granted a ruleset bypass on a user-owned repository.
+#
+# Reference: https://git-cliff.org/docs/configuration
 
 [changelog]
 # Rendered once at the top of CHANGELOG.md.
@@ -8,9 +13,10 @@ header = """
 # Changelog
 
 All notable changes to this project are documented in this file. It is generated
-from the repository's [Conventional Commits](https://www.conventionalcommits.org)
-and regenerated automatically on every merge to `main`, so **edit the commit
-messages rather than this file** — the next run overwrites it. Follows
+by [git-cliff](https://git-cliff.org) from the repository's
+[Conventional Commits](https://www.conventionalcommits.org) and regenerated when
+a release is cut, so **edit the commit messages rather than this file** — the
+next regeneration overwrites it. Follows
 [Keep a Changelog](https://keepachangelog.com).
 \n
 """
