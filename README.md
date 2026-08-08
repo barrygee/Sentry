@@ -1,5 +1,7 @@
 # Sentry — multi-dongle RTL-SDR controller
 
+[![CI](https://github.com/barrygee/Sentry/actions/workflows/ci.yml/badge.svg)](https://github.com/barrygee/Sentry/actions/workflows/ci.yml)
+
 Runs a **set** of RTL-SDR dongles on a Raspberry Pi (or any Linux host) and
 serves each one to the network as if it were a plain `rtl_tcp`. Give every
 dongle a name and an output port in a web UI, and every consumer — SDR#, GQRX,
@@ -275,13 +277,52 @@ uv run alembic downgrade base                    # revert
 uv run alembic revision --autogenerate -m "..."  # new migration
 ```
 
-### Tests
+### Tests and checks
 
 ```bash
-uv run pytest                          # backend + relay
-cd app/frontend && npm run typecheck   # frontend types (tsc)
-cd app/frontend && npm run lint        # frontend lint + format check
+uv run pytest                            # backend + relay
+cd app/frontend && npm test              # frontend (Vitest + jsdom)
+cd app/frontend && npm run test:coverage # the same, with the coverage gate
+cd app/frontend && npm run typecheck     # frontend types — app and test suite
+cd app/frontend && npm run lint          # frontend lint + format check
 ```
+
+Frontend coverage thresholds are **per file** (`app/frontend/vitest.config.ts`):
+100% on files that have a suite, and a file joins the gate as tests for it land.
+A repo-wide threshold on a codebase whose test pass is still in progress fails on
+day one and gets switched off on day two.
+
+### CI
+
+`.github/workflows/ci.yml` runs on every pull request and every push to `main`,
+in three parallel jobs so a red check names its own half:
+
+| Job | What it runs |
+| --- | --- |
+| **backend** | `ruff check`, `ruff format --check`, `mypy`, `pytest` |
+| **frontend** | `npm ci`, `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run build` |
+| **docker** | `docker build` of the production image — never pushed |
+
+Nothing there is new: these are the same commands listed above. The Docker job
+earns its place by catching the one failure neither other job can — a Dockerfile
+that no longer assembles even though both halves of the source are green.
+
+Python and Node versions are pinned in the workflow to match the Dockerfile's
+stages, so CI cannot pass on a version the image does not ship.
+
+To run the whole set locally before pushing:
+
+```bash
+uv run ruff check app/backend tests tools && \
+uv run ruff format --check app/backend tests tools && \
+uv run mypy app/backend && \
+uv run pytest -q && \
+(cd app/frontend && npm run lint && npm run typecheck && npm run test:coverage && npm run build)
+```
+
+> Use `ruff format` on those directories rather than `.` — at repo root it also
+> reformats Python fenced in `docs/`, which mangles the architecture spec's
+> deliberately aligned comments.
 
 ---
 
