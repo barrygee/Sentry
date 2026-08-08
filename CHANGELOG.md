@@ -1,13 +1,19 @@
 # Changelog
 
 All notable changes to this project are documented in this file. It is generated
-from the repository's [Conventional Commits](https://www.conventionalcommits.org)
-and regenerated automatically on every merge to `main`, so **edit the commit
-messages rather than this file** — the next run overwrites it. Follows
+by [git-cliff](https://git-cliff.org) from the repository's
+[Conventional Commits](https://www.conventionalcommits.org) and regenerated when
+a release is cut, so **edit the commit messages rather than this file** — the
+next regeneration overwrites it. Follows
 [Keep a Changelog](https://keepachangelog.com).
 
 
 ## [Unreleased]
+
+### Continuous Integration
+
+- Allow a manual changelog regeneration
+## [0.1.0] - 2026-08-08
 
 ### Features
 

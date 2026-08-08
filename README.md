@@ -312,24 +312,47 @@ stages, so CI cannot pass on a version the image does not ship.
 
 ### Changelog
 
-`CHANGELOG.md` is **generated, not written**. A second workflow
-(`.github/workflows/changelog.yml`) runs on every push to `main`, regenerates the
-file from the repository's Conventional Commits with `git-cliff` (`cliff.toml`),
-and commits it back with `[skip ci]`.
+`CHANGELOG.md` is **generated, not written** — by `git-cliff` from the
+repository's Conventional Commits, configured in `cliff.toml`. Two things follow:
 
-Two things follow from that:
-
-- **Never hand-edit `CHANGELOG.md`** — the next merge overwrites it. To fix a
+- **Never hand-edit it.** The next regeneration overwrites the file. To fix a
   changelog line, fix the commit message it came from.
 - **A vague commit becomes a vague changelog line.** The commit subjects are the
-  input, which is the practical reason `commit-standards` matters here.
-
-It regenerates on `main` rather than on each PR deliberately: writing the file
-back to a feature branch leaves that branch ahead of your local checkout, so the
-next push is rejected and has to be reconciled by hand.
+  input, which is the practical reason commit hygiene matters here.
 
 Merge commits are filtered out — every PR lands as one, and `main` keeps the
 original commits, so the individual changes are already listed.
+
+#### Regenerating it
+
+Part of cutting a release, run locally and landed through a normal pull request:
+
+```bash
+git-cliff --config cliff.toml --output CHANGELOG.md
+```
+
+Run it **after** the version tag exists, so the tagged commits fold into a dated
+section and anything newer stays under `Unreleased`. Don't pass `--tag` to force
+a version — it labels commits made *after* the tag with that version too, which
+produces two sections with the same number.
+
+#### Why this is not automated
+
+It was, briefly: a workflow regenerated the file on every push to `main` and
+committed it back. Branch protection ended that. `main` requires the three CI
+checks, the bot's commit carries `[skip ci]` so it can never have any, and the
+push is rejected:
+
+```
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: - 3 of 3 required status checks are expected.
+```
+
+The usual fix — exempting the Actions app in the ruleset — **is not available on
+a user-owned repository**; GitHub restricts that bypass to organisations. The
+remaining options were a bot-opened pull request per merge, or a deploy key with
+write access that bypasses protection. Neither is worth it for a file that only
+needs to be right when a release goes out, so it is a release step instead.
 
 To run the whole set locally before pushing:
 
