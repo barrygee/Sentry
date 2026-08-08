@@ -19,7 +19,7 @@ USB bus ──hotplug──►    │  discovery → identity → registry → s
                         │                              ├─ rtl_tcp  ─┐          │
                         │                              └─ relay  ◄──┘  :1238 IQ│──► clients
                         │                                              :1240 ⌘ │
-                        │  SQLite ◄── FastAPI ──► REST + SSE + Vue SPA   :8000 │
+                        │  SQLite ◄── FastAPI ──► REST + SSE + static UI :8000 │
                         └──────────────────────────────────────────────────────┘
 ```
 
@@ -249,14 +249,18 @@ uv run uvicorn app.backend.main:app --reload --port 8000
 cd app/frontend && npm install && npm run dev
 ```
 
-The SPA is then on `http://localhost:3000` and the API on `:8000`. If port 8000
-is already taken, point the dev proxy elsewhere:
+The UI is then on `http://localhost:3000` and the API on `:8000`. The dev server
+rebuilds on change by re-running the same `npm run build` the image uses, so
+there is no second code path that only exists in development. If port 8000 is
+already taken, point the dev proxy elsewhere:
 
 ```bash
 SENTRY_API_PROXY_TARGET=http://127.0.0.1:8010 npm run dev
 ```
 
-Production build (FastAPI then serves the SPA from the same port):
+Production build (FastAPI then serves the UI from the same port). There is no
+bundler: `tsc` emits browser-native ES modules, the Tailwind CLI compiles one
+stylesheet, and `index.html` plus the vendored fonts are copied across:
 
 ```bash
 cd app/frontend && npm run build     # -> app/frontend/dist
@@ -274,8 +278,9 @@ uv run alembic revision --autogenerate -m "..."  # new migration
 ### Tests
 
 ```bash
-uv run pytest                    # backend + relay
-cd app/frontend && npm test      # frontend (Vitest)
+uv run pytest                          # backend + relay
+cd app/frontend && npm run typecheck   # frontend types (tsc)
+cd app/frontend && npm run lint        # frontend lint + format check
 ```
 
 ---

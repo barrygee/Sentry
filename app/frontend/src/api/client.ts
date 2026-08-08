@@ -1,12 +1,13 @@
-import { useAuthToken } from '@/composables/useAuthToken'
+import { currentAuthToken, requireAuthPrompt } from '../state/authToken.js'
 
-import type { components } from './types'
+import type { components } from './types.js'
 
 export type DeviceStatus = components['schemas']['DeviceStatus']
 /** The generated device-state union — the single source of truth every component/store imports rather than redeclaring. */
 export type DeviceState = DeviceStatus['state']
 export type DevicePatch = components['schemas']['DevicePatch']
 export type DeviceRecord = components['schemas']['DeviceRecord']
+export type DevicesListResponse = components['schemas']['DevicesListResponse']
 export type StatusResponse = components['schemas']['StatusResponse']
 export type HealthResponse = components['schemas']['HealthResponse']
 export type PortConstraints = components['schemas']['PortConstraints']
@@ -45,21 +46,21 @@ export class ApiError extends Error {
 }
 
 async function request<ResponseBody>(path: string, init?: RequestInit): Promise<ResponseBody> {
-  const { token, requirePrompt } = useAuthToken()
+  const token = currentAuthToken()
   const response = await fetch(`/api${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   })
 
   if (response.status === 401) {
-    // Surfaces `AuthTokenPrompt` (architecture §7.9) — this fetch still
-    // fails and throws below, but the operator now has an in-app way to
-    // supply the token rather than a silently-dead console.
-    requirePrompt()
+    // Surfaces the auth-token prompt (architecture §7.9) — this fetch still
+    // fails and throws below, but the operator now has an in-app way to supply
+    // the token rather than a silently-dead console.
+    requireAuthPrompt()
   }
 
   if (!response.ok) {
@@ -95,7 +96,7 @@ function isDetailBody(value: unknown): value is { detail: ApiErrorDetail } {
 export const apiClient = {
   getStatus: () => request<StatusResponse>('/status'),
   getHealth: () => request<HealthResponse>('/health'),
-  listDevices: () => request<components['schemas']['DevicesListResponse']>('/devices'),
+  listDevices: () => request<DevicesListResponse>('/devices'),
   patchDevice: (deviceId: string, patch: DevicePatch) =>
     request<DeviceRecord>(`/devices/${encodeURIComponent(deviceId)}`, {
       method: 'PATCH',

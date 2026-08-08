@@ -1,0 +1,109 @@
+/* Vendored @font-face rules. Imported here rather than linked separately from
+   `index.html` so the whole stylesheet is one build output and one request —
+   the Tailwind CLI inlines this via its built-in postcss-import. */
+@import './fonts.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  /* The app is a fixed shell: the header and the left rail stay put and only
+     the device list scrolls, inside its own `<main>` (see `App.vue`). The page
+     itself must therefore never scroll — without this the whole shell could be
+     scrolled away, taking the header and the rail (and the rail's show/hide
+     control) off screen, which is exactly what a fixed chrome is meant to
+     prevent. Belt and braces with the shell's own `overflow-hidden`: this one
+     is what actually guarantees it, since it removes the viewport scrollport
+     rather than relying on every descendant staying inside its box. */
+  html,
+  body {
+    overflow: hidden;
+  }
+
+  body {
+    margin: 0;
+    background-color: theme('colors.ground.page');
+    color: theme('colors.ink.primary');
+    font-family: theme('fontFamily.sans');
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible, managed focus everywhere — never suppressed (architecture §9.5).
+     Square, matching every other corner in the console. The ring is ink, not
+     the lime accent: lime is 1.18:1 on this light ground, far under the 3:1 a
+     focus indicator must meet, whereas ink is ~14:1. The accent stays a fill;
+     the focus indicator has to actually be seen. */
+  :focus-visible {
+    outline: 2px solid theme('colors.ink.primary');
+    outline-offset: 2px;
+    border-radius: theme('borderRadius.rack');
+  }
+
+  /* Thin, near-invisible-until-needed scrollbars, mirroring Sentinel's
+     settings body (`#settings-body`): the thumb is the hairline tone, the
+     track disappears into the page. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.ground.hairline') transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: theme('colors.ground.hairline');
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* prefers-reduced-motion: reduce disables every animation and
+     enter/leave transition; state changes become instant swaps. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Tabular figures for every port, frequency, PID and byte count so digits
+     never shift width as they tick (architecture §9.5 typography). */
+  .font-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}

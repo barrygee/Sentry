@@ -1,4 +1,4 @@
-import type { DeviceState } from '@/api/client'
+import type { DeviceState } from '../api/client.js'
 
 export type { DeviceState }
 

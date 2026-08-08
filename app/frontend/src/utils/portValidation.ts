@@ -1,4 +1,4 @@
-import type { PortConstraints } from '@/api/client'
+import type { PortConstraints } from '../api/client.js'
 
 /**
  * Mirrors the port-allocator rule table (architecture §8) for instant
