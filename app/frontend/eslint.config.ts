@@ -10,11 +10,12 @@ import tseslint from 'typescript-eslint'
  * *statically*, and it only ever worked on `.vue` templates — no equivalent
  * rule set exists for markup built imperatively with `core/dom.ts`.
  *
- * The replacement is runtime rather than static: axe, run against the rendered
- * DOM. Component suites under `tests/` do this per component (see
- * `tests/components/noticeList.test.ts`); a Playwright pass over the assembled
- * app is still owed. Anything that relied on a lint rule to stay accessible has
- * to be asserted there instead, which is why those suites are not optional.
+ * No replacement is coming. ADR-0011 dropped automated accessibility testing as
+ * a requirement, so nothing enforces accessible markup here statically or at
+ * runtime — the one `jest-axe` assertion in `tests/components/noticeList.test.ts`
+ * is an example, not a rule. Accessible names, roles and focus management are
+ * held in place by review alone. Worth knowing before assuming a lint failure
+ * would have caught something.
  */
 export default tseslint.config(
   {
