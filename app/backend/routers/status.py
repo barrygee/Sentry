@@ -9,10 +9,10 @@ from app.backend.dependencies import get_clock, get_device_registry, get_setting
 from app.backend.interfaces.clock import Clock
 from app.backend.routers.host_resolution import resolve_public_host, with_resolved_hosts
 from app.backend.schemas.device import StatusResponse
-from app.backend.security import require_bearer_token
+from app.backend.security import require_console_session
 from app.backend.services.device_registry import DeviceRegistry
 
-router = APIRouter(tags=["status"], dependencies=[Depends(require_bearer_token)])
+router = APIRouter(tags=["status"], dependencies=[Depends(require_console_session)])
 
 
 @router.get(

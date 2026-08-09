@@ -34,13 +34,13 @@ from app.backend.schemas.device import (
 )
 from app.backend.schemas.errors import error_detail
 from app.backend.schemas.serial import SerialFlashAccepted, SerialFlashRequest
-from app.backend.security import require_bearer_token
+from app.backend.security import require_console_session
 from app.backend.services.device_registry import DeviceRegistry, IncompleteConfigurationError
 from app.backend.services.eeprom import EepromService
 from app.backend.services.port_allocator import PortAllocatorService
 
 router = APIRouter(
-    prefix="/devices", tags=["devices"], dependencies=[Depends(require_bearer_token)]
+    prefix="/devices", tags=["devices"], dependencies=[Depends(require_console_session)]
 )
 
 _logger = logging.getLogger(__name__)

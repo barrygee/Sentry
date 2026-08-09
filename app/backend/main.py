@@ -60,6 +60,7 @@ from app.backend.interfaces.types import RtlSdrUsbStrings
 from app.backend.interfaces.wifi_ap import WifiApController
 from app.backend.repositories.device_repository import DeviceRepository
 from app.backend.routers.api import api_router
+from app.backend.services.console_auth import ConsoleAuthService
 from app.backend.services.control_follower import ControlFollowerService
 from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.eeprom import EepromService
@@ -204,16 +205,14 @@ def _build_wifi_ap_controller(
             "The host's D-Bus socket is not mounted into this container.",
             nm_state_root=Path(settings.nm_state_root),
         )
-    if settings.auth_token is None and settings.hotspot_require_auth_token:
-        # Not fatal, and not a refusal here — the router refuses each mutation
-        # individually. Logged at startup because an operator who enabled the
-        # hotspot and never set a token has a security problem they will not
-        # otherwise discover until they try to use it.
-        _logger.warning(
-            "hotspot control is enabled but SENTRY_AUTH_TOKEN is unset; every hotspot change "
-            "will be refused. Anyone joining the hotspot would otherwise reach this API "
-            "without credentials."
-        )
+    # The equivalent warning used to live here, checking `SENTRY_AUTH_TOKEN`.
+    # It cannot: whether a console password exists is a database fact, not a
+    # setting, and this runs while the container is still being assembled. A
+    # check that cannot see its own condition would fire on every start of a
+    # correctly configured Sentry, which is how a warning becomes wallpaper.
+    # The router refuses each hotspot mutation individually, and the console
+    # says so on screen — both of which reach the operator at the moment it
+    # matters rather than in a log they are not reading.
     return NmcliWifiApController(
         process_spawner=process_spawner,
         nmcli_path=settings.nmcli_path,
@@ -259,6 +258,7 @@ class AppContainer:
     port_allocator: PortAllocatorService
     health_service: HealthService
     hotspot_service: HotspotService
+    console_auth_service: ConsoleAuthService
     background_tasks: list[asyncio.Task[None]]
 
 
@@ -333,6 +333,11 @@ def _build_container(settings: Settings) -> AppContainer:
         started_at_ms=clock.now_ms(),
         version=SENTRY_VERSION,
     )
+    # Shares the session factory: the password lives in Sentry's own database
+    # (ADR-0010), not the environment, so it survives a container recreation the
+    # way device configuration does.
+    console_auth_service = ConsoleAuthService(session_factory)
+
     hotspot_service = HotspotService(
         controller=_build_wifi_ap_controller(settings, process_spawner),
         event_bus=event_bus,
@@ -356,6 +361,7 @@ def _build_container(settings: Settings) -> AppContainer:
         port_allocator=port_allocator,
         health_service=health_service,
         hotspot_service=hotspot_service,
+        console_auth_service=console_auth_service,
         background_tasks=[],
     )
 

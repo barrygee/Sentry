@@ -172,18 +172,21 @@ class _StubHotspotService:
 
 
 class _StubSettings:
-    """Only the three fields `_import_hotspot` reads."""
+    """Only the two settings `_import_hotspot` reads.
+
+    Whether a console password exists is no longer a setting — it is a database
+    fact (ADR-0010) — so it is passed to `_import_hotspot` directly rather than
+    being stubbed here.
+    """
 
     def __init__(
         self,
         *,
         control_enabled: bool = True,
         require_auth_token: bool = True,
-        auth_token: str | None = "a-long-random-token",
     ) -> None:
         self.hotspot_control_enabled = control_enabled
         self.hotspot_require_auth_token = require_auth_token
-        self.auth_token = auth_token
 
 
 def _entry(**overrides: Any) -> HotspotConfigEntry:
@@ -195,7 +198,9 @@ async def test_a_file_passphrase_provisions_an_instance_with_none_stored() -> No
     """The feature's reason to exist: one import takes a bare Pi to a working hotspot."""
     service = _StubHotspotService(passphrase_set=False)
 
-    applied, detail = await _import_hotspot(_entry(passphrase=SECRET), service, _StubSettings())
+    applied, detail = await _import_hotspot(
+        _entry(passphrase=SECRET), service, _StubSettings(), True
+    )
 
     assert applied is True
     assert detail == ""
@@ -208,7 +213,7 @@ async def test_no_file_passphrase_keeps_the_stored_one() -> None:
     """`None` means "leave it alone" — an export-shaped file must not clear a password."""
     service = _StubHotspotService(passphrase_set=True)
 
-    applied, _ = await _import_hotspot(_entry(), service, _StubSettings())
+    applied, _ = await _import_hotspot(_entry(), service, _StubSettings(), True)
 
     assert applied is True
     assert service.applied_with is not None
@@ -224,7 +229,7 @@ async def test_an_import_never_starts_the_hotspot() -> None:
     """
     service = _StubHotspotService(passphrase_set=False)
 
-    await _import_hotspot(_entry(passphrase=SECRET), service, _StubSettings())
+    await _import_hotspot(_entry(passphrase=SECRET), service, _StubSettings(), True)
 
     assert service.applied_with is not None
     assert service.applied_with["enabled"] is False
@@ -235,7 +240,7 @@ async def test_no_passphrase_anywhere_refuses_rather_than_half_applying() -> Non
     """Writing an SSID the instance can never raise would be a silent half-success."""
     service = _StubHotspotService(passphrase_set=False)
 
-    applied, detail = await _import_hotspot(_entry(), service, _StubSettings())
+    applied, detail = await _import_hotspot(_entry(), service, _StubSettings(), True)
 
     assert applied is False
     assert "does not carry one" in detail
@@ -243,8 +248,8 @@ async def test_no_passphrase_anywhere_refuses_rather_than_half_applying() -> Non
 
 
 @pytest.mark.asyncio
-async def test_importing_a_passphrase_requires_the_auth_token() -> None:
-    """The same gate every other hotspot mutation passes.
+async def test_importing_a_passphrase_requires_a_console_password() -> None:
+    """The same gate every other hotspot mutation passes (ADR-0010: a console password).
 
     Without it, config import would be a way around the rule that a hotspot
     cannot start while the API it exposes has no credentials.
@@ -252,34 +257,32 @@ async def test_importing_a_passphrase_requires_the_auth_token() -> None:
     service = _StubHotspotService(passphrase_set=False)
 
     applied, detail = await _import_hotspot(
-        _entry(passphrase=SECRET), service, _StubSettings(auth_token=None)
+        _entry(passphrase=SECRET), service, _StubSettings(), False
     )
 
     assert applied is False
-    assert "SENTRY_AUTH_TOKEN" in detail
+    assert "console password" in detail
     assert service.applied_with is None
 
 
 @pytest.mark.asyncio
-async def test_the_auth_gate_does_not_apply_when_the_deployment_waives_it() -> None:
+async def test_the_password_gate_does_not_apply_when_the_deployment_waives_it() -> None:
     """`hotspot_require_auth_token=false` is an operator's explicit choice."""
     service = _StubHotspotService(passphrase_set=False)
 
     applied, _ = await _import_hotspot(
-        _entry(passphrase=SECRET),
-        service,
-        _StubSettings(require_auth_token=False, auth_token=None),
+        _entry(passphrase=SECRET), service, _StubSettings(require_auth_token=False), False
     )
 
     assert applied is True
 
 
 @pytest.mark.asyncio
-async def test_the_auth_gate_does_not_block_a_file_without_a_passphrase() -> None:
+async def test_the_password_gate_does_not_block_a_file_without_a_passphrase() -> None:
     """A settings-only import is not a credential change, so it is not gated as one."""
     service = _StubHotspotService(passphrase_set=True)
 
-    applied, _ = await _import_hotspot(_entry(), service, _StubSettings(auth_token=None))
+    applied, _ = await _import_hotspot(_entry(), service, _StubSettings(), False)
 
     assert applied is True
 
@@ -290,7 +293,7 @@ async def test_hotspot_control_disabled_refuses_first() -> None:
     service = _StubHotspotService(passphrase_set=True)
 
     applied, detail = await _import_hotspot(
-        _entry(passphrase=SECRET), service, _StubSettings(control_enabled=False)
+        _entry(passphrase=SECRET), service, _StubSettings(control_enabled=False), True
     )
 
     assert applied is False
@@ -304,7 +307,7 @@ async def test_a_file_with_no_ssid_is_refused() -> None:
     service = _StubHotspotService(passphrase_set=True)
     entry = HotspotConfigEntry.model_validate({"passphrase": SECRET})
 
-    applied, detail = await _import_hotspot(entry, service, _StubSettings())
+    applied, detail = await _import_hotspot(entry, service, _StubSettings(), True)
 
     assert applied is False
     assert "no hotspot network name" in detail

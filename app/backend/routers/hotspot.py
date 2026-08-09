@@ -23,7 +23,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.backend.config import Settings
-from app.backend.dependencies import get_clock, get_hotspot_service, get_settings_dependency
+from app.backend.dependencies import (
+    get_clock,
+    get_console_auth_service,
+    get_hotspot_service,
+    get_settings_dependency,
+)
 from app.backend.interfaces.clock import Clock
 from app.backend.schemas.errors import error_detail
 from app.backend.schemas.hotspot import (
@@ -37,11 +42,12 @@ from app.backend.schemas.hotspot import (
     WirelessInterfaceItem,
     WirelessInterfacesResponse,
 )
-from app.backend.security import require_bearer_token
+from app.backend.security import require_console_session
+from app.backend.services.console_auth import ConsoleAuthService
 from app.backend.services.hotspot import HotspotError, HotspotService, HotspotSnapshot
 
 router = APIRouter(
-    prefix="/hotspot", tags=["hotspot"], dependencies=[Depends(require_bearer_token)]
+    prefix="/hotspot", tags=["hotspot"], dependencies=[Depends(require_console_session)]
 )
 
 _STATUS_BY_ERROR_CODE: dict[str, int] = {
@@ -85,32 +91,40 @@ def _require_control_enabled(settings: Settings) -> None:
         )
 
 
-def _require_auth_token(settings: Settings) -> None:
-    """Refuse a mutating call while the API has no bearer token configured.
+def _require_console_password(settings: Settings, password_set: bool) -> None:
+    """Refuse a mutating call while the console has no password.
 
     A hard refusal rather than a warning: the hotspot is the one feature that
     invites unknown machines onto the same network as this API, so shipping it
     unauthenticated is not a trade-off an operator should be able to make by
     omission.
+
+    The rule is unchanged from when this checked `SENTRY_AUTH_TOKEN`; only what
+    "authenticated" means has moved (ADR-0010). `SENTRY_HOTSPOT_REQUIRE_AUTH_TOKEN`
+    keeps its name so an existing `.env` is not silently ignored — a rename would
+    turn a deliberate `false` into an accidental `true`, quietly re-imposing a
+    gate an operator had switched off.
     """
-    if settings.hotspot_require_auth_token and settings.auth_token is None:
+    if settings.hotspot_require_auth_token and not password_set:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=error_detail(
-                "auth_token_required",
-                "Set SENTRY_AUTH_TOKEN before starting a hotspot: anyone who joins the "
-                "network can otherwise reach this API without credentials.",
+                "console_password_required",
+                "Set a console password before starting a hotspot: anyone who joins the "
+                "network can otherwise reach this API without signing in.",
             ),
         )
 
 
-def _guard_mutation(settings: Settings) -> None:
-    """Apply both deploy-time gates, in the order an operator should fix them."""
+def _guard_mutation(settings: Settings, password_set: bool) -> None:
+    """Apply both gates, in the order an operator should fix them."""
     _require_control_enabled(settings)
-    _require_auth_token(settings)
+    _require_console_password(settings, password_set)
 
 
-def _build_warnings(snapshot: HotspotSnapshot, settings: Settings) -> tuple[HotspotWarning, ...]:
+def _build_warnings(
+    snapshot: HotspotSnapshot, settings: Settings, password_set: bool
+) -> tuple[HotspotWarning, ...]:
     """Collect the non-fatal conditions worth telling an operator about.
 
     Warnings never block a read — they are how the API says "this will not do
@@ -119,7 +133,7 @@ def _build_warnings(snapshot: HotspotSnapshot, settings: Settings) -> tuple[Hots
     warnings: list[HotspotWarning] = []
     if not snapshot.available:
         warnings.append("nm_unavailable")
-    if settings.hotspot_require_auth_token and settings.auth_token is None:
+    if settings.hotspot_require_auth_token and not password_set:
         warnings.append("auth_token_missing")
     if snapshot.uplink_interface_is_hotspot_interface:
         warnings.append("single_radio_uplink_loss")
@@ -134,7 +148,7 @@ def _build_warnings(snapshot: HotspotSnapshot, settings: Settings) -> tuple[Hots
 
 
 def _to_state_response(
-    snapshot: HotspotSnapshot, settings: Settings, generated_at: int
+    snapshot: HotspotSnapshot, settings: Settings, generated_at: int, password_set: bool
 ) -> HotspotStateResponse:
     """Map the service's snapshot onto the wire shape.
 
@@ -155,7 +169,7 @@ def _to_state_response(
     return HotspotStateResponse(
         available=snapshot.available,
         control_enabled=settings.hotspot_control_enabled,
-        auth_token_configured=settings.auth_token is not None,
+        auth_token_configured=password_set,
         configured=state.profile_exists,
         enabled=state.autoconnect,
         active=state.active,
@@ -172,7 +186,7 @@ def _to_state_response(
         pending_confirmation=snapshot.pending_confirmation,
         confirm_deadline_ms=snapshot.confirm_deadline_ms,
         last_error=last_error,
-        warnings=_build_warnings(snapshot, settings),
+        warnings=_build_warnings(snapshot, settings, password_set),
         generated_at=generated_at,
     )
 
@@ -186,6 +200,7 @@ def _to_state_response(
 async def get_hotspot(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
+    console_auth: ConsoleAuthService = Depends(get_console_auth_service),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Describe the hotspot, degrading rather than failing.
@@ -195,7 +210,9 @@ async def get_hotspot(
     truthful instead of an error it cannot explain.
     """
     snapshot = await hotspot_service.get_snapshot()
-    return _to_state_response(snapshot, settings, clock.now_ms())
+    return _to_state_response(
+        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+    )
 
 
 @router.get(
@@ -274,6 +291,7 @@ async def put_hotspot(
     request_body: HotspotConfigRequest,
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
+    console_auth: ConsoleAuthService = Depends(get_console_auth_service),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Write the whole configuration, then bring the hotspot up or down to match.
@@ -283,7 +301,7 @@ async def put_hotspot(
     again (WCAG 3.3.7 as much as security: not re-asking for something
     unchanged is a requirement, not a courtesy).
     """
-    _guard_mutation(settings)
+    _guard_mutation(settings, await console_auth.is_password_set())
     try:
         snapshot = await hotspot_service.apply_configuration(
             ssid=request_body.ssid,
@@ -306,7 +324,9 @@ async def put_hotspot(
         # since each carries its own `code`, and the code is what decides the
         # status. Catching them individually would only duplicate this line.
         raise _as_http_exception(error) from error
-    return _to_state_response(snapshot, settings, clock.now_ms())
+    return _to_state_response(
+        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+    )
 
 
 @router.post(
@@ -319,6 +339,7 @@ async def enable_hotspot(
     request_body: HotspotActivationRequest,
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
+    console_auth: ConsoleAuthService = Depends(get_console_auth_service),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Bring the hotspot up provisionally; it rolls back unless confirmed.
@@ -327,12 +348,14 @@ async def enable_hotspot(
     configuration, and therefore never has to be holding the passphrase just to
     flip a switch.
     """
-    _guard_mutation(settings)
+    _guard_mutation(settings, await console_auth.is_password_set())
     try:
         snapshot = await hotspot_service.enable(request_body.confirm_uplink_loss)
     except HotspotError as error:
         raise _as_http_exception(error) from error
-    return _to_state_response(snapshot, settings, clock.now_ms())
+    return _to_state_response(
+        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+    )
 
 
 @router.post(
@@ -345,15 +368,18 @@ async def disable_hotspot(
     request_body: HotspotActivationRequest,
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
+    console_auth: ConsoleAuthService = Depends(get_console_auth_service),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Bring the hotspot down and stop it starting on boot."""
-    _guard_mutation(settings)
+    _guard_mutation(settings, await console_auth.is_password_set())
     try:
         snapshot = await hotspot_service.disable(request_body.confirm_uplink_loss)
     except HotspotError as error:
         raise _as_http_exception(error) from error
-    return _to_state_response(snapshot, settings, clock.now_ms())
+    return _to_state_response(
+        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+    )
 
 
 @router.post(
@@ -365,6 +391,7 @@ async def disable_hotspot(
 async def confirm_hotspot(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
+    console_auth: ConsoleAuthService = Depends(get_console_auth_service),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Cancel the pending rollback and let the hotspot survive a reboot.
@@ -372,12 +399,14 @@ async def confirm_hotspot(
     Reaching this route at all is the proof the commit-confirm flow wants: the
     API is still answering with the hotspot running.
     """
-    _guard_mutation(settings)
+    _guard_mutation(settings, await console_auth.is_password_set())
     try:
         snapshot = await hotspot_service.confirm()
     except HotspotError as error:
         raise _as_http_exception(error) from error
-    return _to_state_response(snapshot, settings, clock.now_ms())
+    return _to_state_response(
+        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+    )
 
 
 @router.delete(
@@ -388,9 +417,10 @@ async def confirm_hotspot(
 async def delete_hotspot(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
+    console_auth: ConsoleAuthService = Depends(get_console_auth_service),
 ) -> Response:
     """Forget the network entirely, including its stored password."""
-    _guard_mutation(settings)
+    _guard_mutation(settings, await console_auth.is_password_set())
     try:
         await hotspot_service.forget()
     except HotspotError as error:

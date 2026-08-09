@@ -6,6 +6,13 @@ additive-only within a major version and never changed to suit the UI.
 It publishes only the devices the operator has marked **public**. A Sentry
 with four dongles can therefore offer any subset of them to other Sentinel
 instances, keeping the rest off the list entirely.
+
+**This route requires no authentication** (ADR-0010). Sentinel is a read-only
+consumer and holds no credential, so the `visibility` flag is the whole access
+control here — which makes it heavier than it was. "Private" used to mean "not
+exported to Sentinel"; it now means "not readable by anyone who can reach this
+Pi". Everything published here — name, host, port, description, notes, antenna —
+is readable by any client on the network.
 """
 
 from __future__ import annotations
@@ -24,10 +31,9 @@ from app.backend.schemas.sdr_export import (
     SdrExportResponse,
     SdrExportSource,
 )
-from app.backend.security import require_bearer_token
 from app.backend.services.device_registry import DeviceRegistry
 
-router = APIRouter(tags=["sdrs"], dependencies=[Depends(require_bearer_token)])
+router = APIRouter(tags=["sdrs"])
 
 API_VERSION_HEADER = "X-Sentry-Sdr-Api-Version"
 

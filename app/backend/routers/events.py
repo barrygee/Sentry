@@ -1,8 +1,11 @@
 """`GET /api/events` — Server-Sent Events (architecture §7.3, ADR-0004).
 
-Auth here uses `require_sse_bearer_token` rather than the standard header-only
-dependency, because `EventSource` cannot set headers and so must additionally
-be able to authenticate via `?access_token=` (architecture §7.9).
+Auth is the same session dependency every other management route uses. It was
+once a special case: `EventSource` cannot set an `Authorization` header, so the
+bearer token had to be accepted from `?access_token=` — writing a credential
+into browser history and, but for a bespoke uvicorn log format, the access log.
+The session cookie (ADR-0010) is sent automatically on same-origin requests, so
+that exception is deleted rather than mitigated.
 """
 
 from __future__ import annotations
@@ -34,12 +37,12 @@ from app.backend.routers.host_resolution import (
 )
 from app.backend.schemas.device import DeviceStatus, StatusResponse
 from app.backend.schemas.errors import error_detail
-from app.backend.security import require_sse_bearer_token
+from app.backend.security import require_console_session
 from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.event_bus import RESYNC_EVENT_NAME, EventBus
 from app.backend.services.health import HealthService
 
-router = APIRouter(tags=["events"], dependencies=[Depends(require_sse_bearer_token)])
+router = APIRouter(tags=["events"], dependencies=[Depends(require_console_session)])
 
 _logger = logging.getLogger(__name__)
 

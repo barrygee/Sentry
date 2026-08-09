@@ -45,10 +45,6 @@ class Settings(BaseSettings):
         default="sqlite+aiosqlite:////data/sentry.db",
         description="Async SQLAlchemy database URL",
     )
-    auth_token: str | None = Field(
-        default=None,
-        description="Bearer token required on /api/** when set; unset disables auth",
-    )
     max_devices: int = Field(
         default=8, ge=1, le=64, description="Bounds the internal port range and USB bandwidth"
     )
