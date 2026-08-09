@@ -88,7 +88,11 @@
             stroke="#ffffff"
             stroke-width="4.08"
           />
-          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#c8ff00" />
+          <!-- `signal.muted` (#66686e), not the lime accent. The accent means
+               "live" everywhere else in this UI — a streaming dot, an enabled
+               toggle, the active rail entry — so spending it on a mark that is
+               always the same regardless of state weakened what it signals. -->
+          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#66686e" />
         </svg>
         <h1
           class="m-0 font-wordmark text-[23px] font-medium uppercase leading-none tracking-wordmark text-ink-inverse"
@@ -253,8 +257,15 @@
                  signal that the page changed. -->
             <div class="flex w-full max-w-content flex-col gap-6 px-5 pb-16 pt-[34px] md:px-gutter">
               <div data-ref="devices-view" class="flex flex-col gap-6">
-                <div data-ref="unprotected-warning"></div>
-                <div data-ref="notice-list"></div>
+                <!-- `contents` on both: these wrappers exist so `main.ts` and
+                     `sdrsView` have something stable to mount into, but an empty
+                     one is still a flex item and still earns a `gap-6` from the
+                     column above. With three such wrappers that produced 72px of
+                     dead space above the first card when nothing was showing.
+                     `display: contents` promotes the mounted child to be the
+                     flex item instead, so a hidden child contributes no gap. -->
+                <div data-ref="unprotected-warning" class="contents"></div>
+                <div data-ref="notice-list" class="contents"></div>
                 <ul
                   data-ref="serial-conflicts"
                   class="m-0 flex list-none flex-col gap-2 p-0"
@@ -279,16 +290,18 @@
                 </section>
               </div>
 
-              <!-- The Settings destination. Its heading is visible rather than
-                   screen-reader only: unlike the devices view, whose single
-                   subject is obvious from the cards, this one holds two
-                   unrelated surfaces and needs to say which is which. -->
+              <!-- The Settings destination. Its heading is screen-reader only,
+                   as the devices view's is: each section below carries its own
+                   visible heading, so a second one above them only repeated
+                   what the rail already said. It stays in the DOM because it is
+                   this view's accessible name and the element navigation moves
+                   focus to on arrival — deleting it would break both. -->
               <div data-ref="settings-view" class="flex flex-col gap-10" hidden>
                 <h2
                   id="settings-heading"
                   data-ref="settings-heading-anchor"
                   tabindex="-1"
-                  class="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-primary outline-none"
+                  class="sr-only outline-none"
                 >
                   Settings
                 </h2>

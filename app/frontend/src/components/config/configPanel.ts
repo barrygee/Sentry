@@ -182,8 +182,11 @@ export function configPanel(): Component<void> {
       busyStatusRegion,
       errorAlertRegion,
       errorNotice.element,
-      exportSection,
-      importSection,
+      // Export and import are grouped and spaced further apart than the panel's
+      // own `gap-6`. At the same gap, IMPORT sat as close to the export button
+      // as that button did to its own caption, so the two halves read as one
+      // run of controls rather than two things you choose between.
+      el('div', { class: 'flex flex-col gap-10' }, [exportSection, importSection]),
     ],
   )
 

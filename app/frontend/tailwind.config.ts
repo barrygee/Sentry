@@ -99,6 +99,15 @@ export default {
         signal: {
           /** The lime accent. FILL and decorative marks only — never text or a border. */
           accent: '#c8ff00',
+          /**
+           * The accent lifted for hover, and the only other green in the app.
+           *
+           * A token rather than the hex it used to be, inline in `baseButton`:
+           * an untokenised colour is how a second green appears without anyone
+           * deciding on one. Sentinel's own hover value, kept because the
+           * console matches its chrome (ADR-0006).
+           */
+          'accent-hover': '#d8ff33',
           /** Streaming / success. The text-safe form of the accent. */
           ok: '#436800',
           /**
