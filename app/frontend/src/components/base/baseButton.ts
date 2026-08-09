@@ -51,25 +51,43 @@ export interface BaseButtonProps {
 }
 
 const VARIANT_CLASSES = {
+  // Matched to Sentinel's `.ba-btn--primary` field by field: `#c8ff00` fill,
+  // `#0a0c10` text, 11px/700 at 0.18em, `12px 30px` padding, `#d8ff33` on hover.
   primary:
-    'bg-signal-accent font-bold tracking-control text-ink-on-accent hover:bg-signal-accent-hover disabled:bg-ink-primary/[0.06] disabled:text-signal-muted',
+    'bg-signal-accent px-[30px] py-3 font-bold tracking-control text-ink-on-accent hover:bg-signal-accent-hover disabled:bg-ink-primary/[0.06] disabled:text-signal-muted',
   ghost:
-    'bg-ink-primary/[0.06] text-ink-primary hover:bg-ink-primary/[0.12] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
+    'font-semibold tracking-heading bg-ink-primary/[0.06] text-ink-primary hover:bg-ink-primary/[0.12] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   danger:
-    'bg-signal-danger/[0.10] text-signal-danger hover:bg-signal-danger/[0.18] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
+    'font-semibold tracking-heading bg-signal-danger/[0.10] text-signal-danger hover:bg-signal-danger/[0.18] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   quiet:
-    'bg-transparent px-0 font-bold text-ink-primary hover:text-signal-danger disabled:text-signal-muted disabled:hover:text-signal-muted',
-  inverse: 'bg-white/20 text-white hover:bg-white/30 disabled:bg-white/10 disabled:text-white/60',
+    'bg-transparent px-0 font-bold tracking-heading text-ink-primary hover:text-signal-danger disabled:text-signal-muted disabled:hover:text-signal-muted',
+  inverse:
+    'font-semibold tracking-heading bg-white/20 text-white hover:bg-white/30 disabled:bg-white/10 disabled:text-white/60',
   // For a button sitting on a BRIGHT fill (the yellow `warn` notice), where
   // `inverse`'s white-on-translucent-white would all but disappear: a solid
   // dark slab instead, 11.3:1 against the yellow so its edges are unmistakably
   // a control, carrying white text at 14:1.
   'on-bright':
-    'bg-ink-primary text-white hover:bg-ink-primary/[0.88] disabled:bg-ink-primary/40 disabled:text-white/70',
+    'font-semibold tracking-heading bg-ink-primary text-white hover:bg-ink-primary/[0.88] disabled:bg-ink-primary/40 disabled:text-white/70',
 } as const satisfies Record<BaseButtonVariant, string>
 
+/**
+ * Everything every button shares — deliberately **not** including font weight or
+ * letter spacing.
+ *
+ * Those used to live here as `font-semibold tracking-heading`, and every variant
+ * that wanted something else set its own alongside. Both then applied, at equal
+ * specificity, and the winner was whichever Tailwind happened to emit later in
+ * the stylesheet — which was the base. So `primary`'s `font-bold
+ * tracking-control` and `quiet`'s `font-bold` were silently discarded, and the
+ * commit action rendered at 600/0.16em where Sentinel's is 700/0.18em.
+ *
+ * Nothing in the source said so. Each variant read as though it worked. Keeping
+ * weight and tracking out of the shared string means a variant's declaration is
+ * the only one, so it cannot lose.
+ */
 const BASE_CLASSES =
-  'inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-rack border-none px-[18px] font-sans text-[11px] font-semibold uppercase tracking-heading transition-colors disabled:cursor-not-allowed sm:min-h-[38px]'
+  'inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-rack border-none px-[18px] font-sans text-[11px] uppercase transition-colors disabled:cursor-not-allowed sm:min-h-[38px]'
 
 /** Builds a `BaseButton`. `update` mutates the same `<button>` in place. */
 export function baseButton(props: BaseButtonProps): Component<BaseButtonProps> {
