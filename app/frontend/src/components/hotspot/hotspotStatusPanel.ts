@@ -20,14 +20,29 @@ export interface HotspotStatusPanelProps {
   state: HotspotState
 }
 
+/**
+ * What the hotspot is doing, in the operator's terms.
+ *
+ * "Unavailable" used to cover the first two cases below, which are not the same
+ * thing at all and want different responses. Worse, the commoner of them is the
+ * shipped default: a fresh Pi has hotspot control switched off, so the first
+ * thing an operator ever saw here was a red word suggesting something had
+ * broken. Nothing had.
+ */
 function statusLabel(state: HotspotState): string {
-  if (!state.available) return 'Unavailable'
+  // Off in `.env`, which is how every Sentry starts (ADR-0007). Deliberate, not
+  // a fault — the card below says how to turn it on.
+  if (!state.control_enabled) return 'Switched off on this Pi'
+  // Control is on, but NetworkManager cannot be reached. This one *is* wrong.
+  if (!state.available) return 'WiFi control unavailable'
   if (!state.configured) return 'Not set up'
   if (state.active) return state.pending_confirmation ? 'On trial' : 'Running'
   return 'Stopped'
 }
 
 function statusTone(state: HotspotState): StatusBadgeTone {
+  // Neutral, not danger: an operator who has not opted in has nothing to fix.
+  if (!state.control_enabled) return 'neutral'
   if (!state.available) return 'danger'
   if (!state.configured) return 'neutral'
   if (state.active) return state.pending_confirmation ? 'warn' : 'ok'
