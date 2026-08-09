@@ -253,8 +253,15 @@
                  signal that the page changed. -->
             <div class="flex w-full max-w-content flex-col gap-6 px-5 pb-16 pt-[34px] md:px-gutter">
               <div data-ref="devices-view" class="flex flex-col gap-6">
-                <div data-ref="unprotected-warning"></div>
-                <div data-ref="notice-list"></div>
+                <!-- `contents` on both: these wrappers exist so `main.ts` and
+                     `sdrsView` have something stable to mount into, but an empty
+                     one is still a flex item and still earns a `gap-6` from the
+                     column above. With three such wrappers that produced 72px of
+                     dead space above the first card when nothing was showing.
+                     `display: contents` promotes the mounted child to be the
+                     flex item instead, so a hidden child contributes no gap. -->
+                <div data-ref="unprotected-warning" class="contents"></div>
+                <div data-ref="notice-list" class="contents"></div>
                 <ul
                   data-ref="serial-conflicts"
                   class="m-0 flex list-none flex-col gap-2 p-0"
