@@ -12,7 +12,7 @@ import { syncChildren } from './childrenSync.js'
  * rather than an outline, brightening on hover. `ghost` is that neutral wash,
  * `danger` is a red one, and `primary` is the solid lime accent behind
  * near-black text (16.55:1) — Sentinel's commit-action treatment. The primary
- * hover `#d8ff33` is Sentinel's own value. `quiet` is the same legend type with
+ * hover is `signal.accent-hover`, Sentinel's own lifted value. `quiet` is the same legend type with
  * no fill at all, for a secondary action that should not compete with the
  * controls around it — on a card whose only filled elements are its inputs, a
  * filled button reads as the loudest thing on screen regardless of its tone.
@@ -52,7 +52,7 @@ export interface BaseButtonProps {
 
 const VARIANT_CLASSES = {
   primary:
-    'bg-signal-accent font-bold tracking-control text-ink-on-accent hover:bg-[#d8ff33] disabled:bg-ink-primary/[0.06] disabled:text-signal-muted',
+    'bg-signal-accent font-bold tracking-control text-ink-on-accent hover:bg-signal-accent-hover disabled:bg-ink-primary/[0.06] disabled:text-signal-muted',
   ghost:
     'bg-ink-primary/[0.06] text-ink-primary hover:bg-ink-primary/[0.12] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   danger:

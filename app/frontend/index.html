@@ -279,16 +279,18 @@
                 </section>
               </div>
 
-              <!-- The Settings destination. Its heading is visible rather than
-                   screen-reader only: unlike the devices view, whose single
-                   subject is obvious from the cards, this one holds two
-                   unrelated surfaces and needs to say which is which. -->
+              <!-- The Settings destination. Its heading is screen-reader only,
+                   as the devices view's is: each section below carries its own
+                   visible heading, so a second one above them only repeated
+                   what the rail already said. It stays in the DOM because it is
+                   this view's accessible name and the element navigation moves
+                   focus to on arrival — deleting it would break both. -->
               <div data-ref="settings-view" class="flex flex-col gap-10" hidden>
                 <h2
                   id="settings-heading"
                   data-ref="settings-heading-anchor"
                   tabindex="-1"
-                  class="m-0 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-primary outline-none"
+                  class="sr-only outline-none"
                 >
                   Settings
                 </h2>
