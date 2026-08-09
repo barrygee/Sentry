@@ -92,6 +92,17 @@
       "ConfigImportResult": {
         "description": "`POST /api/config` response \u2014 a per-entry report, not just a status code.\n\nAn import is partial by nature: a port in the file may already be taken on\nthis Pi, or a dongle may not be plugged in yet. Reporting each entry lets an\noperator see exactly what landed rather than inferring it from a device list.",
         "properties": {
+          "console_password_applied": {
+            "default": false,
+            "title": "Console Password Applied",
+            "type": "boolean"
+          },
+          "console_password_detail": {
+            "default": "",
+            "description": "Why the controller password was not set, when it was not",
+            "title": "Console Password Detail",
+            "type": "string"
+          },
           "devices": {
             "default": [],
             "items": {
@@ -2045,6 +2056,20 @@
             "description": "Free-text note carried in the file and otherwise ignored",
             "title": "Comment",
             "type": "string"
+          },
+          "console_password": {
+            "anyOf": [
+              {
+                "format": "password",
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Write-only: hand-added to a provisioning file to set the controller's password. Never present in an exported file",
+            "title": "Console Password"
           },
           "devices": {
             "default": [],

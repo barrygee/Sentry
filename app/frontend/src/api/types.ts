@@ -589,6 +589,17 @@ export interface components {
      */
     ConfigImportResult: {
       /**
+       * Console Password Applied
+       * @default false
+       */
+      console_password_applied: boolean
+      /**
+       * Console Password Detail
+       * @description Why the controller password was not set, when it was not
+       * @default
+       */
+      console_password_detail: string
+      /**
        * Devices
        * @default []
        */
@@ -1568,6 +1579,11 @@ export interface components {
        * @default
        */
       _comment: string
+      /**
+       * Console Password
+       * @description Write-only: hand-added to a provisioning file to set the controller's password. Never present in an exported file
+       */
+      console_password?: string | null
       /**
        * Devices
        * @default []

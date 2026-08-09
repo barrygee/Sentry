@@ -68,7 +68,7 @@ class SetPasswordRequest(BaseModel):
     )
 
 
-def _set_session_cookie(response: Response, value: str) -> None:
+def set_session_cookie(response: Response, value: str) -> None:
     """Attach the session cookie.
 
     `httponly` keeps it away from any script on the page, so an XSS bug cannot
@@ -126,7 +126,7 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=error_detail("invalid_password", "That password is not correct."),
         )
-    _set_session_cookie(response, await console_auth.issue_session())
+    set_session_cookie(response, await console_auth.issue_session())
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
 
@@ -177,6 +177,6 @@ async def set_password(
             ),
         ) from error
 
-    _set_session_cookie(response, await console_auth.issue_session())
+    set_session_cookie(response, await console_auth.issue_session())
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
