@@ -17,10 +17,12 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.backend.schemas.device import (
     ClientCounts,
@@ -1164,6 +1166,204 @@ async def mock_delete_hotspot(request: Request) -> Response:
     global _hotspot_state
     _hotspot_state = MockHotspotState()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ── Console authentication (ADR-0010) ────────────────────────────────────────
+#
+# The four auth routes, with real state transitions, so every screen the console
+# can show — first-run prompt, warning, sign-in, change password — can be
+# developed against this mock.
+#
+# **The mock deliberately does not gate its other routes on the session.** The
+# real backend does; here it would only let a developer lock themselves out of a
+# fixture server, with no reset script and no database to clear. The sign-in
+# screen still appears exactly when it should, because the console decides that
+# from `GET /api/auth/state` — which this does answer faithfully.
+
+
+@dataclass
+class MockConsoleAuth:
+    """In-memory stand-in for the `console_auth` row."""
+
+    password: str | None = None
+    authenticated: bool = True
+    updated_at: int = 0
+
+
+_console_auth = MockConsoleAuth()
+
+_MOCK_MINIMUM_PASSWORD_LENGTH = 8
+
+
+class MockLoginRequest(BaseModel):
+    password: str
+
+
+class MockSetPasswordRequest(BaseModel):
+    new_password: str
+    current_password: str | None = None
+
+
+@app.get("/api/auth/state")
+async def mock_auth_state() -> dict[str, object]:
+    """Whether a password is set, and whether this browser is signed in."""
+    if _console_auth.password is None:
+        return {
+            "password_set": False,
+            "authenticated": True,
+            "updated_at": 0,
+            "minimum_password_length": _MOCK_MINIMUM_PASSWORD_LENGTH,
+        }
+    return {
+        "password_set": True,
+        "authenticated": _console_auth.authenticated,
+        "updated_at": _console_auth.updated_at,
+        "minimum_password_length": _MOCK_MINIMUM_PASSWORD_LENGTH,
+    }
+
+
+@app.post("/api/auth/login", status_code=status.HTTP_204_NO_CONTENT)
+async def mock_login(body: MockLoginRequest) -> Response:
+    """Sign in, if the password matches the one set on this mock."""
+    if _console_auth.password is None or body.password != _console_auth.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=error_detail("invalid_password", "That password is not correct."),
+        )
+    _console_auth.authenticated = True
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post("/api/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def mock_logout() -> Response:
+    """Sign out. Only meaningful while a password is set."""
+    if _console_auth.password is not None:
+        _console_auth.authenticated = False
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post("/api/auth/password", status_code=status.HTTP_204_NO_CONTENT)
+async def mock_set_password(body: MockSetPasswordRequest) -> Response:
+    """Set the first password, or change an existing one."""
+    if len(body.new_password) < _MOCK_MINIMUM_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=error_detail(
+                "password_too_short",
+                f"Password must be at least {_MOCK_MINIMUM_PASSWORD_LENGTH} characters.",
+            ),
+        )
+    if _console_auth.password is not None and body.current_password != _console_auth.password:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=error_detail(
+                "current_password_incorrect", "The current password is not correct."
+            ),
+        )
+    _console_auth.password = body.new_password
+    _console_auth.authenticated = True
+    _console_auth.updated_at = int(time.time() * 1000)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ── Configuration export/import ──────────────────────────────────────────────
+
+
+def _mock_config_payload() -> dict[str, object]:
+    """The fixture devices, shaped as an export."""
+    return {
+        "_comment": "Exported from the mock Sentry server.",
+        "version": 1,
+        "generated_at": int(time.time() * 1000),
+        "sentry_version": MOCK_VERSION,
+        "devices": [
+            {
+                "identity_kind": device.identity_kind,
+                "identity_key": device.identity_key,
+                "name": device.name,
+                "description": device.description,
+                "notes": device.notes,
+                "antenna": device.antenna,
+                "output_port": device.output.iq_port if device.output else None,
+                "enabled": device.enabled,
+                "visibility": device.visibility,
+                "center_hz": device.tuner.center_hz if device.tuner else None,
+                "sample_rate": device.tuner.sample_rate if device.tuner else None,
+                "gain_db": device.tuner.gain_db if device.tuner else None,
+                "gain_auto": device.tuner.gain_auto if device.tuner else True,
+                "ppm_correction": 0,
+                "bias_tee": None,
+                "direct_sampling": None,
+            }
+            for device in _sdrs_state.devices.values()
+            if device.record_id is not None
+        ],
+        "hotspot": {
+            "ssid": _hotspot_state.ssid,
+            "hidden": _hotspot_state.hidden,
+            "security": _hotspot_state.security,
+            "band": _hotspot_state.band,
+            "channel": _hotspot_state.channel,
+            "gateway_cidr": _hotspot_state.gateway_cidr,
+            "interface": _hotspot_state.interface,
+            "enabled": _hotspot_state.autoconnect,
+            "passphrase_set": _hotspot_state.passphrase_set,
+        },
+    }
+
+
+@app.get("/api/config")
+async def mock_export_config() -> dict[str, object]:
+    """Export this mock's configuration. Never carries a password, as the real one does not."""
+    return _mock_config_payload()
+
+
+@app.get("/api/config/download")
+async def mock_download_config() -> Response:
+    """The same payload, with a filename attached."""
+    return Response(
+        content=json.dumps(_mock_config_payload(), indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="sentry-config.json"'},
+    )
+
+
+@app.post("/api/config")
+async def mock_import_config(body: dict[str, object]) -> dict[str, object]:
+    """Report a plausible per-entry outcome without changing any fixture state.
+
+    Scripted rather than applied: the import report is what the console renders,
+    and a mock that actually rewrote its fixtures would drift away from the
+    hotplug script the rest of this server depends on.
+    """
+    config = body.get("config", {})
+    devices = config.get("devices", []) if isinstance(config, dict) else []
+    outcomes = [
+        {
+            "identity_kind": entry.get("identity_kind", "serial"),
+            "identity_key": entry.get("identity_key", "unknown"),
+            # One of each, so the console's three outcome styles are all visible.
+            "outcome": ("applied", "skipped", "failed")[index % 3],
+            "detail": (
+                "",
+                "That dongle is not plugged into this Sentry.",
+                "Port 1234 is already in use here.",
+            )[index % 3],
+        }
+        for index, entry in enumerate(devices)
+        if isinstance(entry, dict)
+    ]
+    return {
+        "devices": outcomes,
+        "devices_applied": sum(1 for outcome in outcomes if outcome["outcome"] == "applied"),
+        "devices_skipped": sum(1 for outcome in outcomes if outcome["outcome"] == "skipped"),
+        "devices_failed": sum(1 for outcome in outcomes if outcome["outcome"] == "failed"),
+        "hotspot_applied": False,
+        "hotspot_detail": "The mock server does not apply hotspot settings.",
+        "console_password_applied": False,
+        "console_password_detail": "",
+        "generated_at": int(time.time() * 1000),
+    }
 
 
 if __name__ == "__main__":
