@@ -17,6 +17,7 @@ from fastapi import Request
 
 from app.backend.config import Settings
 from app.backend.interfaces.clock import Clock
+from app.backend.services.console_auth import ConsoleAuthService
 from app.backend.services.control_follower import ControlFollowerService
 from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.eeprom import EepromService
@@ -73,6 +74,12 @@ def get_supervisor(request: Request) -> SupervisorService:
     """Return the process-wide `SupervisorService`."""
     supervisor: SupervisorService = request.app.state.container.supervisor
     return supervisor
+
+
+def get_console_auth_service(request: Request) -> ConsoleAuthService:
+    """Return the process-wide `ConsoleAuthService` (ADR-0010)."""
+    console_auth_service: ConsoleAuthService = request.app.state.container.console_auth_service
+    return console_auth_service
 
 
 def get_hotspot_service(request: Request) -> HotspotService:

@@ -1,11 +1,16 @@
 """SQLAlchemy 2.0 declarative models for Sentry's persisted state (architecture §6).
 
-There is exactly one table: `sdr_devices`. It holds **operator intent**, not
+Two tables. `sdr_devices` holds **operator intent**, not
 observed reality — a detected-but-unconfigured device lives only in memory
 (`device_registry`); a row's existence here means "the operator configured
 this device". Column names and types mirror `interfaces.types.PersistedDeviceRow`
 exactly, since that frozen dataclass is the contract the rest of the backend
 (via `interfaces.repository.DeviceRepository`) depends on.
+
+`console_auth` holds the console password (ADR-0010) and is deliberately
+separate rather than a column on anything: it is credential material with a
+different lifecycle, different access pattern, and a very different
+consequence if it is ever accidentally serialised alongside device data.
 """
 
 from __future__ import annotations
@@ -154,3 +159,46 @@ class SdrDeviceModel(Base):
             name="ck_sdr_devices_visibility",
         ),
     )
+
+
+class ConsoleAuthModel(Base):
+    """The console password and the state that governs its sessions (ADR-0010).
+
+    A single row, id 1, created by the migration so no code path has to decide
+    whether it exists. `password_hash` being `NULL` is the meaningful state:
+    it means no password has been set and the console is open, which is the
+    documented default for a fresh install rather than an error.
+
+    The hash is argon2id. The plaintext is never stored, never logged, and
+    never leaves the request that set it.
+    """
+
+    __tablename__ = "console_auth"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    """Always 1. A single-row table, constrained below rather than by convention."""
+
+    password_hash: Mapped[str | None] = mapped_column(nullable=True, default=None)
+    """argon2id hash, or `NULL` when no password is set and the console is open."""
+
+    password_version: Mapped[int] = mapped_column(nullable=False, default=0)
+    """Incremented whenever the password changes.
+
+    Signed into every session cookie and checked on every request, which is what
+    makes changing the password log out every existing session — including one
+    on a device the operator no longer has. Without it, changing a password
+    would secure future logins while leaving present sessions untouched, which
+    is the opposite of what someone changing a password after a scare expects.
+    """
+
+    session_secret: Mapped[str] = mapped_column(nullable=False)
+    """Random key the session cookie's signature is derived from.
+
+    Generated once by the migration. Rotating it invalidates every session, so
+    it is the emergency lever the password-reset path pulls.
+    """
+
+    updated_at: Mapped[int] = mapped_column(nullable=False, default=0)
+    """Unix ms the password last changed. Displayed; never used for auth decisions."""
+
+    __table_args__ = (CheckConstraint("id = 1", name="ck_console_auth_single_row"),)

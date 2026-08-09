@@ -26,6 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from app.backend.config import Settings
 from app.backend.dependencies import (
     get_clock,
+    get_console_auth_service,
     get_device_registry,
     get_hotspot_service,
     get_port_allocator,
@@ -45,12 +46,15 @@ from app.backend.schemas.config import (
 )
 from app.backend.schemas.device import DevicePatch
 from app.backend.schemas.errors import error_detail
-from app.backend.security import require_bearer_token
+from app.backend.security import require_console_session
+from app.backend.services.console_auth import ConsoleAuthService
 from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.hotspot import HotspotError, HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
 
-router = APIRouter(prefix="/config", tags=["config"], dependencies=[Depends(require_bearer_token)])
+router = APIRouter(
+    prefix="/config", tags=["config"], dependencies=[Depends(require_console_session)]
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -236,7 +240,10 @@ async def _import_devices(
 
 
 async def _import_hotspot(
-    entry: HotspotConfigEntry, hotspot_service: HotspotService, settings: Settings
+    entry: HotspotConfigEntry,
+    hotspot_service: HotspotService,
+    settings: Settings,
+    password_set: bool,
 ) -> tuple[bool, str]:
     """Apply the file's hotspot settings, returning `(applied, why_not)`.
 
@@ -261,14 +268,10 @@ async def _import_hotspot(
     # Same gate as every other hotspot mutation (`routers/hotspot.py`), applied
     # here too because a file that sets a password is one, and an import must
     # not be a way around it.
-    if (
-        file_passphrase is not None
-        and settings.hotspot_require_auth_token
-        and settings.auth_token is None
-    ):
+    if file_passphrase is not None and settings.hotspot_require_auth_token and not password_set:
         return False, (
-            "Set SENTRY_AUTH_TOKEN before importing a hotspot password: anyone who joins "
-            "the network can otherwise reach this API without credentials."
+            "Set a console password before importing a hotspot password: anyone who joins "
+            "the network can otherwise reach this API without signing in."
         )
 
     if file_passphrase is None:
@@ -313,6 +316,7 @@ async def import_config(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
     clock: Clock = Depends(get_clock),
+    console_auth: ConsoleAuthService = Depends(get_console_auth_service),
 ) -> ConfigImportResult:
     """Apply an exported configuration, reporting what landed and what did not."""
     config = request_body.config
@@ -339,7 +343,7 @@ async def import_config(
             hotspot_detail = "The file has no hotspot configuration."
         else:
             hotspot_applied, hotspot_detail = await _import_hotspot(
-                config.hotspot, hotspot_service, settings
+                config.hotspot, hotspot_service, settings, await console_auth.is_password_set()
             )
 
     _logger.info(
