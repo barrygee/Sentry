@@ -18,6 +18,7 @@ and update the old one's status to `Superseded by ADR-NNNN`.
 | [0008](0008-static-ui-over-vue-spa.md) | Replace the Vue SPA with a static, framework-free TypeScript UI | Accepted |
 | [0009](0009-dual-control-sentry-owns-device-state.md) | Dual control: Sentry owns device state, Sentinel is a remote client | **Superseded by 0010** |
 | [0010](0010-sentinel-reads-sentry-manages.md) | Sentinel reads, Sentry manages; a console password replaces the API token | Accepted |
+| [0011](0011-drop-automated-accessibility-testing.md) | Drop automated accessibility testing as a requirement | Accepted |
 
 The design these decisions serve is
 [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md).

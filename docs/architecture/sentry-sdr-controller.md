@@ -1118,8 +1118,8 @@ Phase 0), so they can interleave commits safely.
 ### Phase 4 — sequential, at commit/push time
 
 Per the project testing rule, tests are written **at commit/push time, on confirmation** — not
-during Phases 1–3. Phase 4 is that pass: unit tests to 100 % of new code against §12, `vitest-axe`
-accessibility tests, a keyboard + screen-reader pass, a Playwright e2e against the fake rtl_tcp
+during Phases 1–3. Phase 4 is that pass: unit tests to 100 % of new code against §12, a keyboard +
+screen-reader pass, a Playwright e2e against the fake rtl_tcp
 stack (no hardware), then code review, security review and the accessibility audit.
 
 ---

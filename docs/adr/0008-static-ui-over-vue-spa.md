@@ -1,6 +1,6 @@
 # ADR-0008 — Replace the Vue SPA with a static, framework-free TypeScript UI
 
-- **Status:** Accepted
+- **Status:** Accepted (its accessibility-testing mitigation withdrawn by [ADR-0011](0011-drop-automated-accessibility-testing.md))
 - **Date:** 2026-08-04
 - **Deciders:** project owner, architect
 - **Context spec:** [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md)
@@ -70,9 +70,10 @@ Tailwind retained**.
   templates — there is no equivalent rule set for markup built imperatively. This is a real reduction
   in cover on the project's highest-priority non-functional requirement.
 
-  The mitigation is runtime, not static: a **Playwright + axe smoke suite is now mandatory**, not
-  optional. Every ARIA attribute, `role`, `tabindex`, accessible name and focus behaviour was carried
-  over verbatim in the port, but nothing enforces that they stay.
+  The mitigation proposed here — a mandatory Playwright + axe smoke suite — was **withdrawn by
+  [ADR-0011](0011-drop-automated-accessibility-testing.md)** and never built. Every ARIA attribute,
+  `role`, `tabindex`, accessible name and focus behaviour was carried over verbatim in the port, and
+  nothing enforces that they stay. That is now the standing position rather than a temporary gap.
 
 - More code is written by hand: `keyedList`, `switchChild`, the focus trap, the store. That is
   roughly 400 lines of infrastructure a framework used to supply, and it is ours to maintain.
@@ -80,7 +81,8 @@ Tailwind retained**.
 - The console had **no frontend tests before this change and has none after it**, so the port itself
   was verified by build, typecheck, and manual exercise against `tools/mock_sentry.py` (render, SSE
   live updates, dialog open, focus trap, Escape, focus restoration, zero console errors) rather than
-  by a suite. Adding the axe smoke suite is the first thing that should follow this ADR.
+  by a suite. (A frontend test harness and suites arrived later; the axe suite this ADR called for
+  did not — see [ADR-0011](0011-drop-automated-accessibility-testing.md).)
 
 ## Alternatives considered
 
