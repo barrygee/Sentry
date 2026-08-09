@@ -1,10 +1,16 @@
 # ADR-0009 — Dual control: Sentry owns device state, Sentinel is a remote client
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0010](0010-sentinel-reads-sentry-manages.md) (2026-08-09)
 - **Date:** 2026-08-04
 - **Deciders:** project owner, architect
 - **Context spec:** [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md)
 - **Related:** [ADR-0008](0008-static-ui-over-vue-spa.md) (the console this leaves behind)
+
+> **This decision was reversed.** Sentinel is a read-only consumer of
+> `GET /api/v1/sdrs`; device configuration happens only in Sentry's console, and
+> the UI freeze this ADR introduced is lifted. `SENTRY_AUTH_TOKEN` no longer
+> exists. Read [ADR-0010](0010-sentinel-reads-sentry-manages.md) for what
+> replaced it and why. The text below is kept as the record of what was tried.
 
 ## Context
 
