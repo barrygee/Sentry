@@ -85,7 +85,9 @@ describe('hotspotPanel', () => {
       { control_enabled: false },
       'SENTRY_HOTSPOT_CONTROL_ENABLED',
     ],
-    ['no API auth token configured', { auth_token_configured: false }, 'SENTRY_AUTH_TOKEN'],
+    // Not an env var any more: the controller password is set in the UI
+    // (ADR-0010), so the panel points there rather than at `.env`.
+    ['no controller password set', { auth_token_configured: false }, 'controller password'],
     ['NetworkManager unreachable', { available: false }, 'NetworkManager'],
   ])('explains the blockage when %s', async (_label, overrides, expected) => {
     await showState(healthyState(overrides))
