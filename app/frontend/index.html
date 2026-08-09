@@ -49,7 +49,7 @@
          chain in `styles/input.css`. `h-screen` measures the viewport directly
          and so ignores anything else in the document, which left the shell
          taller than its container and reintroduced a second, outer scrollbar. -->
-    <div class="flex h-full flex-col overflow-hidden bg-ground-page">
+    <div data-ref="app-shell" class="flex h-full flex-col overflow-hidden bg-ground-page">
       <!-- The top bar: Sentinel's `#nav` — a full-width black band, 68px tall,
            with the ⊙ mark and wordmark at the left.
 
@@ -253,6 +253,7 @@
                  signal that the page changed. -->
             <div class="flex w-full max-w-content flex-col gap-6 px-5 pb-16 pt-[34px] md:px-gutter">
               <div data-ref="devices-view" class="flex flex-col gap-6">
+                <div data-ref="unprotected-warning"></div>
                 <div data-ref="notice-list"></div>
                 <ul
                   data-ref="serial-conflicts"
@@ -291,6 +292,7 @@
                 >
                   Settings
                 </h2>
+                <div data-ref="console-password-panel"></div>
                 <div data-ref="hotspot-panel"></div>
                 <div data-ref="config-panel"></div>
               </div>
@@ -299,6 +301,10 @@
         </main>
       </div>
     </div>
+
+    <!-- The sign-in screen, which replaces the shell entirely when a password is
+         set and this browser has no session. -->
+    <div data-ref="sign-in-root"></div>
 
     <!-- Dialogs and the auth prompt mount here, outside the shell's
          `overflow-hidden`, which is what `<Teleport to="body">` used to buy. -->

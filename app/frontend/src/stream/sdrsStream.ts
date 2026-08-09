@@ -1,5 +1,5 @@
 import type { DeviceStatus, HealthResponse, StatusResponse } from '../api/client.js'
-import { authTokenStore } from '../state/authToken.js'
+import { consoleAuthStore } from '../state/consoleAuth.js'
 import * as hotspotStore from '../state/hotspotStore.js'
 import * as sdrsStore from '../state/sdrsStore.js'
 import type { DeviceRemovedEvent, NoticeEvent } from '../types/sdrs.js'
@@ -13,16 +13,12 @@ import { openServerSentEvents, type ServerSentEventsHandle } from './serverSentE
  * connection state (`ConnectionPill`).
  */
 export function openSdrsStream(streamPath = '/api/events'): ServerSentEventsHandle {
-  // `EventSource` cannot set an `Authorization` header, so an operator token
-  // is appended as `?access_token=` (architecture §7.9) — the same fallback
-  // `require_sse_bearer_token` accepts server-side.
-  function streamUrl(): string {
-    const token = authTokenStore.state.token
-    return token ? `${streamPath}?access_token=${encodeURIComponent(token)}` : streamPath
-  }
-
+  // No credential in the URL. `EventSource` cannot set headers, which used to
+  // force the token into `?access_token=` — and therefore into browser history
+  // and the access log. The session is a cookie now (ADR-0010), and the browser
+  // attaches it to this same-origin request unasked.
   const handle = openServerSentEvents(
-    streamUrl,
+    streamPath,
     {
       snapshot: (data) => sdrsStore.applySnapshot(data as StatusResponse),
       device_changed: (data) => sdrsStore.applyDeviceChanged(data as DeviceStatus),
@@ -64,15 +60,16 @@ export function openSdrsStream(streamPath = '/api/events'): ServerSentEventsHand
     sdrsStore.setConnection(nextConnection)
   })
 
-  // Reopen with the new URL whenever the auth token changes — e.g. an
-  // operator supplying `SENTRY_AUTH_TOKEN` after a 401 (architecture §7.9)
-  // reconnects with `?access_token=` rather than staying wedged offline.
-  let previousToken = authTokenStore.state.token
-  authTokenStore.subscribe((nextState) => {
-    if (nextState.token !== previousToken) {
-      previousToken = nextState.token
+  // Reopen once the operator signs in. The stream is refused while signed out,
+  // and `EventSource` retries a failed connection forever without ever
+  // re-reading cookies it never sent — so without this the console would sit
+  // offline behind a successful login until the page was reloaded.
+  let wasAuthenticated = consoleAuthStore.state.authenticated
+  consoleAuthStore.subscribe((nextState) => {
+    if (nextState.authenticated && !wasAuthenticated) {
       handle.reopen()
     }
+    wasAuthenticated = nextState.authenticated
   })
 
   return handle

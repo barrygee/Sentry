@@ -19,8 +19,9 @@ import { createStore, type Store } from '../core/observable.js'
  *
  * **The passphrase is never held here.** It lives in the form's local state for
  * exactly as long as it takes to send, and is never written to this store,
- * `sessionStorage` or a URL — deliberately unlike `authToken.ts`, which does
- * persist its token. The hotspot key is the higher-value secret and it has no
+ * `sessionStorage` or a URL. Nothing about the console's own credential is held
+ * in this browser either — that is an HttpOnly cookie (ADR-0010) this code
+ * cannot read. The hotspot key is the higher-value secret and it has no
  * reason to outlive the request.
  */
 

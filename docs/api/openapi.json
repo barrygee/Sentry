@@ -1,6 +1,39 @@
 {
   "components": {
     "schemas": {
+      "AuthStateResponse": {
+        "description": "What a client needs to decide between \"sign in\", \"set a password\", and \"carry on\".",
+        "properties": {
+          "authenticated": {
+            "description": "Whether this request carries a valid session, or none is required",
+            "title": "Authenticated",
+            "type": "boolean"
+          },
+          "minimum_password_length": {
+            "default": 8,
+            "description": "Shortest password the API will accept",
+            "title": "Minimum Password Length",
+            "type": "integer"
+          },
+          "password_set": {
+            "description": "Whether this console has a password at all",
+            "title": "Password Set",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "description": "Unix ms the password last changed; 0 if never",
+            "title": "Updated At",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "password_set",
+          "authenticated",
+          "updated_at"
+        ],
+        "title": "AuthStateResponse",
+        "type": "object"
+      },
       "ClientCounts": {
         "description": "Per-port connected-client counts from `SocketStatsSource`.\n\nEvery field is nullable and advisory: `None` on platforms without\n`/proc/net/tcp` (architecture decision \u2014 always nullable, never a hard\ndependency for status reporting).",
         "properties": {
@@ -1660,6 +1693,23 @@
         "title": "HotspotStateResponse",
         "type": "object"
       },
+      "LoginRequest": {
+        "additionalProperties": false,
+        "description": "`POST /api/auth/login` body.",
+        "properties": {
+          "password": {
+            "format": "password",
+            "title": "Password",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
       "OutputInfo": {
         "description": "The public IQ/control endpoint for a configured device.",
         "properties": {
@@ -2141,6 +2191,37 @@
         "title": "SerialFlashRequest",
         "type": "object"
       },
+      "SetPasswordRequest": {
+        "additionalProperties": false,
+        "description": "`POST /api/auth/password` body \u2014 sets the first password, or changes an existing one.",
+        "properties": {
+          "current_password": {
+            "anyOf": [
+              {
+                "format": "password",
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when a password is already set; ignored when not",
+            "title": "Current Password"
+          },
+          "new_password": {
+            "format": "password",
+            "title": "New Password",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "new_password"
+        ],
+        "title": "SetPasswordRequest",
+        "type": "object"
+      },
       "StatusResponse": {
         "description": "`GET /api/status` and the SSE `snapshot` event body.",
         "properties": {
@@ -2550,6 +2631,113 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/auth/login": {
+      "post": {
+        "description": "Exchange the console password for a session cookie.",
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign in",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "description": "Discard this browser's session.\n\nClears the cookie and nothing else. Sessions are stateless signatures, so\nthere is no server-side record to delete \u2014 a copy of the cookie taken from\nelsewhere stays valid until it expires or the password changes. Signing every\nsession out is what changing the password is for, and the UI says so.",
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sign out",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/password": {
+      "post": {
+        "description": "Set the first password, or change an existing one.\n\nSigns this browser straight back in. Changing the password invalidates every\nsession including the caller's, so without a fresh cookie the operator would\nbe bounced to a login screen by their own successful password change.",
+        "operationId": "set_password_api_auth_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set or change the password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/state": {
+      "get": {
+        "description": "Report whether a password is set and whether this request is authenticated.\n\nThe first call any client makes. An open console answers\n`password_set=false, authenticated=true` \u2014 nothing to sign in to.",
+        "operationId": "get_auth_state_api_auth_state_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Authentication state",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/config": {
       "get": {
         "description": "Return the whole configuration as JSON, for import into another Sentry.",

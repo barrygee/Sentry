@@ -1,3 +1,4 @@
+import { consolePasswordPanel } from '../components/auth/consolePasswordPanel.js'
 import { configPanel } from '../components/config/configPanel.js'
 import { hotspotPanel } from '../components/hotspot/hotspotPanel.js'
 import type { Component } from '../core/component.js'
@@ -31,10 +32,17 @@ export function mountSettingsView(root: ParentNode): {
   onHidden: () => void
   destroy: () => void
 } {
+  const passwordContainer = ref(root, 'console-password-panel', HTMLElement)
   const hotspotContainer = ref(root, 'hotspot-panel', HTMLElement)
   const configContainer = ref(root, 'config-panel', HTMLElement)
 
   const panels: Component<void>[] = []
+
+  // First: it protects everything below it, and on an open console it is the
+  // thing an operator arriving at Settings most needs to see.
+  const password = consolePasswordPanel()
+  passwordContainer.appendChild(password.element)
+  panels.push(password)
 
   const hotspot = hotspotPanel()
   hotspotContainer.appendChild(hotspot.element)
