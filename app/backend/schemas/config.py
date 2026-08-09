@@ -44,6 +44,7 @@ from app.backend.schemas.device import (
     IdentityKind,
 )
 from app.backend.schemas.hotspot import HotspotBand, HotspotSecurity, validate_passphrase
+from app.backend.services.console_auth import MINIMUM_PASSWORD_LENGTH
 
 CONFIG_VERSION: Literal[1] = 1
 """Bumped only on a breaking change to this file's shape.
@@ -183,6 +184,43 @@ class SentryConfig(BaseModel):
     devices: tuple[DeviceConfigEntry, ...] = ()
     hotspot: HotspotConfigEntry | None = None
 
+    console_password: SecretStr | None = Field(
+        default=None,
+        exclude=True,
+        description=(
+            "Write-only: hand-added to a provisioning file to set the controller's "
+            "password. Never present in an exported file"
+        ),
+    )
+    """The second credential this file may carry inwards, and only inwards.
+
+    Same mechanism and same reasoning as `HotspotConfigEntry.passphrase`:
+    `exclude=True` means Pydantic parses it on the way in and drops it from
+    every dump on the way out, so a file Sentry produced cannot contain one
+    however it was produced.
+
+    It exists because provisioning a Pi should not require a second, manual step
+    that is the one an operator is most likely to skip. A fresh controller is
+    open until a password is set, so an import that configures everything *but*
+    the password leaves the machine reachable by anyone — which is the outcome
+    the prompt-on-every-visit design is already trying to avoid.
+
+    Applied only when it would not lock the operator out of a controller that
+    already has one: see `_import_console_password` in `routers/config.py`.
+    """
+
+    @field_validator("console_password")
+    @classmethod
+    def _check_console_password(cls, password: SecretStr | None) -> SecretStr | None:
+        """Reject a password the API would refuse, at parse time rather than mid-import."""
+        if password is None:
+            return None
+        if len(password.get_secret_value()) < MINIMUM_PASSWORD_LENGTH:
+            raise ValueError(
+                f"console_password must be at least {MINIMUM_PASSWORD_LENGTH} characters."
+            )
+        return password
+
 
 class ConfigImportRequest(BaseModel):
     """`POST /api/config` body — a previously exported file, optionally narrowed."""
@@ -228,5 +266,9 @@ class ConfigImportResult(BaseModel):
     hotspot_applied: bool = False
     hotspot_detail: str = Field(
         default="", description="Why the hotspot was not applied, when it was not"
+    )
+    console_password_applied: bool = False
+    console_password_detail: str = Field(
+        default="", description="Why the controller password was not set, when it was not"
     )
     generated_at: int = Field(default=0, description="Unix ms")

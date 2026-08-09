@@ -34,6 +34,7 @@ from app.backend.dependencies import (
 )
 from app.backend.example_fixtures import SENTRY_VERSION
 from app.backend.interfaces.clock import Clock
+from app.backend.routers.auth import set_session_cookie
 from app.backend.routers.devices import apply_device_configuration
 from app.backend.schemas.config import (
     CONFIG_VERSION,
@@ -47,7 +48,7 @@ from app.backend.schemas.config import (
 from app.backend.schemas.device import DevicePatch
 from app.backend.schemas.errors import error_detail
 from app.backend.security import require_console_session
-from app.backend.services.console_auth import ConsoleAuthService
+from app.backend.services.console_auth import ConsoleAuthService, PasswordTooShortError
 from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.hotspot import HotspotError, HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
@@ -303,6 +304,32 @@ async def _import_hotspot(
     return True, ""
 
 
+async def _import_console_password(
+    password: str, console_auth: ConsoleAuthService
+) -> tuple[bool, str]:
+    """Apply a provisioning file's controller password, returning `(applied, why_not)`.
+
+    Only ever sets a **first** password. A file cannot replace one that already
+    exists, and that is the whole safety property here: without it, an import —
+    which any signed-in operator can run, and which is the one action people
+    routinely perform with a file someone else gave them — would silently change
+    the credential and sign everybody out, including whoever ran it.
+
+    Changing a password remains something you do knowingly, with the current one
+    in hand, from Settings.
+    """
+    if await console_auth.is_password_set():
+        return False, (
+            "This Sentry controller already has a password, and a file cannot replace one. "
+            "Change it in Settings, or clear it on the Pi with tools/reset-password.sh."
+        )
+    try:
+        await console_auth.set_password(password, current_password=None)
+    except PasswordTooShortError as error:
+        return False, str(error)
+    return True, ""
+
+
 @router.post(
     "",
     response_model=ConfigImportResult,
@@ -311,6 +338,7 @@ async def _import_hotspot(
 )
 async def import_config(
     request_body: ConfigImportRequest,
+    response: Response,
     device_registry: DeviceRegistry = Depends(get_device_registry),
     port_allocator: PortAllocatorService = Depends(get_port_allocator),
     hotspot_service: HotspotService = Depends(get_hotspot_service),
@@ -346,6 +374,21 @@ async def import_config(
                 config.hotspot, hotspot_service, settings, await console_auth.is_password_set()
             )
 
+    console_password_applied = False
+    console_password_detail = ""
+    if config.console_password is not None:
+        console_password_applied, console_password_detail = await _import_console_password(
+            config.console_password.get_secret_value(), console_auth
+        )
+        if console_password_applied:
+            # Sign the caller in under the password they just set. Without this,
+            # provisioning locks the operator out of the very request that did
+            # it — and the import's per-entry report, which is the whole point
+            # of the response, would be replaced by a sign-in screen before they
+            # could read it. `POST /api/auth/password` re-issues for the same
+            # reason.
+            set_session_cookie(response, await console_auth.issue_session())
+
     _logger.info(
         "config import: %d applied, %d skipped, %d failed, hotspot_applied=%s",
         sum(1 for outcome in outcomes if outcome.outcome == "applied"),
@@ -361,5 +404,7 @@ async def import_config(
         devices_failed=sum(1 for outcome in outcomes if outcome.outcome == "failed"),
         hotspot_applied=hotspot_applied,
         hotspot_detail=hotspot_detail,
+        console_password_applied=console_password_applied,
+        console_password_detail=console_password_detail,
         generated_at=clock.now_ms(),
     )

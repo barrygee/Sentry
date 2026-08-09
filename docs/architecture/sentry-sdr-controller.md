@@ -131,7 +131,6 @@ and a relay crash must not take the API down with it. The supervisor only spawns
 | `SENTRY_HTTP_PORT` | `8000` | API/SPA port (requirement 8) |
 | `SENTRY_ADVERTISED_HOST` | *unset* | Host published in `/api/v1/sdrs`; when unset, derived from the request `Host` header |
 | `SENTRY_DATABASE_URL` | `sqlite+aiosqlite:////data/sentry.db` | Persistence (volume-mounted) |
-| `SENTRY_AUTH_TOKEN` | *unset* | Unset ⇒ **no auth**. Set ⇒ bearer token required (§7.9) |
 | `SENTRY_MAX_DEVICES` | `8` | Bounds the internal port range and USB bandwidth |
 | `SENTRY_INTERNAL_PORT_BASE` | `14000` | Loopback `rtl_tcp` range `[base, base+MAX_DEVICES)` |
 | `SENTRY_RESERVED_PORTS` | `""` | Extra operator deny-list, comma-separated |
@@ -259,7 +258,7 @@ backend/
     events.py              GET /api/events   (SSE)
     devices.py             GET/PATCH/DELETE /api/devices…, POST …/serial
     sdrs.py                GET /api/v1/sdrs  (+ /api/sdrs alias)
-  security.py              bearer-token dependency (no-op when SENTRY_AUTH_TOKEN unset)
+  security.py              session dependency (no-op while no password is set, §7.9)
   relay/rtl_tcp_relay.py   VENDORED, frozen except §2.1
 ```
 
@@ -734,17 +733,47 @@ and one "Import from Sentry" button. Nothing about the rtl_tcp connection path c
 
 ### 7.9 Authentication
 
-`SENTRY_AUTH_TOKEN` unset ⇒ **auth is off** and every endpoint is open (the default; a
-single-purpose device on a trusted LAN). Set ⇒ a FastAPI dependency requires
-`Authorization: Bearer <token>` on every `/api/**` route, compared with
-`secrets.compare_digest`, returning `401` with `WWW-Authenticate: Bearer` and no detail about
-why. `GET /api/health` is always exempt.
+> **Rewritten by [ADR-0010](../adr/0010-sentinel-reads-sentry-manages.md).** This section
+> previously specified `SENTRY_AUTH_TOKEN`, a shared bearer token in the environment. The
+> cookie-session design §13.3 offered for sign-off is what was built.
 
-`EventSource` cannot set headers, so when auth is on `GET /api/events` **additionally** accepts
-`?access_token=<token>`. This is a documented, deliberate trade-off: query strings can leak into
-access logs, so Sentry's uvicorn access-log format is configured to strip query strings, and the
-token is compared with the same constant-time function. See §13.3 — an alternative
-cookie-session design is offered for sign-off.
+**No password ⇒ the controller is open** and every management route answers normally. That is
+the default a fresh install ships in, and a supported state rather than a misconfiguration:
+`console_auth.password_hash IS NULL`. The UI asks for a password on first visit and keeps
+asking while none is set (ADR-0010), but nothing refuses service.
+
+**Password set ⇒ every `/api/**` route requires a session**, except the two documented
+exemptions below. The password is argon2id-hashed in `console_auth`, a single row in Sentry's
+own database. `POST /api/auth/login` exchanges it for a session cookie; a failure returns `401`
+with no detail about which part was wrong.
+
+The session is a **signed value, not a row**: `<password_version>.<issued_at>.<hmac>`, signed
+with a per-install secret and compared with `hmac.compare_digest`. There is no session table to
+expire or garbage-collect, and a restart signs nobody out. The cost — an individual session
+cannot be revoked, only all of them — is the right trade for one credential and no user accounts.
+
+`password_version` is signed into the cookie and checked per request, which is what makes
+**changing the password end every existing session**, including one on a device the operator no
+longer holds.
+
+The cookie is `HttpOnly` (no script on the page can read it) and `SameSite=Strict` (the browser
+will not attach it to a request another site originated, which is what removes the CSRF exposure
+a cookie would otherwise introduce). It is deliberately **not** `Secure`: this console is served
+over plain HTTP on a LAN, and marking it secure would mean it was never sent at all.
+
+**`GET /api/events` has no special case any more.** `EventSource` cannot set headers, which is
+why the bearer token had to be accepted via `?access_token=` — a credential in browser history
+and, but for a bespoke uvicorn log format, the access log. Cookies ride same-origin requests
+whatever the API, so that path is deleted rather than mitigated.
+
+**Two routes stay open regardless:**
+
+- `GET /api/health` — the Docker healthcheck must reach it whatever the password, and it reports
+  counts rather than identities;
+- `GET /api/v1/sdrs` — the read-only export Sentinel consumes. Sentinel holds no credential
+  (ADR-0010), so the per-device `visibility` flag is the whole access control on that route.
+  "Private" therefore stops meaning "not exported to Sentinel" and starts meaning "not readable
+  by anyone who can reach this Pi".
 
 CORS is closed by default (`allow_origins=[]`); the SPA is same-origin. `SENTRY_CORS_ORIGINS`
 allows an explicit list for a separately-hosted Sentinel dev server. Never `*`.
@@ -1249,11 +1278,14 @@ These materially change scope or contract and need a decision rather than a gues
    file). The alternative is a second relay change to publish counts on the control channel.
    *Choose: /proc parsing, relay change, or drop `clients` from v1.*
 
-3. **SSE auth when the bearer token is enabled.** `EventSource` cannot send headers. §7.9
-   proposes an `?access_token=` query parameter with query strings stripped from access logs. The
-   alternative is a short-lived same-origin `HttpOnly` cookie minted by a new
-   `POST /api/session`, which is cleaner but adds an endpoint, CSRF considerations and SPA login
-   state. *Choose.*
+3. ~~**SSE auth when the bearer token is enabled.**~~ **Decided:** the cookie. This open question
+   offered `?access_token=` or "a short-lived same-origin `HttpOnly` cookie … which is cleaner but
+   adds an endpoint, CSRF considerations and SPA login state". The query parameter shipped first;
+   [ADR-0010](../adr/0010-sentinel-reads-sentry-manages.md) replaced it with the cookie for
+   reasons that had nothing to do with SSE — a shared token was the wrong credential for a person
+   to type — and the SSE special case disappeared as a side effect. Every cost predicted here was
+   real and was paid: a new endpoint (`/api/auth/*`), CSRF (answered by `SameSite=Strict`) and
+   login state in the UI.
 
 4. **Which Sentinel store is authoritative for radios?** `backend/models.py::SdrRadio` exists but
    is **unused** — `backend/routers/sdr.py` persists radios as JSON under `UserSettings`

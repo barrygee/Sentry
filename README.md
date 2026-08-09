@@ -70,8 +70,8 @@ docker run -d --name sentry --restart unless-stopped \
 | `--network host` | Each dongle's ports are assigned by you at runtime, so they cannot be published statically with `-p`. |
 | `-v sentry-data:/data` | Device names and port assignments live here. Without it, all configuration is lost on container recreation. |
 
-To require a token on the API, add `-e SENTRY_AUTH_TOKEN=<long-random-value>`
-(see [Security](#security)).
+To protect the controller, set a password in its UI once it is running (see
+[Security](#security)) — there is nothing to configure here.
 
 ---
 
@@ -466,7 +466,6 @@ Then, in `.env`:
 
 ```bash
 SENTRY_HOTSPOT_CONTROL_ENABLED=true
-SENTRY_AUTH_TOKEN=<a long random value>
 ```
 
 Both are required. Control is off by default because it is the one setting that
@@ -544,7 +543,7 @@ profile, including the stored password:
 
 ```bash
 curl -X DELETE http://<PI_IP>:8000/api/hotspot \
-  -H "Authorization: Bearer $SENTRY_AUTH_TOKEN"
+  -b sentry-cookies.txt
 ```
 
 **To turn the whole feature off** — set `SENTRY_HOTSPOT_CONTROL_ENABLED=false` in
@@ -612,14 +611,24 @@ Open the **configuration control in the top-right of the header**:
   rewrites every device's settings, which is too much to happen as a side effect
   of a file picker closing.
 
-The same thing over the API:
+The same thing over the API. If a password is set, sign in once and keep the
+session cookie in a jar — there is no bearer token to send:
 
 ```bash
-curl -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+curl -c sentry-cookies.txt -X POST http://<PI_IP>:8000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"password": "your-password"}'
+```
+
+Then use it on every call (omit `-b` entirely while the controller has no
+password):
+
+```bash
+curl -b sentry-cookies.txt \
   http://<PI_IP>:8000/api/config > sentry-config.json
 
 curl -X POST http://<PI_IP>:8000/api/config \
-  -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+  -b sentry-cookies.txt \
   -H 'Content-Type: application/json' \
   -d "{\"config\": $(cat sentry-config.json), \"apply_devices\": true}"
 ```
@@ -672,8 +681,8 @@ is structurally excluded from serialisation, so a file Sentry wrote cannot
 contain a password however it was produced. **Treat any file you add one to as
 a secret** — do not commit it.
 
-Setting a password this way needs `SENTRY_AUTH_TOKEN` configured, the same gate
-every other hotspot change passes. Importing hotspot settings writes the
+Setting a password this way needs a controller password configured, the same
+gate every other hotspot change passes. Importing hotspot settings writes the
 network's name, band and address but **never starts it**, with or without a
 password — you turn it on yourself, from a panel that shows what you are about
 to broadcast. Without a password in the file, a Pi with none stored refuses the
@@ -682,7 +691,7 @@ hotspot section rather than writing an SSID it could never use.
 **One thing is absent entirely.**
 
 *The deploy-time settings* `SENTRY_HOTSPOT_CONTROL_ENABLED` and
-`SENTRY_AUTH_TOKEN`. Those are `.env`-only because they are precisely the
+`SENTRY_HOTSPOT_CONTROL_ENABLED`. That is `.env`-only because it is precisely the
 controls that require shell access to the Pi. A file that could switch on host
 WiFi control, or set the API's own credential, would hand that away to anyone
 who can reach the API — which is unauthenticated by default. The hotspot panel
@@ -737,7 +746,6 @@ defaults; copy it to `.env` (which is git-ignored) to override.
 | `SENTRY_HTTP_PORT`            | `8000`                                | API/SPA port                                           |
 | `SENTRY_ADVERTISED_HOST`      | *(from Host header)*                  | Host published in `/api/v1/sdrs`; set behind NAT       |
 | `SENTRY_DATABASE_URL`         | `sqlite+aiosqlite:////data/sentry.db` | Database URL                                           |
-| `SENTRY_AUTH_TOKEN`           | *(unset — auth off)*                  | Bearer token required on every route but `/api/health` |
 | `SENTRY_MAX_DEVICES`          | `8`                                   | Device cap                                             |
 | `SENTRY_INTERNAL_PORT_BASE`   | `14000`                               | Base of the loopback-only `rtl_tcp` range              |
 | `SENTRY_RESERVED_PORTS`       | *(empty)*                             | Extra ports Sentry must never assign                   |
@@ -750,7 +758,7 @@ WiFi hotspot (all inert while control is off):
 | Variable                            | Default                  | Purpose                                                       |
 | ----------------------------------- | ------------------------ | ------------------------------------------------------------- |
 | `SENTRY_HOTSPOT_CONTROL_ENABLED`    | `false`                  | Master switch for host WiFi control                           |
-| `SENTRY_HOTSPOT_REQUIRE_AUTH_TOKEN` | `true`                   | Refuse hotspot changes while `SENTRY_AUTH_TOKEN` is unset      |
+| `SENTRY_HOTSPOT_REQUIRE_AUTH_TOKEN` | `true`                   | Refuse hotspot changes while no controller password is set     |
 | `SENTRY_HOTSPOT_CONNECTION_NAME`    | `sentry-hotspot`         | The single NetworkManager profile Sentry owns                 |
 | `SENTRY_HOTSPOT_INTERFACE`          | *(chosen automatically)* | Wireless interface to use                                     |
 | `SENTRY_HOTSPOT_GATEWAY_CIDR`       | `10.42.0.1/24`           | The Pi's address on the hotspot — what clients dial           |
@@ -761,11 +769,51 @@ WiFi hotspot (all inert while control is off):
 
 ### Security
 
-**Authentication is off by default**, which suits a trusted home LAN. Sentry can
-spawn processes, bind ports, and write dongle firmware — if the Pi is reachable
-from anywhere less trusted, set `SENTRY_AUTH_TOKEN` to a long random value. Every
-route except `/api/health` then requires `Authorization: Bearer <token>`; the SSE
-stream also accepts `?access_token=` because `EventSource` cannot set headers.
+**A fresh install has no password**, which suits a trusted home LAN: plug in,
+open the controller, name your dongles. Nothing is asked of you.
+
+The consequence is worth understanding rather than skipping. Until you set a
+password, **anyone who can reach the Pi has full control of it** — renaming
+devices, reassigning ports, disabling radios, exporting your whole configuration
+or importing one that replaces it. Sentry can spawn processes, bind ports and
+write dongle firmware. On a home network with nothing else on it that is often
+fine; it stops being fine with guests on the WiFi, or the moment you want the
+hotspot.
+
+Set one from the controller — it asks on first visit, and keeps asking while
+none is set:
+
+> **Settings → Sentry controller password**
+
+It is hashed with argon2id and stored in Sentry's own database. Signing in gives
+this browser an `HttpOnly; SameSite=Strict` session cookie, so nothing is kept in
+the page and there is no token to paste. Changing the password signs out every
+other browser immediately, which is what you want if you think it is known.
+
+`GET /api/health` stays open — the Docker healthcheck must reach it whatever the
+password, and it reports counts rather than identities. `GET /api/v1/sdrs` is
+also open: it is the read-only export Sentinel consumes, filtered to the devices
+you marked public (see below).
+
+**Forgotten it?** From the Pi:
+
+```bash
+./tools/reset-password.sh
+```
+
+That clears the password and returns the controller to open, ready for a new
+one. It grants nothing that shell access did not already — anyone who can run it
+could read the database directly.
+
+**What a password does not cover.** Your dongles' ports (1234, 2345…) stay open.
+`rtl_tcp` has no authentication; that is the protocol every SDR client speaks,
+not a choice Sentry made. Anyone on your LAN can still connect to a radio and
+tune it. The password guards management, not the RF path.
+
+**"Private" now means private.** `GET /api/v1/sdrs` needs no credential, so the
+per-device visibility flag is the whole access control on it: a device marked
+public has its name, host, port, notes and antenna readable by anyone who can
+reach the Pi. Mark anything you would not publish as private.
 
 The container runs `privileged: true` with the whole USB bus passed through,
 which is required for dongles that re-enumerate. It does **not** mount the Docker
@@ -773,9 +821,9 @@ socket — earlier versions did, which was root-equivalent host control; the
 supervisor is now the parent of its own child processes and restarts them
 directly (see `docs/adr/0002`).
 
-**The WiFi hotspot makes the auth token effectively mandatory.** Raising an
-access point invites unknown machines onto the same network as this API, so
-Sentry refuses every hotspot change while `SENTRY_AUTH_TOKEN` is unset. Host
+**The WiFi hotspot makes a password effectively mandatory.** Raising an access
+point invites unknown machines onto the same network as this API, so Sentry
+refuses every hotspot change while no controller password is set. Host
 WiFi control is also off by default (`SENTRY_HOTSPOT_CONTROL_ENABLED`), so it has
 to be turned on deliberately by someone with shell access to the Pi. The hotspot
 password is write-only end to end: it is never returned by any endpoint, never
