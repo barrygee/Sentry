@@ -1,0 +1,188 @@
+import { el, setText, setVisible } from '../../core/dom.js'
+import type { Component } from '../../core/component.js'
+import { watchStore } from '../../core/observable.js'
+import {
+  consoleAuthStore,
+  setPassword,
+  signOut,
+  type ConsoleAuthState,
+} from '../../state/consoleAuth.js'
+import { baseButton } from '../base/baseButton.js'
+import { baseField } from '../base/baseField.js'
+import { nextElementId } from '../base/idGenerator.js'
+import { noticeBox } from '../base/noticeBox.js'
+import { sectionHeading } from '../base/sectionHeading.js'
+
+/**
+ * The Settings section for the console password (ADR-0010).
+ *
+ * Handles both jobs the same form can: setting the first password on an open
+ * console, and changing an existing one. The current-password field appears
+ * only in the second case — there is no secret to prove knowledge of in the
+ * first, and asking for one would make an open console impossible to protect.
+ */
+export function consolePasswordPanel(): Component<void> {
+  const headingId = nextElementId('console-password-heading')
+
+  let draftCurrent = ''
+  let draftNew = ''
+
+  const heading = sectionHeading({ level: 2, children: ['Sentry controller password'] })
+  heading.element.id = headingId
+
+  const introParagraph = el(
+    'p',
+    { class: 'm-0 text-[12.5px] leading-[1.55] text-signal-muted' },
+    [],
+  )
+
+  const statusLine = el('p', { class: 'm-0 text-[12px] text-signal-muted' }, [])
+
+  const currentField = baseField({
+    label: 'Current password',
+    value: '',
+    type: 'password',
+    onChange: (value) => {
+      draftCurrent = value
+    },
+  })
+
+  const newField = baseField({
+    label: 'New password',
+    value: '',
+    type: 'password',
+    onChange: (value) => {
+      draftNew = value
+    },
+  })
+
+  const errorNotice = noticeBox({ tone: 'danger', role: 'alert', children: [] })
+  const successNotice = noticeBox({
+    tone: 'ok',
+    role: 'status',
+    children: ['Password updated. Any other signed-in browser has been signed out.'],
+  })
+
+  const saveButton = baseButton({ type: 'submit', variant: 'primary', children: ['Set password'] })
+  const signOutButton = baseButton({
+    variant: 'ghost',
+    onClick: () => void signOut(),
+    children: ['Sign out'],
+  })
+
+  const form = el(
+    'form',
+    {
+      class: 'flex flex-col gap-4',
+      on: {
+        submit: (event) => {
+          event.preventDefault()
+          const current = consoleAuthStore.state.passwordSet ? draftCurrent : null
+          void setPassword(draftNew, current).then((succeeded) => {
+            if (succeeded) {
+              draftCurrent = ''
+              draftNew = ''
+              showSuccess = true
+              // Re-render through the store so the cleared fields and the
+              // confirmation land in the same paint.
+              consoleAuthStore.setState({ errorMessage: null })
+            }
+          })
+        },
+      },
+    },
+    [currentField.element, newField.element, saveButton.element],
+  )
+
+  const root = el(
+    'section',
+    { class: 'flex flex-col gap-4', attrs: { 'aria-labelledby': headingId } },
+    [
+      el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph, statusLine]),
+      errorNotice.element,
+      successNotice.element,
+      form,
+      el('div', {}, [signOutButton.element]),
+    ],
+  )
+
+  let showSuccess = false
+
+  function render(state: Readonly<ConsoleAuthState>): void {
+    const busy = state.phase === 'submitting'
+
+    setText(
+      introParagraph,
+      state.passwordSet
+        ? 'Changing the password signs out every other browser immediately, including one you no longer have.'
+        : 'This Sentry controller has no password. Anyone who can reach it can change your SDRs.',
+    )
+    setText(
+      statusLine,
+      state.passwordSet && state.updatedAt > 0
+        ? `Last changed ${new Date(state.updatedAt).toLocaleString()}.`
+        : '',
+    )
+    setVisible(statusLine, state.passwordSet && state.updatedAt > 0)
+
+    // Only meaningful when there is a password to prove knowledge of.
+    setVisible(currentField.element, state.passwordSet)
+    // Signing out of a console with no password would strand the operator on a
+    // sign-in screen with nothing to sign in to.
+    setVisible(signOutButton.element, state.passwordSet)
+
+    newField.update({
+      label: 'New password',
+      value: '',
+      type: 'password',
+      hint: `At least ${state.minimumPasswordLength} characters.`,
+      disabled: busy,
+      onChange: (value) => {
+        draftNew = value
+      },
+    })
+    currentField.update({
+      label: 'Current password',
+      value: '',
+      type: 'password',
+      disabled: busy,
+      onChange: (value) => {
+        draftCurrent = value
+      },
+    })
+    saveButton.update({
+      type: 'submit',
+      variant: 'primary',
+      disabled: busy,
+      children: [busy ? 'Saving…' : state.passwordSet ? 'Change password' : 'Set password'],
+    })
+
+    setVisible(errorNotice.element, state.errorMessage !== null)
+    if (state.errorMessage !== null) {
+      errorNotice.update({ tone: 'danger', role: 'alert', children: [state.errorMessage] })
+      showSuccess = false
+    }
+    setVisible(successNotice.element, showSuccess && state.errorMessage === null)
+  }
+
+  const unsubscribe = watchStore(consoleAuthStore, render)
+
+  return {
+    element: root,
+
+    update(): void {
+      // Store-driven.
+    },
+
+    destroy(): void {
+      unsubscribe()
+      currentField.destroy()
+      newField.destroy()
+      saveButton.destroy()
+      signOutButton.destroy()
+      errorNotice.destroy()
+      successNotice.destroy()
+      heading.destroy()
+    },
+  }
+}

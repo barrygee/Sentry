@@ -4,6 +4,98 @@
  */
 
 export interface paths {
+  '/api/auth/login': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Sign in
+     * @description Exchange the console password for a session cookie.
+     */
+    post: operations['login_api_auth_login_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/auth/logout': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Sign out
+     * @description Discard this browser's session.
+     *
+     *     Clears the cookie and nothing else. Sessions are stateless signatures, so
+     *     there is no server-side record to delete — a copy of the cookie taken from
+     *     elsewhere stays valid until it expires or the password changes. Signing every
+     *     session out is what changing the password is for, and the UI says so.
+     */
+    post: operations['logout_api_auth_logout_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/auth/password': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Set or change the password
+     * @description Set the first password, or change an existing one.
+     *
+     *     Signs this browser straight back in. Changing the password invalidates every
+     *     session including the caller's, so without a fresh cookie the operator would
+     *     be bounced to a login screen by their own successful password change.
+     */
+    post: operations['set_password_api_auth_password_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/auth/state': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Authentication state
+     * @description Report whether a password is set and whether this request is authenticated.
+     *
+     *     The first call any client makes. An open console answers
+     *     `password_set=false, authenticated=true` — nothing to sign in to.
+     */
+    get: operations['get_auth_state_api_auth_state_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/config': {
     parameters: {
       query?: never
@@ -427,6 +519,33 @@ export interface paths {
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    /**
+     * AuthStateResponse
+     * @description What a client needs to decide between "sign in", "set a password", and "carry on".
+     */
+    AuthStateResponse: {
+      /**
+       * Authenticated
+       * @description Whether this request carries a valid session, or none is required
+       */
+      authenticated: boolean
+      /**
+       * Minimum Password Length
+       * @description Shortest password the API will accept
+       * @default 8
+       */
+      minimum_password_length: number
+      /**
+       * Password Set
+       * @description Whether this console has a password at all
+       */
+      password_set: boolean
+      /**
+       * Updated At
+       * @description Unix ms the password last changed; 0 if never
+       */
+      updated_at: number
+    }
     /**
      * ClientCounts
      * @description Per-port connected-client counts from `SocketStatsSource`.
@@ -1251,6 +1370,17 @@ export interface components {
       )[]
     }
     /**
+     * LoginRequest
+     * @description `POST /api/auth/login` body.
+     */
+    LoginRequest: {
+      /**
+       * Password
+       * Format: password
+       */
+      password: string
+    }
+    /**
      * OutputInfo
      * @description The public IQ/control endpoint for a configured device.
      */
@@ -1538,6 +1668,22 @@ export interface components {
       serial: string
     }
     /**
+     * SetPasswordRequest
+     * @description `POST /api/auth/password` body — sets the first password, or changes an existing one.
+     */
+    SetPasswordRequest: {
+      /**
+       * Current Password
+       * @description Required when a password is already set; ignored when not
+       */
+      current_password?: string | null
+      /**
+       * New Password
+       * Format: password
+       */
+      new_password: string
+    }
+    /**
      * StatusResponse
      * @description `GET /api/status` and the SSE `snapshot` event body.
      */
@@ -1740,6 +1886,106 @@ export interface components {
 }
 export type $defs = Record<string, never>
 export interface operations {
+  login_api_auth_login_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LoginRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  logout_api_auth_logout_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  set_password_api_auth_password_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SetPasswordRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_auth_state_api_auth_state_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AuthStateResponse']
+        }
+      }
+    }
+  }
   export_config_api_config_get: {
     parameters: {
       query?: never

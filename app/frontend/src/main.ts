@@ -1,7 +1,17 @@
-import { authTokenPrompt } from './components/auth/authTokenPrompt.js'
+import { passwordSetupPrompt } from './components/auth/passwordSetupPrompt.js'
+import { signInView } from './components/auth/signInView.js'
+import { unprotectedWarning } from './components/auth/unprotectedWarning.js'
 import { serialFlashDialog } from './components/serial/serialFlashDialog.js'
 import { liveAnnouncer } from './core/liveAnnouncer.js'
+import { watchStore } from './core/observable.js'
 import { ref, setAttribute, setVisible } from './core/dom.js'
+import { onUnauthorized } from './api/client.js'
+import {
+  consoleAuthStore,
+  markUnauthenticated,
+  mustSignIn,
+  refreshAuthState,
+} from './state/consoleAuth.js'
 import { hotspotStore, isAwaitingConfirmation } from './state/hotspotStore.js'
 import { openSdrsStream } from './stream/sdrsStream.js'
 import { mountSdrsView } from './views/sdrsView.js'
@@ -64,7 +74,7 @@ applyRailVisibility()
 // once here and never appended. The hotspot and configuration surfaces used to
 // be here too; they are sections of the Settings destination now.
 serialFlashDialog()
-authTokenPrompt()
+passwordSetupPrompt()
 
 // ---------------------------------------------------------------------------
 // The views, and the stream that feeds them
@@ -98,5 +108,33 @@ createNavigation({
       : null,
   announce: (message) => liveAnnouncer().announceAssertive(message),
 })
+
+// ---------------------------------------------------------------------------
+// Authentication (ADR-0010)
+// ---------------------------------------------------------------------------
+// Any 401 raises the sign-in screen. Registered rather than imported by the API
+// client, which the auth store already depends on.
+onUnauthorized(markUnauthenticated)
+
+const signInRoot = ref(shell, 'sign-in-root', HTMLElement)
+const signIn = signInView()
+signInRoot.appendChild(signIn.element)
+
+const unprotectedWarningContainer = ref(shell, 'unprotected-warning', HTMLElement)
+unprotectedWarningContainer.appendChild(unprotectedWarning().element)
+
+// The shell and the sign-in screen are mutually exclusive. Hiding the shell
+// rather than dimming it is deliberate: every management route answers 401 in
+// this state, so a console visible behind the form would be showing stale data
+// it can no longer refresh.
+const appShell = ref(shell, 'app-shell', HTMLElement)
+
+watchStore(consoleAuthStore, (state) => {
+  const signingIn = mustSignIn(state)
+  setVisible(appShell, !signingIn)
+  setVisible(signInRoot, signingIn)
+})
+
+void refreshAuthState()
 
 openSdrsStream()

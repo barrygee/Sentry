@@ -1,5 +1,3 @@
-import { currentAuthToken, requireAuthPrompt } from '../state/authToken.js'
-
 import type { components } from './types.js'
 
 export type DeviceStatus = components['schemas']['DeviceStatus']
@@ -24,6 +22,7 @@ export type WirelessInterfacesResponse = components['schemas']['WirelessInterfac
  * A configuration as the server *returns* it — never carrying a hotspot
  * passphrase, which is import-only server-side.
  */
+export type AuthStateResponse = components['schemas']['AuthStateResponse']
 export type SentryConfig = components['schemas']['SentryConfig-Output']
 /**
  * A configuration as the server *accepts* it. Differs from `SentryConfig` by
@@ -57,22 +56,39 @@ export class ApiError extends Error {
   }
 }
 
+let unauthorizedHandler: (() => void) | null = null
+
+/**
+ * Register what happens when any request comes back `401`.
+ *
+ * Wired once by the composition root. A registration rather than a direct
+ * import because the auth store depends on this module, and the dependency
+ * cannot run both ways.
+ */
+export function onUnauthorized(handler: () => void): void {
+  unauthorizedHandler = handler
+}
+
 async function request<ResponseBody>(path: string, init?: RequestInit): Promise<ResponseBody> {
-  const token = currentAuthToken()
   const response = await fetch(`/api${path}`, {
     ...init,
+    // Explicit, though it is also the default: the session is an `HttpOnly`
+    // cookie (ADR-0010), so every request depends on the browser attaching it.
+    // Spelling it out means a future refactor has to decide to remove it rather
+    // than delete it by accident.
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   })
 
   if (response.status === 401) {
-    // Surfaces the auth-token prompt (architecture §7.9) — this fetch still
-    // fails and throws below, but the operator now has an in-app way to supply
-    // the token rather than a silently-dead console.
-    requireAuthPrompt()
+    // The session expired, was signed out elsewhere, or the password changed.
+    // Notifies via a registered handler rather than importing the auth store:
+    // that store imports this module, and importing it back would be a cycle.
+    // This request still fails and throws below.
+    unauthorizedHandler?.()
   }
 
   if (!response.ok) {
@@ -106,6 +122,23 @@ function isDetailBody(value: unknown): value is { detail: ApiErrorDetail } {
 
 /** Thin, typed wrapper over the Sentry internal UI API (architecture §7). */
 export const apiClient = {
+  // Authentication (ADR-0010). None of these carry a credential in a header —
+  // the session is a cookie the browser attaches itself.
+  authState: () => request<AuthStateResponse>('/auth/state'),
+  login: (password: string) =>
+    request<void>('/auth/login', { method: 'POST', body: JSON.stringify({ password }) }),
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+  setConsolePassword: (newPassword: string, currentPassword: string | null) =>
+    request<void>('/auth/password', {
+      method: 'POST',
+      body: JSON.stringify({
+        new_password: newPassword,
+        // Omitted entirely rather than sent as null when setting the first
+        // password, matching how the hotspot form omits an unchanged passphrase.
+        ...(currentPassword === null ? {} : { current_password: currentPassword }),
+      }),
+    }),
+
   getStatus: () => request<StatusResponse>('/status'),
   getHealth: () => request<HealthResponse>('/health'),
   listDevices: () => request<DevicesListResponse>('/devices'),
