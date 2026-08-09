@@ -83,7 +83,17 @@ export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<Hotspo
     authTokenParagraph,
   ])
 
-  const notice = noticeBox({ tone: 'warn', role: 'alert', children: [wrapper] })
+  // Roomier than the default `px-4 py-3`: this is a panel of instructions, not
+  // a one-line alert, and at the default its code block and button sat against
+  // the fill's edges.
+  const SETUP_CARD_PADDING = 'px-6 py-5'
+
+  const notice = noticeBox({
+    tone: 'warn',
+    role: 'alert',
+    extraClasses: SETUP_CARD_PADDING,
+    children: [wrapper],
+  })
 
   function render(nextProps: HotspotSetupHelpProps): void {
     const lines = requiredLines(nextProps)

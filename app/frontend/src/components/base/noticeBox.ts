@@ -37,6 +37,18 @@ export interface NoticeBoxProps {
   tone?: NoticeTone
   /** ARIA live semantics. Omit entirely for a notice that is not an announcement. */
   role?: 'status' | 'alert' | null
+  /**
+   * Extra classes, folded into the rebuilt `className` on every update.
+   *
+   * A prop rather than something a caller adds to `element.classList`, because
+   * `update` reassigns `className` wholesale — anything set from outside would
+   * survive until the first state change and then silently vanish.
+   *
+   * For the rare notice that is a panel rather than a line: the hotspot setup
+   * card carries several paragraphs, a code block and a button, and the default
+   * `px-4 py-3` that suits a one-line alert leaves that content on the edges.
+   */
+  extraClasses?: string
   children: Child[]
 }
 
@@ -57,7 +69,7 @@ export function noticeBox(props: NoticeBoxProps): Component<NoticeBoxProps> {
     'div',
     {
       attrs: { role: props.role ?? undefined },
-      class: classes(BASE_CLASSES, TONE_CLASSES[props.tone ?? 'info']),
+      class: classes(BASE_CLASSES, TONE_CLASSES[props.tone ?? 'info'], props.extraClasses),
     },
     props.children,
   )
@@ -67,7 +79,11 @@ export function noticeBox(props: NoticeBoxProps): Component<NoticeBoxProps> {
 
     update(nextProps): void {
       setAttribute(root, 'role', nextProps.role ?? null)
-      root.className = classes(BASE_CLASSES, TONE_CLASSES[nextProps.tone ?? 'info'])
+      root.className = classes(
+        BASE_CLASSES,
+        TONE_CLASSES[nextProps.tone ?? 'info'],
+        nextProps.extraClasses,
+      )
       syncChildren(root, nextProps.children)
     },
 

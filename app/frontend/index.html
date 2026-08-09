@@ -88,7 +88,11 @@
             stroke="#ffffff"
             stroke-width="4.08"
           />
-          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#c8ff00" />
+          <!-- `signal.muted` (#66686e), not the lime accent. The accent means
+               "live" everywhere else in this UI — a streaming dot, an enabled
+               toggle, the active rail entry — so spending it on a mark that is
+               always the same regardless of state weakened what it signals. -->
+          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#66686e" />
         </svg>
         <h1
           class="m-0 font-wordmark text-[23px] font-medium uppercase leading-none tracking-wordmark text-ink-inverse"
