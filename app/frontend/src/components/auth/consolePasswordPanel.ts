@@ -122,7 +122,7 @@ export function consolePasswordPanel(): Component<void> {
       introParagraph,
       state.passwordSet
         ? 'Changing the password signs out every other browser immediately, including one you no longer have.'
-        : 'This Sentry controller has no password. Anyone who can reach it can change your SDRs.',
+        : 'This Sentry controller has no password. Anyone who can reach it can change your SDR settings.',
     )
     setText(
       statusLine,

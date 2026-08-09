@@ -30,7 +30,7 @@ export function unprotectedWarning(): Component<void> {
   })
 
   const message = el('p', { class: 'm-0' }, [
-    'This Sentry controller has no password — anyone who can reach it can change your SDRs.',
+    'This Sentry controller has no password — anyone who can reach it can change your SDR settings.',
   ])
 
   const notice = noticeBox({

@@ -82,7 +82,7 @@ export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<Hotspo
     'Hotspot control is off by default because it is the one setting that lets this web API reconfigure the Pi’s own networking. Turning it on is deliberately something only someone with access to the Pi can do.',
   ])
   const passwordParagraph = el('p', { class: 'm-0 text-[11px] leading-[1.6]' }, [
-    'A controller password is also required before a hotspot can start: anyone connected to the Sentry WiFi is on the same network as this controller, and could change your SDRs. Set one in ',
+    'A controller password is also required before a hotspot can start: anyone connected to the Sentry WiFi is on the same network as this controller, and could change your SDR settings. Set one in ',
     el('strong', { class: 'font-semibold' }, ['Sentry controller password']),
     ' above.',
   ])
