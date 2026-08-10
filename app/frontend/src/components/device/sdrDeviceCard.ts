@@ -2,6 +2,7 @@ import { el, setText, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
 import type { DeviceStatus } from '../../api/client.js'
 import { patchDevice, sdrsStore } from '../../state/sdrsStore.js'
+import { baseButton } from '../base/baseButton.js'
 import { baseToggle } from '../base/baseToggle.js'
 import { dataCell } from '../base/dataCell.js'
 import { monoValue } from '../base/monoValue.js'
@@ -73,36 +74,133 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   let validatedNameDraft: string | null = null
   let validatedPortDraft: number | null = null
 
+  // Whether the operator has touched this card since it was last in step with
+  // the server. Tracked explicitly rather than inferred from "do the drafts
+  // differ from the device", because that comparison cannot tell an edit made
+  // here from a change made elsewhere — and answering "dirty" to the second
+  // would freeze the card against every rename arriving from Sentinel.
+  let hasLocalEdits = false
+
+  function noteLocalEdit(): void {
+    hasLocalEdits = true
+  }
+
   function currentDevice(): DeviceStatus {
     return currentProps.device
   }
 
+  // Blur reports a *validated* value; it no longer writes it. Each of these
+  // records the cleaned-up draft and nothing more — the network write happens
+  // once, when Save is pressed, so a half-finished card is never persisted and
+  // tabbing between fields costs no requests.
   function commitName(name: string): void {
-    if (currentDevice().record_id === null) {
-      validatedNameDraft = name
-      attemptFirstConfigurationCommit()
-      return
-    }
-    void patchDevice(currentDevice().device_id, { name })
+    noteLocalEdit()
+    nameDraft = name
+    validatedNameDraft = name
+    render()
   }
 
   function commitPort(port: number): void {
-    if (currentDevice().record_id === null) {
-      validatedPortDraft = port
-      attemptFirstConfigurationCommit()
-      return
-    }
-    void patchDevice(currentDevice().device_id, { output_port: port })
+    noteLocalEdit()
+    portDraft = port
+    validatedPortDraft = port
+    render()
   }
 
-  function attemptFirstConfigurationCommit(): void {
-    if (validatedNameDraft === null || validatedPortDraft === null) {
+  function commitAntenna(antenna: string): void {
+    noteLocalEdit()
+    antennaDraft = antenna
+    render()
+  }
+
+  function commitNotes(notes: string): void {
+    noteLocalEdit()
+    notesDraft = notes
+    render()
+  }
+
+  /** Whether any draft differs from what the server currently holds. */
+  function draftsDifferFromDevice(): boolean {
+    const device = currentDevice()
+    return (
+      nameDraft !== device.name ||
+      portDraft !== (device.output?.iq_port ?? null) ||
+      antennaDraft !== device.antenna ||
+      notesDraft !== device.notes
+    )
+  }
+
+  /** Whether this operator has changes here that the server has not got yet. */
+  function hasUnsavedChanges(): boolean {
+    return hasLocalEdits && draftsDifferFromDevice()
+  }
+
+  /** True while this card's own PATCH is in flight. */
+  function isSaving(): boolean {
+    return sdrsStore.state.pendingPatchesByDeviceId[currentDevice().device_id] !== undefined
+  }
+
+  /**
+   * Whether Save can currently do anything useful.
+   *
+   * A device with no persisted row needs a *valid* name and port together —
+   * the server has nothing to apply a partial patch to — so Save stays
+   * unavailable until both have passed their own field validation.
+   */
+  function canSave(): boolean {
+    if (!hasUnsavedChanges() || isSaving()) {
+      return false
+    }
+    if (currentDevice().record_id === null) {
+      return validatedNameDraft !== null && validatedPortDraft !== null
+    }
+    return true
+  }
+
+  function saveChanges(): void {
+    if (!canSave()) {
       return
     }
-    void patchDevice(currentDevice().device_id, {
-      name: validatedNameDraft,
-      output_port: validatedPortDraft,
-    })
+    const device = currentDevice()
+
+    if (device.record_id === null) {
+      void patchDevice(device.device_id, {
+        name: validatedNameDraft as string,
+        output_port: validatedPortDraft as number,
+      })
+      return
+    }
+
+    // Only what actually changed: sending untouched fields back would make
+    // every save a write of the whole row, and would clobber a field another
+    // browser edited while this card sat open on stale values.
+    const patch: Parameters<typeof patchDevice>[1] = {}
+    if (nameDraft !== device.name) {
+      patch.name = nameDraft
+    }
+    if (portDraft !== null && portDraft !== (device.output?.iq_port ?? null)) {
+      patch.output_port = portDraft
+    }
+    if (antennaDraft !== device.antenna) {
+      patch.antenna = antennaDraft
+    }
+    if (notesDraft !== device.notes) {
+      patch.notes = notesDraft
+    }
+    void patchDevice(device.device_id, patch)
+  }
+
+  /** Throw the drafts away and show what the server holds. */
+  function discardChanges(): void {
+    const device = currentDevice()
+    nameDraft = device.name
+    portDraft = device.output?.iq_port ?? null
+    antennaDraft = device.antenna
+    notesDraft = device.notes
+    validatedNameDraft = null
+    validatedPortDraft = null
+    hasLocalEdits = false
+    render()
   }
 
   function commitEnabled(enabled: boolean): void {
@@ -111,17 +209,6 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
 
   function commitVisibility(visibility: 'public' | 'private'): void {
     void patchDevice(currentDevice().device_id, { visibility })
-  }
-
-  // Antenna and notes are only ever offered on a device that already has a
-  // persisted row, so — unlike name and port — they never need the combined
-  // first-configuration PATCH above and can always be committed alone.
-  function commitAntenna(antenna: string): void {
-    void patchDevice(currentDevice().device_id, { antenna })
-  }
-
-  function commitNotes(notes: string): void {
-    void patchDevice(currentDevice().device_id, { notes })
   }
 
   function requestSerialFlash(): void {
@@ -200,7 +287,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     'p',
     { class: 'col-span-full m-0 text-[12.5px] leading-[1.55] text-signal-muted' },
     [
-      'Configuring a new device needs both a valid name and a valid output port — nothing is saved until both fields have been entered.',
+      'Configuring a new device needs both a valid name and a valid output port — Save becomes available once both have been entered.',
     ],
   )
 
@@ -288,6 +375,37 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     onCommit: commitNotes,
   })
 
+  // --- Save ---
+  // One Save for the whole card rather than one per field: the four editable
+  // fields describe a single device, an operator changing two of them means one
+  // change, and a first configuration *must* send name and port together
+  // anyway. The row is only rendered when something is actually unsaved, so a
+  // card at rest carries no controls that would do nothing.
+  const unsavedLabel = el('span', { class: 'text-[12.5px] leading-[1.55] text-signal-muted' }, [
+    'Unsaved changes',
+  ])
+  const saveButton = baseButton({
+    variant: 'primary',
+    onClick: saveChanges,
+    children: ['Save changes'],
+  })
+  const discardButton = baseButton({
+    variant: 'ghost',
+    onClick: discardChanges,
+    children: ['Discard'],
+  })
+  // `role="status"` so the row's arrival is announced rather than only seen —
+  // a keyboard operator who has tabbed past the fields gets told there is
+  // something left to do.
+  const saveRow = el(
+    'div',
+    {
+      attrs: { role: 'status' },
+      class: 'flex flex-wrap items-center gap-x-4 gap-y-3',
+    },
+    [saveButton.element, discardButton.element, unsavedLabel],
+  )
+
   const article = el(
     'article',
     {
@@ -301,31 +419,34 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       fieldsGrid,
       antennaField.element,
       notesField.element,
+      saveRow,
     ],
   )
 
   function render(): void {
     const device = currentDevice()
 
-    // Never re-sync a draft while the operator is working inside this card.
+    // A save that landed puts the card back in step: the device now carries
+    // what was typed, so the edits are no longer local and the row can go.
+    if (hasLocalEdits && !isSaving() && !draftsDifferFromDevice()) {
+      hasLocalEdits = false
+    }
+
+    // Never re-sync a draft over an unsaved change.
     //
-    // The pending-patch check alone was not enough, and the gap it left was the
-    // whole editing session: a patch only exists *after* a field commits on
-    // blur, so from the first keystroke until the operator tabs away there is
-    // nothing pending — and `health` arrives every 5 seconds. Each one reset
-    // every draft to the stored value, wiped the input, and left a later blur
-    // committing the empty draft it had just been given. Typing a note and
-    // watching it vanish was the reported symptom; name, port and antenna were
-    // going the same way.
+    // `health` arrives every 5 seconds, and each one re-renders every card. The
+    // earlier guard was "is anything inside this card focused", which held only
+    // while a field had the caret — enough when blur saved immediately, and
+    // wrong now that saving is a separate press: tab out of a field and the
+    // next tick would restore the stored value before Save was ever reached.
     //
-    // Focus is the right test rather than "is this field dirty": it is what
-    // distinguishes "the operator is in the middle of something" from "this
-    // card is idle and should follow the server".
-    const isBeingEdited = article.contains(document.activeElement)
-    if (
-      !isBeingEdited &&
-      sdrsStore.state.pendingPatchesByDeviceId[device.device_id] === undefined
-    ) {
+    // Dirtiness is the honest test. A card with no edits has drafts equal to
+    // the device already, so syncing it is a no-op either way; a card with
+    // edits keeps them until the operator saves or discards. That is the
+    // deliberate trade agreed for this UI — local drafts win over a concurrent
+    // change from elsewhere, silently, because a conflict notice on a
+    // single-operator device would be noise.
+    if (!hasUnsavedChanges() && !isSaving()) {
       nameDraft = device.name
       portDraft = device.output?.iq_port ?? null
       antennaDraft = device.antenna
@@ -358,6 +479,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     nameField.update({
       value: nameDraft,
       onChange: (value) => {
+        noteLocalEdit()
         nameDraft = value
         render()
       },
@@ -368,6 +490,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     portField.update({
       value: portDraft,
       onChange: (value) => {
+        noteLocalEdit()
         portDraft = value
         render()
       },
@@ -411,6 +534,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     antennaField.update({
       value: antennaDraft,
       onChange: (value) => {
+        noteLocalEdit()
         antennaDraft = value
         render()
       },
@@ -420,11 +544,28 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     notesField.update({
       value: notesDraft,
       onChange: (value) => {
+        noteLocalEdit()
         notesDraft = value
         render()
       },
       onCommit: commitNotes,
     })
+
+    const saving = isSaving()
+    setVisible(saveRow, hasUnsavedChanges() || saving)
+    saveButton.update({
+      variant: 'primary',
+      onClick: saveChanges,
+      disabled: !canSave(),
+      children: [saving ? 'Saving…' : 'Save changes'],
+    })
+    discardButton.update({
+      variant: 'ghost',
+      onClick: discardChanges,
+      disabled: saving,
+      children: ['Discard'],
+    })
+    setText(unsavedLabel, saving ? '' : 'Unsaved changes')
   }
 
   render()
@@ -456,6 +597,8 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       gainMono.destroy()
       antennaField.destroy()
       notesField.destroy()
+      saveButton.destroy()
+      discardButton.destroy()
     },
   }
 }
