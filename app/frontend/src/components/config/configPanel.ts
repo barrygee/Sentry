@@ -40,7 +40,7 @@ export function configPanel(): Component<void> {
   const heading = sectionHeading({ level: 2, children: ['Configuration'] })
   heading.element.id = headingId
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
-    'Move a whole Sentry setup to another Pi. The file carries every configured device’s name, port, antenna, notes and visibility — never any password.',
+    'Export this Sentry’s configuration, then import it into another Sentry. It carries each device’s name, port, antenna, notes and visibility. Passwords are not exported.',
   ])
   // No top padding of its own: every settings section is a card now, and the
   // card's own `p-card` is what separates a heading from the box above it. An
