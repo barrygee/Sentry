@@ -301,17 +301,11 @@
                    what the rail already said. It stays in the DOM because it is
                    this view's accessible name and the element navigation moves
                    focus to on arrival — deleting it would break both. -->
-              <!-- Negative margins cancel the shared gutter wrapper's padding, so the
-                   white surface reaches the edges of the main column instead of
-                   floating inside a grey border, then the same values are added
-                   back as padding so the content keeps its gutters. The wrapper
-                   is shared with the devices view, which must stay on the page
-                   canvas — so the break-out lives here rather than there. -->
-              <div
-                data-ref="settings-view"
-                class="-mx-5 -mb-16 -mt-[34px] flex flex-col gap-10 bg-ground-panel px-5 pb-16 pt-[34px] md:-mx-gutter md:px-gutter"
-                hidden
-              >
+              <!-- On the page canvas, not a surface of its own: each section below is
+                   its own white card (matching the device cards in the other
+                   view), and a white panel behind white cards would erase the
+                   edges that separate them. -->
+              <div data-ref="settings-view" class="flex flex-col gap-6" hidden>
                 <h2
                   id="settings-heading"
                   data-ref="settings-heading-anchor"
