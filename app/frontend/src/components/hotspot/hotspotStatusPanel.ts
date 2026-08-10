@@ -32,7 +32,7 @@ export interface HotspotStatusPanelProps {
 function statusLabel(state: HotspotState): string {
   // Off in `.env`, which is how every Sentry starts (ADR-0007). Deliberate, not
   // a fault — the card below says how to turn it on.
-  if (!state.control_enabled) return 'Switched off on this Pi'
+  if (!state.control_enabled) return 'WiFi hotspot switched off on this Pi'
   // Control is on, but NetworkManager cannot be reached. This one *is* wrong.
   if (!state.available) return 'WiFi control unavailable'
   if (!state.configured) return 'Not set up'
