@@ -37,10 +37,15 @@ import { configImportReport } from './configImportReport.js'
 export function configPanel(): Component<void> {
   const headingId = nextElementId('config-dialog-heading')
 
-  const heading = sectionHeading({ level: 2, children: ['Configuration'] })
+  const heading = sectionHeading({
+    level: 2,
+    size: 'section',
+    accentDot: true,
+    children: ['Configuration'],
+  })
   heading.element.id = headingId
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
-    'Move a whole Sentry setup to another Pi. The file carries every configured device’s name, port, antenna, notes and visibility — never any password.',
+    'Export this Sentry’s configuration, then import it into another Sentry. It carries each device’s name, port, antenna, notes and visibility. Passwords are not exported.',
   ])
   // No top padding of its own: every settings section is a card now, and the
   // card's own `p-card` is what separates a heading from the box above it. An
@@ -140,7 +145,10 @@ export function configPanel(): Component<void> {
     pendingActionsRow,
   ])
 
-  const importReportSlot = el('div')
+  // `contents` for the same reason as the sign-out wrapper: empty, a plain div
+  // is still a flex item and still earns the section's gap, leaving the card
+  // padded at the bottom by a row with nothing in it.
+  const importReportSlot = el('div', { class: 'contents' })
 
   const importSection = el(
     'section',
