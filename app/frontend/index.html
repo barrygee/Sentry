@@ -65,9 +65,7 @@
            22.5-unit cap height at 16.8px on screen. Inter's cap height is
            1490/2048 em, giving a 23px font size. The 8px gap is its own 11.35
            unit gap at that scale. -->
-      <header
-        class="flex h-[68px] shrink-0 items-center gap-2 bg-ground-header pl-[10px] pr-[22px]"
-      >
+      <header class="flex h-[68px] shrink-0 items-center gap-2 bg-ground-header pl-4 pr-[22px]">
         <!-- The ⊙ mark, identical to Sentinel's — a white ring with a lime
              centre dot. Proportions are ratios of its 34.90 artboard: ring
              radius 14.41, stroke 4.08, dot radius 5.69, about centre 17.4497.
@@ -287,12 +285,21 @@
                    section's accessible name, and the boxes below would otherwise
                    be an unlabelled run. -->
                 <section aria-labelledby="devices-heading" class="flex flex-col gap-4">
+                  <!-- Visible now, and the page's own title rather than a
+                       caption on the first box: the boxes below carry their own
+                       headings, and this names the destination the rail
+                       switched to. Still the skip link's target and this
+                       section's accessible name. -->
                   <h2
                     id="devices-heading"
                     data-ref="devices-heading-anchor"
                     tabindex="-1"
-                    class="sr-only outline-none"
+                    class="m-0 flex items-center gap-3 font-condensed text-[21px] font-semibold uppercase leading-tight tracking-[0.16em] text-ink-primary outline-none"
                   >
+                    <span
+                      aria-hidden="true"
+                      class="h-1.5 w-1.5 shrink-0 rounded-full bg-signal-accent"
+                    ></span>
                     SDR devices
                   </h2>
                   <div data-ref="device-list" class="flex flex-col gap-4"></div>
@@ -314,8 +321,12 @@
                   id="settings-heading"
                   data-ref="settings-heading-anchor"
                   tabindex="-1"
-                  class="sr-only outline-none"
+                  class="m-0 flex items-center gap-3 font-condensed text-[21px] font-semibold uppercase leading-tight tracking-[0.16em] text-ink-primary outline-none"
                 >
+                  <span
+                    aria-hidden="true"
+                    class="h-1.5 w-1.5 shrink-0 rounded-full bg-signal-accent"
+                  ></span>
                   Settings
                 </h2>
                 <div data-ref="console-password-panel"></div>
