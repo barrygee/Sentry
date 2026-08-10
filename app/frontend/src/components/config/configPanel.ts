@@ -13,7 +13,6 @@ import {
   applyPendingImport,
   clearPendingImport,
   configStore,
-  downloadConfig,
   pendingDeviceCount,
   pendingHasHotspot,
   stagePickedFile,
@@ -55,21 +54,6 @@ export function configPanel(): Component<void> {
 
   const errorNotice = noticeBox({ tone: 'danger', role: 'status', children: [] })
 
-  // Export section.
-  const exportHeadingId = nextElementId('config-export-heading')
-  const exportHeading = sectionHeading({ level: 3, size: 'small', children: ['Export'] })
-  exportHeading.element.id = exportHeadingId
-  const downloadButton = baseButton({
-    variant: 'ghost',
-    onClick: () => void downloadConfig(),
-    children: ['Download configuration'],
-  })
-  const exportSection = el(
-    'section',
-    { class: 'flex flex-col gap-3', attrs: { 'aria-labelledby': exportHeadingId } },
-    [exportHeading.element, el('div', {}, [downloadButton.element])],
-  )
-
   const editorSection = configEditorSection({ preview: null, busy: false })
 
   // Import section.
@@ -91,7 +75,7 @@ export function configPanel(): Component<void> {
   const pickFileButton = baseButton({
     variant: 'ghost',
     onClick: () => pickFile(),
-    children: ['Choose a configuration file…'],
+    children: ['Import config'],
   })
   const noPendingImportBlock = el('div', { class: 'flex flex-col gap-3' }, [
     noPendingImportParagraph,
@@ -177,11 +161,7 @@ export function configPanel(): Component<void> {
       // own `gap-6`. At the same gap, IMPORT sat as close to the export button
       // as that button did to its own caption, so the two halves read as one
       // run of controls rather than two things you choose between.
-      el('div', { class: 'flex flex-col gap-10' }, [
-        exportSection,
-        editorSection.element,
-        importSection,
-      ]),
+      el('div', { class: 'flex flex-col gap-10' }, [editorSection.element, importSection]),
     ],
   )
 
@@ -233,17 +213,11 @@ export function configPanel(): Component<void> {
       errorNotice.update({ tone: 'danger', role: 'status', children: [state.errorMessage] })
     }
 
-    downloadButton.update({
-      variant: 'ghost',
-      disabled: isBusy,
-      onClick: () => void downloadConfig(),
-      children: ['Download configuration'],
-    })
     pickFileButton.update({
       variant: 'ghost',
       disabled: isBusy,
       onClick: () => pickFile(),
-      children: ['Choose a configuration file…'],
+      children: ['Import config'],
     })
 
     const hasPendingImport = state.pendingImport !== null
