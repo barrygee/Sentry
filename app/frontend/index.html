@@ -91,14 +91,11 @@
             stroke="#ffffff"
             stroke-width="4.08"
           />
-          <!-- White, matching the ring, so the mark reads as one object: a
-               filled centre and its outline in the same ink, on the dark header.
-
-               Not the lime accent, which it used to be. The accent means "live"
-               everywhere else in this UI — a streaming dot, an enabled toggle,
-               the active rail entry — so spending it on a mark that never
-               changes weakened what it signals. -->
-          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#ffffff" />
+          <!-- `signal.accent` (#c8ff00), the same lime Sentinel's mark uses.
+               The two apps' marks are one identity rather than two drawings of
+               it, which is worth more here than reserving the accent purely for
+               live state. -->
+          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#c8ff00" />
         </svg>
         <h1
           class="m-0 font-wordmark text-[23px] font-medium uppercase leading-none tracking-wordmark text-ink-inverse"
