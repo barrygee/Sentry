@@ -261,7 +261,11 @@
                  button would otherwise be left with focus on the rail and no
                  signal that the page changed. -->
             <div class="flex w-full max-w-content flex-col gap-6 px-5 pb-16 pt-[34px] md:px-gutter">
-              <div data-ref="devices-view" class="flex flex-col gap-6">
+              <!-- `gap-4`, matching the card-to-card gap inside the list below:
+                   the warning and the notices are part of the same vertical
+                   stack as the device boxes, and a wider gap above the first
+                   card made them read as a separate region floating above it. -->
+              <div data-ref="devices-view" class="flex flex-col gap-4">
                 <!-- `contents` on both: these wrappers exist so `main.ts` and
                      `sdrsView` have something stable to mount into, but an empty
                      one is still a flex item and still earns a `gap-6` from the
