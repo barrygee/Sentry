@@ -61,6 +61,31 @@ async function backgroundRefresh(device: DeviceStatus): Promise<void> {
 
 let card: Component<{ device: DeviceStatus; onRequestSerialFlash: (id: string) => void }>
 
+/**
+ * The card's Save/Discard controls, which exist only while something is unsaved.
+ *
+ * Walks the inline `display` that `setVisible` sets, rather than `offsetParent`:
+ * jsdom does no layout, so `offsetParent` is always null and would report every
+ * button as hidden.
+ */
+function isVisible(element: HTMLElement): boolean {
+  for (let node: HTMLElement | null = element; node; node = node.parentElement) {
+    if (node.style.display === 'none') return false
+  }
+  return true
+}
+
+function findButton(label: string): HTMLButtonElement | undefined {
+  const buttons = Array.from(card.element.querySelectorAll('button'))
+  return buttons.find((button) => (button.textContent ?? '').trim() === label && isVisible(button))
+}
+
+function buttonLabelled(label: string): HTMLButtonElement {
+  const button = findButton(label)
+  if (!button) throw new Error(`No visible button labelled "${label}"`)
+  return button
+}
+
 function fieldByLabel(label: string): HTMLTextAreaElement | HTMLInputElement {
   const controls = Array.from(card.element.querySelectorAll('input, textarea'))
   const match = controls.find((control) => {
@@ -123,39 +148,72 @@ describe('sdrDeviceCard inline edits', () => {
     expect(name.value).toBe('Roof AIS')
   })
 
-  it('commits what was typed, not what the refresh overwrote it with', async () => {
-    // The nastier half: even where the DOM survived, the card's draft had been
-    // reset, so blurring committed an empty value over the operator's text.
+  it('does not save on blur', async () => {
+    // The change the operator asked for: leaving a field is not a decision to
+    // persist it. Blur still *validates* and cleans the value up — it just no
+    // longer writes it.
     const notes = fieldByLabel('Notes')
     notes.focus()
     notes.value = 'Intermittent below 150 MHz'
     notes.dispatchEvent(new Event('input', { bubbles: true }))
-
-    await backgroundRefresh(deviceFixture())
-    notes.dispatchEvent(new Event('blur', { bubbles: false }))
+    notes.blur()
     await Promise.resolve()
 
-    const pending = sdrsStore.state.pendingPatchesByDeviceId['serial:AIS-01']
-    expect(pending?.notes).toBe('Intermittent below 150 MHz')
+    expect(sdrsStore.state.pendingPatchesByDeviceId['serial:AIS-01']).toBeUndefined()
+    expect(apiClient.patchDevice).not.toHaveBeenCalled()
   })
 
-  it('commits a note typed and blurred with no refresh in between', async () => {
-    // The commonest case, and the one the other tests miss: each of those has a
-    // background refresh between typing and blurring, which is itself what
-    // brings the field's props up to date. Type and click straight away and
-    // there is no refresh — the field would otherwise commit the value it was
-    // last rendered with, which is whatever was there before.
+  it('saves what was typed when Save is pressed', async () => {
     const notes = fieldByLabel('Notes')
     notes.focus()
     notes.value = 'Swapped the feeder'
     notes.dispatchEvent(new Event('input', { bubbles: true }))
+    notes.blur()
 
-    notes.dispatchEvent(new Event('blur', { bubbles: false }))
+    // A refresh between typing and saving must not undo the edit — this is the
+    // window the old focus-based guard left open, since nothing is focused once
+    // the operator has tabbed away and reached for the button.
+    await backgroundRefresh(deviceFixture())
+    buttonLabelled('Save changes').click()
     await Promise.resolve()
 
     expect(sdrsStore.state.pendingPatchesByDeviceId['serial:AIS-01']?.notes).toBe(
       'Swapped the feeder',
     )
+  })
+
+  it('sends only the fields that changed', async () => {
+    const notes = fieldByLabel('Notes')
+    notes.focus()
+    notes.value = 'Roof work booked'
+    notes.dispatchEvent(new Event('input', { bubbles: true }))
+    notes.blur()
+    buttonLabelled('Save changes').click()
+    await Promise.resolve()
+
+    // Untouched fields are absent, not resent — a save of the whole row would
+    // clobber whatever another browser changed while this card sat open.
+    const patch = sdrsStore.state.pendingPatchesByDeviceId['serial:AIS-01']
+    expect(Object.keys(patch ?? {})).toEqual(['notes'])
+  })
+
+  it('throws the edit away on Discard, and saves nothing', async () => {
+    const notes = fieldByLabel('Notes')
+    notes.focus()
+    notes.value = 'Typed by mistake'
+    notes.dispatchEvent(new Event('input', { bubbles: true }))
+    notes.blur()
+
+    buttonLabelled('Discard').click()
+    await Promise.resolve()
+
+    expect(fieldByLabel('Notes').value).toBe('')
+    expect(apiClient.patchDevice).not.toHaveBeenCalled()
+  })
+
+  it('offers no Save on a card with nothing unsaved', () => {
+    // A card at rest carries no controls that would do nothing.
+    expect(findButton('Save changes')).toBeUndefined()
   })
 
   it('still follows the server for a card nobody is editing', async () => {

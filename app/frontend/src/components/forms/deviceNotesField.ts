@@ -7,7 +7,8 @@ import { baseField } from '../base/baseField.js'
  * along with every other device field.
  *
  * Multi-line and optional: an empty value commits as `""`, clearing the note.
- * Commits on blur like every other field on the card.
+ * Validated on blur like every other field on the card; blur reports the
+ * cleaned-up value to the card, which holds it as a draft until Save is pressed.
  */
 export interface DeviceNotesFieldProps {
   value: string
