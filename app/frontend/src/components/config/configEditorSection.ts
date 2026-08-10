@@ -68,10 +68,6 @@ function formatConfig(preview: SentryConfig | null): string {
 export function configEditorSection(
   props: ConfigEditorSectionProps,
 ): Component<ConfigEditorSectionProps> {
-  const headingId = nextElementId('config-editor-heading')
-  const heading = sectionHeading({ level: 3, size: 'small', children: ['View and edit'] })
-  heading.element.id = headingId
-
   let draft = formatConfig(props.preview)
   let hasLocalEdits = false
   let confirmOpen = false
@@ -79,10 +75,6 @@ export function configEditorSection(
   // escape hatch, not the primary way to change a device, and eighteen rows of
   // JSON sitting open would dominate a panel most visits never use it for.
   let editorVisible = false
-
-  const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
-    'This Sentry’s configuration as it stands. Edit it and press Save to apply it — the same as importing a file with these contents.',
-  ])
 
   const INDENT = '  '
 
@@ -293,12 +285,18 @@ export function configEditorSection(
 
   const section = el(
     'section',
-    { class: 'flex flex-col gap-3', attrs: { 'aria-labelledby': headingId } },
+    // Labelled directly now that the visible heading is gone: the section still
+    // has to announce itself to a screen reader reading the settings landmarks.
+    { class: 'flex flex-col gap-3', attrs: { 'aria-label': 'Configuration' } },
+    // Controls sit *after* the textarea: collapsed, they are all there is to
+    // see; expanded, they land where the operator's eye already is — at the end
+    // of the JSON they have just finished reading, rather than back at the top.
+    //
     // `confirmDialog.element` is deliberately absent: `baseDialog` teleports its
     // own overlay to `document.body` as `open` changes. Appending it here made
     // it a child of this section instead, so it rendered the moment Settings
     // opened and no amount of closing removed it.
-    [heading.element, introParagraph, disclosureRow, configField.element, buttonRow],
+    [configField.element, disclosureRow, buttonRow],
   )
 
   let currentProps = props
@@ -398,7 +396,6 @@ export function configEditorSection(
     },
 
     destroy(): void {
-      heading.destroy()
       configField.destroy()
       saveButton.destroy()
       revertButton.destroy()
