@@ -24,7 +24,7 @@ import { noticeBox } from '../base/noticeBox.js'
  */
 export function unprotectedWarning(): Component<void> {
   const setPasswordButton = baseButton({
-    variant: 'primary',
+    variant: 'on-bright',
     onClick: () => openSetupPrompt(),
     children: ['Set a password'],
   })

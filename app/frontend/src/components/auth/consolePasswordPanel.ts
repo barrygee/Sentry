@@ -63,7 +63,11 @@ export function consolePasswordPanel(): Component<void> {
     children: ['Password updated. Any other signed-in browser has been signed out.'],
   })
 
-  const saveButton = baseButton({ type: 'submit', variant: 'primary', children: ['Set password'] })
+  const saveButton = baseButton({
+    type: 'submit',
+    variant: 'on-bright',
+    children: ['Set password'],
+  })
   const signOutButton = baseButton({
     variant: 'ghost',
     onClick: () => void signOut(),
@@ -159,7 +163,7 @@ export function consolePasswordPanel(): Component<void> {
     })
     saveButton.update({
       type: 'submit',
-      variant: 'primary',
+      variant: 'on-bright',
       disabled: busy,
       children: [busy ? 'Saving…' : state.passwordSet ? 'Change password' : 'Set password'],
     })
