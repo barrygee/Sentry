@@ -43,7 +43,12 @@ export function configPanel(): Component<void> {
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
     'Move a whole Sentry setup to another Pi. The file carries every configured device’s name, port, antenna, notes and visibility — never any password.',
   ])
-  const headerBlock = el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph])
+  // `pt-6` rather than a gap on the parent: this panel follows another section
+  // in the settings view, and the separation belongs to what starts here.
+  const headerBlock = el('div', { class: 'flex flex-col gap-2 pt-6' }, [
+    heading.element,
+    introParagraph,
+  ])
 
   const busyStatusRegion = el('p', { attrs: { role: 'status' }, class: 'sr-only' }, [])
   const errorAlertRegion = el('p', { attrs: { role: 'alert' }, class: 'sr-only' }, [])
@@ -52,7 +57,7 @@ export function configPanel(): Component<void> {
 
   // Export section.
   const exportHeadingId = nextElementId('config-export-heading')
-  const exportHeading = sectionHeading({ level: 3, children: ['Export'] })
+  const exportHeading = sectionHeading({ level: 3, size: 'small', children: ['Export'] })
   exportHeading.element.id = exportHeadingId
   const configuredDevicesCell = dataCell({
     label: 'Configured devices',
@@ -83,7 +88,7 @@ export function configPanel(): Component<void> {
 
   // Import section.
   const importHeadingId = nextElementId('config-import-heading')
-  const importHeading = sectionHeading({ level: 3, children: ['Import'] })
+  const importHeading = sectionHeading({ level: 3, size: 'small', children: ['Import'] })
   importHeading.element.id = importHeadingId
 
   const fileInput = el('input', {

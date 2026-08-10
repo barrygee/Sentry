@@ -20,18 +20,33 @@ import { syncChildren } from './childrenSync.js'
 export interface SectionHeadingProps {
   /** Heading level, 1-3. Defaults to `2`. */
   level?: 1 | 2 | 3
+  /**
+   * Visual size, independent of `level`.
+   *
+   * Kept separate on purpose: a subsection inside a panel needs a smaller
+   * heading than the panel's own, but it still has to be an `h3` for the page
+   * outline to make sense to a screen reader. Tying size to level would force a
+   * choice between correct semantics and correct typography.
+   *
+   * Set at construction, like `level` — headings do not resize after mount.
+   */
+  size?: 'default' | 'small'
   children: Child[]
 }
 
 const HEADING_TAGS = { 1: 'h1', 2: 'h2', 3: 'h3' } as const
+
+const SIZE_CLASSES = {
+  default: 'text-[18px]',
+  small: 'text-[13px]',
+} as const
 
 /** Builds a `SectionHeading`. `update` syncs the same heading element's children in place. */
 export function sectionHeading(props: SectionHeadingProps): Component<SectionHeadingProps> {
   const root = el(
     HEADING_TAGS[props.level ?? 2],
     {
-      class:
-        'm-0 font-condensed text-[18px] font-normal uppercase leading-tight tracking-readout text-ink-primary',
+      class: `m-0 font-condensed ${SIZE_CLASSES[props.size ?? 'default']} font-normal uppercase leading-tight tracking-readout text-ink-primary`,
     },
     props.children,
   )
