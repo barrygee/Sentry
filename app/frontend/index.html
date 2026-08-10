@@ -138,9 +138,10 @@
               <button
                 type="button"
                 data-ref="nav-devices"
-                class="flex h-10 w-full items-center justify-center border-l-2 border-signal-accent bg-signal-accent/[0.08] text-signal-accent transition-colors"
+                class="rail-tip flex h-10 w-full items-center justify-center border-l-2 border-signal-accent bg-signal-accent/[0.08] text-signal-accent transition-colors"
                 aria-current="page"
                 title="SDR devices"
+                data-tooltip="SDR devices"
               >
                 <span class="sr-only">SDR devices</span>
                 <!-- A list glyph: this destination is the list of SDRs, and the
@@ -174,8 +175,9 @@
               <button
                 type="button"
                 data-ref="nav-settings"
-                class="flex h-10 w-full items-center justify-center border-l-2 border-transparent text-signal-muted transition-colors hover:text-ink-inverse"
+                class="rail-tip flex h-10 w-full items-center justify-center border-l-2 border-transparent text-signal-muted transition-colors hover:text-ink-inverse"
                 title="Settings"
+                data-tooltip="Settings"
               >
                 <span class="sr-only">Settings</span>
                 <svg
@@ -218,7 +220,7 @@
         <button
           type="button"
           data-ref="nav-rail-toggle"
-          class="fixed bottom-0 left-0 z-20 flex h-9 w-12 shrink-0 items-center justify-center bg-ground-rail text-ink-inverse opacity-60 transition-opacity hover:opacity-100"
+          class="fixed bottom-0 left-0 z-20 flex h-9 w-12 shrink-0 items-center justify-center bg-ground-rail text-ink-inverse opacity-60 transition-opacity hover:opacity-100 md:hidden"
           aria-expanded="true"
           aria-controls="nav-rail"
           aria-label="Hide sidebar"

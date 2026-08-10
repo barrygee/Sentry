@@ -173,6 +173,12 @@ export function hotspotPanel(): Component<void> {
     setVisible(contentBlock, state !== null)
 
     if (state !== null) {
+      // Nothing to report while control is switched off: every readout in the
+      // status panel is hidden in that state, leaving an empty block that still
+      // took its height and its `gap-6` — the gap between the heading and the
+      // notice below was mostly this.
+      setVisible(statusPanelSlot, state.control_enabled)
+
       if (!statusPanel) {
         statusPanel = hotspotStatusPanel({ state })
         statusPanelSlot.appendChild(statusPanel.element)
