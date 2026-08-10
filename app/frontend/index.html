@@ -49,7 +49,17 @@
          chain in `styles/input.css`. `h-screen` measures the viewport directly
          and so ignores anything else in the document, which left the shell
          taller than its container and reintroduced a second, outer scrollbar. -->
-    <div data-ref="app-shell" class="flex h-full flex-col overflow-hidden bg-ground-page">
+    <!-- Starts hidden, and `main.ts` reveals it once the server has said
+         whether this console needs a password. Without this the browser paints
+         the whole console before the module script has run at all, so a
+         protected Sentry showed its devices for a frame and then replaced them
+         with a sign-in form. `style` rather than a class because `setVisible`
+         drives `style.display`, and a class would fight it. -->
+    <div
+      data-ref="app-shell"
+      class="flex h-full flex-col overflow-hidden bg-ground-page"
+      style="display: none"
+    >
       <!-- The top bar: Sentinel's `#nav` — a full-width black band, 68px tall,
            with the ⊙ mark and wordmark at the left.
 

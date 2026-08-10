@@ -139,9 +139,18 @@ unprotectedWarningContainer.appendChild(
 const appShell = ref(shell, 'app-shell', HTMLElement)
 
 watchStore(consoleAuthStore, (state) => {
+  // Neither, until the server has said which. The store assumes
+  // `authenticated: true` so that an *open* console never flashes a login form
+  // it would immediately take away — but that assumption showed the whole
+  // console for a moment on a protected one, which is the worse half of the
+  // same trade: it shows data to someone who has not signed in yet.
+  //
+  // A blank page for that moment is the honest answer. It lasts one request,
+  // and the alternative is always wrong for one of the two kinds of console.
+  const decided = state.phase !== 'loading'
   const signingIn = mustSignIn(state)
-  setVisible(appShell, !signingIn)
-  setVisible(signInRoot, signingIn)
+  setVisible(appShell, decided && !signingIn)
+  setVisible(signInRoot, decided && signingIn)
 })
 
 void refreshAuthState()
