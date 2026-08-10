@@ -19,6 +19,7 @@ and update the old one's status to `Superseded by ADR-NNNN`.
 | [0009](0009-dual-control-sentry-owns-device-state.md) | Dual control: Sentry owns device state, Sentinel is a remote client | **Superseded by 0010** |
 | [0010](0010-sentinel-reads-sentry-manages.md) | Sentinel reads, Sentry manages; a console password replaces the API token | Accepted |
 | [0011](0011-drop-automated-accessibility-testing.md) | Drop automated accessibility testing as a requirement | Accepted |
+| [0012](0012-last-write-wins-on-device-edits.md) | Local drafts win on device edits; no conflict detection | Accepted |
 
 The design these decisions serve is
 [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md).
