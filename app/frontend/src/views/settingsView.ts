@@ -30,6 +30,7 @@ import {
 export function mountSettingsView(root: ParentNode): {
   onShown: () => void
   onHidden: () => void
+  focusPasswordField: () => void
   destroy: () => void
 } {
   const passwordContainer = ref(root, 'console-password-panel', HTMLElement)
@@ -71,6 +72,11 @@ export function mountSettingsView(root: ParentNode): {
     onHidden(): void {
       resetHotspot()
       resetConfig()
+    },
+
+    /** Focus the new-password box, for an operator sent here to set one. */
+    focusPasswordField(): void {
+      password.focusPasswordField()
     },
 
     destroy(): void {

@@ -85,7 +85,7 @@ const settingsView = mountSettingsView(shell)
 // ---------------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------------
-createNavigation({
+const navigation = createNavigation({
   devices: {
     view: ref(shell, 'devices-view', HTMLElement),
     navButton: ref(shell, 'nav-devices', HTMLButtonElement),
@@ -121,7 +121,18 @@ const signIn = signInView()
 signInRoot.appendChild(signIn.element)
 
 const unprotectedWarningContainer = ref(shell, 'unprotected-warning', HTMLElement)
-unprotectedWarningContainer.appendChild(unprotectedWarning().element)
+unprotectedWarningContainer.appendChild(
+  unprotectedWarning({
+    // Take the operator to the field rather than raising a dialog over the
+    // devices view. The password lives in Settings, which is now a real
+    // destination — a modal here would put the same control in two places and
+    // leave whoever used it unsure where to find it again.
+    onSetPassword: () => {
+      navigation.go('settings')
+      settingsView.focusPasswordField()
+    },
+  }).element,
+)
 
 // The shell and the sign-in screen are mutually exclusive. Hiding the shell
 // rather than dimming it is deliberate: every management route answers 401 in

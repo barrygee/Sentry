@@ -42,12 +42,11 @@ export function configPanel(): Component<void> {
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
     'Move a whole Sentry setup to another Pi. The file carries every configured device’s name, port, antenna, notes and visibility — never any password.',
   ])
-  // `pt-6` rather than a gap on the parent: this panel follows another section
-  // in the settings view, and the separation belongs to what starts here.
-  const headerBlock = el('div', { class: 'flex flex-col gap-2 pt-6' }, [
-    heading.element,
-    introParagraph,
-  ])
+  // No top padding of its own: every settings section is a card now, and the
+  // card's own `p-card` is what separates a heading from the box above it. An
+  // extra `pt-6` here — added when these sections shared one surface — left
+  // Configuration sitting lower inside its box than the other two.
+  const headerBlock = el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph])
 
   const busyStatusRegion = el('p', { attrs: { role: 'status' }, class: 'sr-only' }, [])
   const errorAlertRegion = el('p', { attrs: { role: 'alert' }, class: 'sr-only' }, [])
