@@ -107,7 +107,10 @@ export function consolePasswordPanel(): Component<void> {
 
   const root = el(
     'section',
-    { class: 'flex flex-col gap-4', attrs: { 'aria-labelledby': headingId } },
+    {
+      class: 'flex flex-col gap-4 bg-ground-panel p-card',
+      attrs: { 'aria-labelledby': headingId },
+    },
     [
       el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph, statusLine]),
       errorNotice.element,

@@ -149,7 +149,10 @@ export function hotspotPanel(): Component<void> {
   // page rather than inside its own box, and there is nothing to dismiss.
   const panelRoot = el(
     'section',
-    { class: 'flex flex-col gap-6', attrs: { 'aria-labelledby': headingId } },
+    {
+      class: 'flex flex-col gap-6 bg-ground-panel p-card',
+      attrs: { 'aria-labelledby': headingId },
+    },
     [headerBlock, busyStatusRegion, errorAlertRegion, loadingParagraph, contentBlock],
   )
 
