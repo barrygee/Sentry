@@ -135,7 +135,7 @@ export function configEditorSection(
   const saveButton = baseButton({
     variant: 'primary',
     onClick: requestSave,
-    children: ['Save configuration'],
+    children: ['Apply changes'],
   })
 
   const revertButton = baseButton({
@@ -144,10 +144,21 @@ export function configEditorSection(
     children: ['Revert'],
   })
 
+  // A footer bar on `ground-raised` with the commit action to the right,
+  // matching Sentinel's settings pane: the same fill, the same accent button,
+  // and the same place on screen, so the two apps do not each teach their own
+  // location for "this is where you apply changes".
+  //
+  // Revert sits left of it rather than beside it — the destructive-adjacent
+  // action should not be the one the pointer lands on by muscle memory.
   const buttonRow = el(
     'div',
-    { attrs: { role: 'status' }, class: 'flex flex-wrap items-center gap-x-4 gap-y-3' },
-    [saveButton.element, revertButton.element],
+    {
+      attrs: { role: 'status' },
+      class:
+        'flex flex-wrap items-center justify-between gap-x-4 gap-y-3 bg-ground-raised px-4 py-3',
+    },
+    [revertButton.element, saveButton.element],
   )
 
   // --- Confirmation ---
@@ -235,7 +246,7 @@ export function configEditorSection(
       variant: 'primary',
       onClick: requestSave,
       disabled: nextProps.busy || !hasLocalEdits,
-      children: [nextProps.busy ? 'Saving…' : 'Save configuration'],
+      children: [nextProps.busy ? 'Applying…' : 'Apply changes'],
     })
     revertButton.update({
       variant: 'ghost',
