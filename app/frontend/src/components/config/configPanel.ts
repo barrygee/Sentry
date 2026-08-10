@@ -4,7 +4,6 @@ import { watchStore } from '../../core/observable.js'
 import type { ConfigImportResult } from '../../api/client.js'
 import { baseButton } from '../base/baseButton.js'
 import { baseToggle } from '../base/baseToggle.js'
-import { dataCell } from '../base/dataCell.js'
 import { nextElementId } from '../base/idGenerator.js'
 import { noticeBox } from '../base/noticeBox.js'
 import { sectionHeading } from '../base/sectionHeading.js'
@@ -14,7 +13,6 @@ import {
   applyPendingImport,
   clearPendingImport,
   configStore,
-  exportDeviceCount,
   loadPreview,
   pendingDeviceCount,
   pendingHasHotspot,
@@ -61,22 +59,6 @@ export function configPanel(): Component<void> {
   const exportHeadingId = nextElementId('config-export-heading')
   const exportHeading = sectionHeading({ level: 3, size: 'small', children: ['Export'] })
   exportHeading.element.id = exportHeadingId
-  const configuredDevicesCell = dataCell({
-    label: 'Configured devices',
-    labelTag: 'dt',
-    valueTag: 'dd',
-    value: 0,
-  })
-  const hotspotIncludedCell = dataCell({
-    label: 'Hotspot',
-    labelTag: 'dt',
-    valueTag: 'dd',
-    value: 'Not set up',
-  })
-  const exportDetailsList = el('dl', { class: 'm-0 grid grid-cols-2 gap-x-6 gap-y-4' }, [
-    configuredDevicesCell.element,
-    hotspotIncludedCell.element,
-  ])
   const downloadButton = baseButton({
     variant: 'ghost',
     onClick: () => void downloadConfig(),
@@ -85,7 +67,7 @@ export function configPanel(): Component<void> {
   const exportSection = el(
     'section',
     { class: 'flex flex-col gap-3', attrs: { 'aria-labelledby': exportHeadingId } },
-    [exportHeading.element, exportDetailsList, el('div', {}, [downloadButton.element])],
+    [exportHeading.element, el('div', {}, [downloadButton.element])],
   )
 
   const editorSection = configEditorSection({ preview: null, busy: false })
@@ -272,19 +254,6 @@ export function configPanel(): Component<void> {
       onClick: () => void downloadConfig(),
       children: ['Download configuration'],
     })
-    configuredDevicesCell.update({
-      label: 'Configured devices',
-      labelTag: 'dt',
-      valueTag: 'dd',
-      value: exportDeviceCount(state),
-    })
-    hotspotIncludedCell.update({
-      label: 'Hotspot',
-      labelTag: 'dt',
-      valueTag: 'dd',
-      value: state.preview?.hotspot ? 'Included' : 'Not set up',
-    })
-
     pickFileButton.update({
       variant: 'ghost',
       disabled: isBusy,

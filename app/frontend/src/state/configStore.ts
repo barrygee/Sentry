@@ -57,11 +57,6 @@ export const configStore: Store<ConfigStoreState> = createStore<ConfigStoreState
   applyHotspot: false,
 })
 
-/** How many configured devices the current instance would export. */
-export function exportDeviceCount(state: Readonly<ConfigStoreState>): number {
-  return state.preview?.devices?.length ?? 0
-}
-
 /** How many device entries the picked file carries. */
 export function pendingDeviceCount(state: Readonly<ConfigStoreState>): number {
   return state.pendingImport?.devices?.length ?? 0
