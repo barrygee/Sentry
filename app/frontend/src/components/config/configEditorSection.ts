@@ -255,7 +255,7 @@ export function configEditorSection(
     'p',
     { class: 'm-0 text-[12px] leading-[1.55] text-signal-muted' },
     [
-      'This replaces the stored configuration for the devices it names. There is no undo — Revert only discards unsaved text.',
+      'There is no undo. Revert only discards unsaved text — it cannot bring back what this writes over.',
     ],
   )
 
@@ -294,14 +294,11 @@ export function configEditorSection(
   const section = el(
     'section',
     { class: 'flex flex-col gap-3', attrs: { 'aria-labelledby': headingId } },
-    [
-      heading.element,
-      introParagraph,
-      disclosureRow,
-      configField.element,
-      buttonRow,
-      confirmDialog.element,
-    ],
+    // `confirmDialog.element` is deliberately absent: `baseDialog` teleports its
+    // own overlay to `document.body` as `open` changes. Appending it here made
+    // it a child of this section instead, so it rendered the moment Settings
+    // opened and no amount of closing removed it.
+    [heading.element, introParagraph, disclosureRow, configField.element, buttonRow],
   )
 
   let currentProps = props
@@ -367,8 +364,8 @@ export function configEditorSection(
     setText(
       confirmConsequence,
       devices === 1
-        ? 'This will apply 1 device from the configuration below.'
-        : `This will apply ${devices} devices from the configuration below.`,
+        ? 'This writes 1 device to this Sentry, replacing the settings it currently holds for it.'
+        : `This writes ${devices} devices to this Sentry, replacing the settings it currently holds for them.`,
     )
     confirmApplyButton.update({
       variant: 'primary',
