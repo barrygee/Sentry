@@ -30,9 +30,12 @@ export interface HotspotStatusPanelProps {
  * broken. Nothing had.
  */
 function statusLabel(state: HotspotState): string {
-  // Off in `.env`, which is how every Sentry starts (ADR-0007). Deliberate, not
-  // a fault — the card below says how to turn it on.
-  if (!state.control_enabled) return 'WiFi hotspot switched off on this Pi'
+  // No badge while control is switched off. It used to say so here, which made
+  // sense when turning it on meant a shell command elsewhere — but the switch
+  // now sits directly below (ADR-0013), already labelled and already showing
+  // its own state. A badge repeating it is a second, staler voice for the same
+  // fact.
+  if (!state.control_enabled) return ''
   // Control is on, but NetworkManager cannot be reached. This one *is* wrong.
   if (!state.available) return 'WiFi control unavailable'
   if (!state.configured) return 'Not set up'
@@ -128,6 +131,7 @@ export function hotspotStatusPanel(
   const root = el('div', { class: 'flex flex-col gap-4' }, [topRow, addressBlock, detailsList])
 
   function render(state: HotspotState): void {
+    setVisible(badge.element, state.control_enabled)
     badge.update({ tone: statusTone(state), children: [statusLabel(state)] })
     setVisible(ssidSpan, Boolean(state.ssid))
     setText(ssidSpan, state.ssid ?? '')

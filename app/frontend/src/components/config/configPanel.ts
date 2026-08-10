@@ -8,6 +8,8 @@ import { dataCell } from '../base/dataCell.js'
 import { nextElementId } from '../base/idGenerator.js'
 import { noticeBox } from '../base/noticeBox.js'
 import { sectionHeading } from '../base/sectionHeading.js'
+
+import { configEditorSection } from './configEditorSection.js'
 import {
   applyPendingImport,
   clearPendingImport,
@@ -43,7 +45,12 @@ export function configPanel(): Component<void> {
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
     'Move a whole Sentry setup to another Pi. The file carries every configured device’s name, port, antenna, notes and visibility — never any password.',
   ])
-  const headerBlock = el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph])
+  // `pt-6` rather than a gap on the parent: this panel follows another section
+  // in the settings view, and the separation belongs to what starts here.
+  const headerBlock = el('div', { class: 'flex flex-col gap-2 pt-6' }, [
+    heading.element,
+    introParagraph,
+  ])
 
   const busyStatusRegion = el('p', { attrs: { role: 'status' }, class: 'sr-only' }, [])
   const errorAlertRegion = el('p', { attrs: { role: 'alert' }, class: 'sr-only' }, [])
@@ -52,7 +59,7 @@ export function configPanel(): Component<void> {
 
   // Export section.
   const exportHeadingId = nextElementId('config-export-heading')
-  const exportHeading = sectionHeading({ level: 3, children: ['Export'] })
+  const exportHeading = sectionHeading({ level: 3, size: 'small', children: ['Export'] })
   exportHeading.element.id = exportHeadingId
   const configuredDevicesCell = dataCell({
     label: 'Configured devices',
@@ -81,9 +88,11 @@ export function configPanel(): Component<void> {
     [exportHeading.element, exportDetailsList, el('div', {}, [downloadButton.element])],
   )
 
+  const editorSection = configEditorSection({ preview: null, busy: false })
+
   // Import section.
   const importHeadingId = nextElementId('config-import-heading')
-  const importHeading = sectionHeading({ level: 3, children: ['Import'] })
+  const importHeading = sectionHeading({ level: 3, size: 'small', children: ['Import'] })
   importHeading.element.id = importHeadingId
 
   const fileInput = el('input', {
@@ -186,7 +195,11 @@ export function configPanel(): Component<void> {
       // own `gap-6`. At the same gap, IMPORT sat as close to the export button
       // as that button did to its own caption, so the two halves read as one
       // run of controls rather than two things you choose between.
-      el('div', { class: 'flex flex-col gap-10' }, [exportSection, importSection]),
+      el('div', { class: 'flex flex-col gap-10' }, [
+        exportSection,
+        editorSection.element,
+        importSection,
+      ]),
     ],
   )
 
@@ -242,6 +255,8 @@ export function configPanel(): Component<void> {
 
   function render(state: ConfigStoreState): void {
     const isBusy = state.phase === 'importing'
+
+    editorSection.update({ preview: state.preview, busy: isBusy })
 
     setText(busyStatusRegion, isBusy ? 'Importing configuration.' : '')
     setText(errorAlertRegion, state.errorMessage ?? '')
@@ -344,6 +359,7 @@ export function configPanel(): Component<void> {
 
     destroy(): void {
       unsubscribe()
+      editorSection.destroy()
       importReport?.destroy()
     },
   }
