@@ -87,31 +87,19 @@ export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<Hotspo
   // the switch that changes it — and stays short enough to read at a glance.
   // The reasoning belongs on the page, where it explains without competing with
   // the control for attention.
-  const controlEnabledParagraph = el(
-    'p',
-    { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' },
-    [
-      'Hotspot control is off by default because it is the one setting that lets this web API reconfigure the Pi’s own networking. It stays off until you turn it on, and needs a controller password first.',
-    ],
-  )
   const passwordParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
-    'A controller password is also required before a hotspot can start: anyone connected to the Sentry WiFi is on the same network as this controller, and could change your SDR settings. Set one in ',
+    'A controller password is required before a hotspot can start: users connected to the Sentry WiFi are connected to the same network as this controller, and can change your SDR settings. Set a password in ',
     el('strong', { class: 'font-semibold' }, ['Sentry controller password']),
     ' above.',
   ])
 
-  const root = el('div', { class: 'flex flex-col gap-4' }, [
-    notice.element,
-    controlEnabledParagraph,
-    passwordParagraph,
-  ])
+  const root = el('div', { class: 'flex flex-col gap-4' }, [notice.element, passwordParagraph])
 
   function render(nextProps: HotspotSetupHelpProps): void {
     currentProps = nextProps
     // Each prerequisite shows only while it is unmet. A satisfied one left on
     // screen reads as another thing still to do.
     setVisible(shellStep, !nextProps.controlEnabled)
-    setVisible(controlEnabledParagraph, !nextProps.controlEnabled)
     setVisible(passwordParagraph, !nextProps.authTokenConfigured)
     // The one sentence carries the password requirement when there is one,
     // because the toggle below it is disabled in that state and a control that

@@ -102,7 +102,12 @@ function buildHotspotFormActions(
 export function hotspotPanel(): Component<void> {
   const headingId = nextElementId('hotspot-panel-heading')
 
-  const heading = sectionHeading({ level: 2, children: ['WiFi hotspot'] })
+  const heading = sectionHeading({
+    level: 2,
+    size: 'section',
+    accentDot: true,
+    children: ['WiFi hotspot'],
+  })
   heading.element.id = headingId
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
     'Run a WiFi network from this Sentry so clients can reach the SDRs with no LAN.',

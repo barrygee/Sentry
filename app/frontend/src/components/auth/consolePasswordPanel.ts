@@ -30,7 +30,12 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
   let draftCurrent = ''
   let draftNew = ''
 
-  const heading = sectionHeading({ level: 2, children: ['Sentry controller password'] })
+  const heading = sectionHeading({
+    level: 2,
+    size: 'section',
+    accentDot: true,
+    children: ['Sentry controller password'],
+  })
   heading.element.id = headingId
 
   const introParagraph = el(

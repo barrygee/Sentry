@@ -37,7 +37,12 @@ import { configImportReport } from './configImportReport.js'
 export function configPanel(): Component<void> {
   const headingId = nextElementId('config-dialog-heading')
 
-  const heading = sectionHeading({ level: 2, children: ['Configuration'] })
+  const heading = sectionHeading({
+    level: 2,
+    size: 'section',
+    accentDot: true,
+    children: ['Configuration'],
+  })
   heading.element.id = headingId
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
     'Export this Sentry’s configuration, then import it into another Sentry. It carries each device’s name, port, antenna, notes and visibility. Passwords are not exported.',
