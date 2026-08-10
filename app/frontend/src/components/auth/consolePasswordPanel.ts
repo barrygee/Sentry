@@ -74,11 +74,13 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
     variant: 'on-bright',
     children: ['Set password'],
   })
+  const signOutRow = el('div', { class: 'flex' }, [])
   const signOutButton = baseButton({
     variant: 'ghost',
     onClick: () => void signOut(),
     children: ['Sign out'],
   })
+  signOutRow.appendChild(signOutButton.element)
 
   const form = el(
     'form',
@@ -122,11 +124,11 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
       errorNotice.element,
       successNotice.element,
       form,
-      // `contents`, so that hiding the button inside removes it from the
-      // column entirely. As a plain `div` the wrapper stayed a flex item with
-      // no height and still earned the panel's gap, padding the bottom of the
-      // card by a row that was not there.
-      el('div', { class: 'contents' }, [signOutButton.element]),
+      // A `flex` row, hidden as a whole rather than `contents` with the button
+      // hidden inside. `contents` promoted the button to a flex item of the
+      // column, which stretched it to full width; hiding the wrapper keeps the
+      // button its own size and still contributes no gap when it is away.
+      signOutRow,
     ],
   )
 
@@ -153,7 +155,7 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
     setVisible(currentField.element, state.passwordSet)
     // Signing out of a console with no password would strand the operator on a
     // sign-in screen with nothing to sign in to.
-    setVisible(signOutButton.element, state.passwordSet)
+    setVisible(signOutRow, state.passwordSet)
 
     newField.update({
       label: 'New password',

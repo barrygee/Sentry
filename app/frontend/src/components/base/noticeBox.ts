@@ -56,7 +56,7 @@ const TONE_CLASSES = {
   danger: 'bg-signal-danger text-white',
   warn: 'bg-signal-warn-fill text-ink-on-accent',
   info: 'bg-signal-info text-white',
-  ok: 'bg-signal-ok text-white',
+  ok: 'bg-signal-ok-fill text-ink-on-accent',
   neutral: 'bg-ground-raised text-signal-muted',
 } as const satisfies Record<NoticeTone, string>
 
