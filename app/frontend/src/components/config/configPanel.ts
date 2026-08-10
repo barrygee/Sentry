@@ -145,7 +145,10 @@ export function configPanel(): Component<void> {
     pendingActionsRow,
   ])
 
-  const importReportSlot = el('div')
+  // `contents` for the same reason as the sign-out wrapper: empty, a plain div
+  // is still a flex item and still earns the section's gap, leaving the card
+  // padded at the bottom by a row with nothing in it.
+  const importReportSlot = el('div', { class: 'contents' })
 
   const importSection = el(
     'section',

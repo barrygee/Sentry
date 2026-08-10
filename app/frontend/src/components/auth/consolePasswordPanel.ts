@@ -124,7 +124,11 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
       errorNotice.element,
       successNotice.element,
       form,
-      el('div', {}, [signOutButton.element]),
+      // `contents`, so that hiding the button inside removes it from the
+      // column entirely. As a plain `div` the wrapper stayed a flex item with
+      // no height and still earned the panel's gap, padding the bottom of the
+      // card by a row that was not there.
+      el('div', { class: 'contents' }, [signOutButton.element]),
     ],
   )
 
