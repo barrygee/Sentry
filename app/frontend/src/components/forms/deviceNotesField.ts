@@ -6,7 +6,10 @@ import { baseField } from '../base/baseField.js'
  * is, what still needs fixing. Published to Sentinel in `GET /api/v1/sdrs`
  * along with every other device field.
  *
- * Multi-line and optional: an empty value commits as `""`, clearing the note.
+ * One line that grows as the note does: most notes are short, and a fixed
+ * three-row box spent two empty lines on every card to accommodate the rare
+ * long one. Still a textarea, so a long note wraps rather than scrolling
+ * sideways. An empty value commits as `""`, clearing the note.
  * Validated on blur like every other field on the card; blur reports the
  * cleaned-up value to the card, which holds it as a draft until Save is pressed.
  */
@@ -44,7 +47,8 @@ export function deviceNotesField(props: DeviceNotesFieldProps): Component<Device
       label: 'Notes',
       value: currentProps.value,
       multiline: true,
-      rows: 3,
+      rows: 1,
+      autoGrow: true,
       onChange: (value) => currentProps.onChange(value),
       error: clientError ?? currentProps.serverError ?? null,
       disabled: currentProps.disabled ?? false,
@@ -56,7 +60,8 @@ export function deviceNotesField(props: DeviceNotesFieldProps): Component<Device
     label: 'Notes',
     value: props.value,
     multiline: true,
-    rows: 3,
+    rows: 1,
+    autoGrow: true,
     onChange: (value) => currentProps.onChange(value),
     error: clientError ?? props.serverError ?? null,
     disabled: props.disabled ?? false,

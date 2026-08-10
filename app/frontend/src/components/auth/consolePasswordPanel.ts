@@ -21,7 +21,10 @@ import { sectionHeading } from '../base/sectionHeading.js'
  * only in the second case — there is no secret to prove knowledge of in the
  * first, and asking for one would make an open console impossible to protect.
  */
-export function consolePasswordPanel(): Component<void> {
+/** A `ConsolePasswordPanel`, which additionally lets a caller focus its password box. */
+export type ConsolePasswordPanel = Component<void> & { focusPasswordField: () => void }
+
+export function consolePasswordPanel(): ConsolePasswordPanel {
   const headingId = nextElementId('console-password-heading')
 
   let draftCurrent = ''
@@ -168,7 +171,7 @@ export function consolePasswordPanel(): Component<void> {
       type: 'submit',
       variant: 'on-bright',
       disabled: busy,
-      children: [busy ? 'Saving…' : state.passwordSet ? 'Change password' : 'Set password'],
+      children: [busy ? 'Saving…' : 'Save password'],
     })
 
     setVisible(errorNotice.element, state.errorMessage !== null)
@@ -183,6 +186,18 @@ export function consolePasswordPanel(): Component<void> {
 
   return {
     element: root,
+
+    /**
+     * Put the caret in the password box.
+     *
+     * Called when the operator arrives from the "no password set" warning in
+     * the devices view: they asked to set a password, so landing them on the
+     * settings page and making them find the field again would be answering a
+     * different question than the one the button asked.
+     */
+    focusPasswordField(): void {
+      newField.focus()
+    },
 
     update(): void {
       // Store-driven.

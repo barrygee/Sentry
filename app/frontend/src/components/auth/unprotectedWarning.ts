@@ -3,7 +3,6 @@ import type { Component } from '../../core/component.js'
 import { watchStore } from '../../core/observable.js'
 import {
   consoleAuthStore,
-  openSetupPrompt,
   shouldWarnUnprotected,
   type ConsoleAuthState,
 } from '../../state/consoleAuth.js'
@@ -22,10 +21,22 @@ import { noticeBox } from '../base/noticeBox.js'
  * choice, and this is a standing state rather than something that went wrong —
  * red would be crying wolf on every page view until it stopped being read.
  */
-export function unprotectedWarning(): Component<void> {
+export interface UnprotectedWarningProps {
+  /**
+   * What "Set a password" does.
+   *
+   * Injected rather than fixed here because this component sits in the devices
+   * view and the password field lives in Settings — it cannot reach the field
+   * itself, and hard-coding navigation into a notice would tie a warning to a
+   * layout.
+   */
+  onSetPassword: () => void
+}
+
+export function unprotectedWarning(props: UnprotectedWarningProps): Component<void> {
   const setPasswordButton = baseButton({
     variant: 'on-bright',
-    onClick: () => openSetupPrompt(),
+    onClick: () => props.onSetPassword(),
     children: ['Set a password'],
   })
 

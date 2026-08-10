@@ -66,6 +66,14 @@ export interface BaseFieldProps {
   multiline?: boolean
   /** Visible rows when `multiline`; ignored otherwise. */
   rows?: number
+  /**
+   * Grow the textarea to fit its content, starting at `rows`.
+   *
+   * For a field that is usually one line but occasionally several — a device
+   * note. A fixed three-row box spends two empty lines on every card to
+   * accommodate the rare long note, and still scrolls when one arrives.
+   */
+  autoGrow?: boolean
   /** Extra id(s) to merge into `aria-describedby`, for content the caller renders outside this component. */
   describedBy?: string | null
   /**
@@ -134,7 +142,10 @@ export function baseField(props: BaseFieldProps): BaseFieldHandle {
           props.error ? 'shadow-[inset_0_-2px_0_theme(colors.signal.danger)]' : '',
         ),
         on: {
-          input: () => currentProps.onChange((control as HTMLTextAreaElement).value),
+          input: () => {
+            resizeToContent()
+            currentProps.onChange((control as HTMLTextAreaElement).value)
+          },
           blur: () => currentProps.onBlur?.(),
         },
       })
@@ -156,7 +167,23 @@ export function baseField(props: BaseFieldProps): BaseFieldHandle {
         },
       })
 
+  /**
+   * Match the textarea's height to its content, never shrinking below `rows`.
+   *
+   * `height = ''` first so `scrollHeight` reports the content's natural height
+   * rather than the height already set — without it the box can only ever grow.
+   */
+  function resizeToContent(): void {
+    if (!isMultiline || !(currentProps.autoGrow ?? false)) {
+      return
+    }
+    const textarea = control as HTMLTextAreaElement
+    textarea.style.height = ''
+    textarea.style.height = `${textarea.scrollHeight}px`
+  }
+
   control.value = props.value
+  resizeToContent()
 
   const hintParagraph = el(
     'p',
@@ -227,6 +254,7 @@ export function baseField(props: BaseFieldProps): BaseFieldHandle {
       const hasFocus = document.activeElement === control
       if (!hasFocus && control.value !== nextProps.value) {
         control.value = nextProps.value
+        resizeToContent()
       }
       control.disabled = nextProps.disabled ?? false
 
