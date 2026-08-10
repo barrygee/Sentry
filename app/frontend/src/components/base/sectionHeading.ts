@@ -31,15 +31,18 @@ export interface SectionHeadingProps {
    *
    * Set at construction, like `level` — headings do not resize after mount.
    */
-  size?: 'default' | 'small'
+  size?: 'default' | 'small' | 'item'
   children: Child[]
 }
 
 const HEADING_TAGS = { 1: 'h1', 2: 'h2', 3: 'h3' } as const
 
 const SIZE_CLASSES = {
-  default: 'text-[18px]',
-  small: 'text-[13px]',
+  default: 'font-condensed text-[18px] font-normal tracking-readout',
+  small: 'font-condensed text-[13px] font-normal tracking-readout',
+  // Sentinel's `.settings-item-label`, field for field: 13px, 600, 0.1em
+  // tracking, in the body face rather than the condensed one.
+  item: 'font-sans text-[13px] font-semibold tracking-[0.1em]',
 } as const
 
 /** Builds a `SectionHeading`. `update` syncs the same heading element's children in place. */
@@ -47,7 +50,7 @@ export function sectionHeading(props: SectionHeadingProps): Component<SectionHea
   const root = el(
     HEADING_TAGS[props.level ?? 2],
     {
-      class: `m-0 font-condensed ${SIZE_CLASSES[props.size ?? 'default']} font-normal uppercase leading-tight tracking-readout text-ink-primary`,
+      class: `m-0 ${SIZE_CLASSES[props.size ?? 'default']} uppercase leading-tight text-ink-primary`,
     },
     props.children,
   )

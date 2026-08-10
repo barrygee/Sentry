@@ -39,6 +39,7 @@ export function configPanel(): Component<void> {
 
   const heading = sectionHeading({
     level: 2,
+    size: 'item',
     children: ['Configuration'],
   })
   heading.element.id = headingId

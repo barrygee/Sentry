@@ -32,6 +32,7 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
 
   const heading = sectionHeading({
     level: 2,
+    size: 'item',
     children: ['Sentry controller password'],
   })
   heading.element.id = headingId
