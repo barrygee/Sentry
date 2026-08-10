@@ -104,6 +104,7 @@ export function hotspotPanel(): Component<void> {
 
   const heading = sectionHeading({
     level: 2,
+    size: 'item',
     children: ['WiFi hotspot'],
   })
   heading.element.id = headingId

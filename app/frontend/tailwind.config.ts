@@ -108,8 +108,17 @@ export default {
            * console matches its chrome (ADR-0006).
            */
           'accent-hover': '#d8ff33',
-          /** Streaming / success. The text-safe form of the accent. */
+          /** Streaming / success, as TEXT. The text-safe form of the accent. */
           ok: '#436800',
+          /**
+           * Success as a solid FILL, with dark text on it.
+           *
+           * A separate token because the two jobs pull opposite ways: `ok` is
+           * darkened until it reads on white, which is precisely what makes it
+           * muddy behind white text. This is the accent's own green, kept
+           * vibrant and paired with `ink.on-accent` rather than white.
+           */
+          'ok-fill': '#63a300',
           /**
            * Degraded. TEXT only — this is the text-safe form of the warning
            * hue, dark enough to read on a white card (7.97:1 at worst).

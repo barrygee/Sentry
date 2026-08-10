@@ -39,6 +39,7 @@ export function configPanel(): Component<void> {
 
   const heading = sectionHeading({
     level: 2,
+    size: 'item',
     children: ['Configuration'],
   })
   heading.element.id = headingId
@@ -56,33 +57,27 @@ export function configPanel(): Component<void> {
 
   const errorNotice = noticeBox({ tone: 'danger', role: 'status', children: [] })
 
-  const editorSection = configEditorSection({ preview: null, busy: false })
-
-  // Import section.
-  const importHeadingId = nextElementId('config-import-heading')
-  const importHeading = sectionHeading({ level: 3, size: 'small', children: ['Import'] })
-  importHeading.element.id = importHeadingId
-
+  // Import.
   const fileInput = el('input', {
     attrs: { type: 'file', accept: 'application/json,.json', 'aria-hidden': 'true', tabindex: -1 },
     class: 'sr-only',
     on: { change: (event) => void onFileChosen(event) },
   }) as HTMLInputElement
 
-  const noPendingImportParagraph = el(
-    'p',
-    { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' },
-    ['Choose a file exported from another Sentry. Nothing is applied until you confirm.'],
-  )
   const pickFileButton = baseButton({
     variant: 'ghost',
     onClick: () => pickFile(),
-    children: ['Import config'],
+    children: ['Import'],
   })
-  const noPendingImportBlock = el('div', { class: 'flex flex-col gap-3' }, [
-    noPendingImportParagraph,
-    el('div', {}, [pickFileButton.element]),
-  ])
+  // `contents`, so that hiding it while a file is staged removes it from the
+  // row rather than leaving a gap where a button was.
+  const noPendingImportBlock = el('div', { class: 'contents' }, [pickFileButton.element])
+
+  const editorSection = configEditorSection({
+    preview: null,
+    busy: false,
+    extraControls: [noPendingImportBlock, fileInput],
+  })
 
   const pendingFileNameStrong = el('strong', { class: 'font-semibold' }, [])
   const pendingCountTextNode = document.createTextNode('')
@@ -148,11 +143,12 @@ export function configPanel(): Component<void> {
   // padded at the bottom by a row with nothing in it.
   const importReportSlot = el('div', { class: 'contents' })
 
-  const importSection = el(
-    'section',
-    { class: 'flex flex-col gap-3', attrs: { 'aria-labelledby': importHeadingId } },
-    [importHeading.element, fileInput, noPendingImportBlock, pendingImportBlock, importReportSlot],
-  )
+  // What is left of the import flow once its button moved up beside Export: the
+  // staged-file confirmation and the report of what an import did.
+  const importSection = el('div', { class: 'flex flex-col gap-3' }, [
+    pendingImportBlock,
+    importReportSlot,
+  ])
 
   const panelRoot = el(
     'section',

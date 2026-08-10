@@ -33,6 +33,14 @@ export interface ConfigEditorSectionProps {
   preview: SentryConfig | null
   /** Whether an import is currently in flight. */
   busy: boolean
+  /**
+   * Extra controls for the row beside Edit and Export.
+   *
+   * Read once, at construction. Import belongs here — it is the third thing an
+   * operator can do to this configuration — but it is owned by the panel, which
+   * holds the file input and the confirm flow.
+   */
+  extraControls?: HTMLElement[]
 }
 
 /**
@@ -225,6 +233,7 @@ export function configEditorSection(
   const disclosureRow = el('div', { class: 'flex flex-wrap items-center gap-2' }, [
     visibilityButton.element,
     exportButton.element,
+    ...(props.extraControls ?? []),
   ])
 
   const buttonRow = el(

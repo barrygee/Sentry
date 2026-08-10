@@ -65,18 +65,23 @@
            22.5-unit cap height at 16.8px on screen. Inter's cap height is
            1490/2048 em, giving a 23px font size. The 8px gap is its own 11.35
            unit gap at that scale. -->
-      <header class="flex h-[68px] shrink-0 items-center gap-2 bg-ground-header pl-4 pr-[22px]">
+      <header
+        class="flex h-[68px] shrink-0 items-center gap-2 bg-ground-header pl-[10px] pr-[22px]"
+      >
         <!-- The ⊙ mark, identical to Sentinel's — a white ring with a lime
              centre dot. Proportions are ratios of its 34.90 artboard: ring
              radius 14.41, stroke 4.08, dot radius 5.69, about centre 17.4497.
              Decorative — the wordmark beside it already names the app. -->
+        <!-- `-ml-px` with the header's `pl-[10px]` reproduces Sentinel's own
+             pair — `#nav { padding-left: 10px }` and `#nav-logo { margin-left:
+             -1px }` — rather than a value matched by eye from a screenshot. -->
         <svg
           width="26"
           height="26"
           viewBox="0 0 34.9 34.9"
           aria-hidden="true"
           focusable="false"
-          class="shrink-0"
+          class="-ml-px shrink-0"
         >
           <circle
             cx="17.449658203125"
@@ -86,14 +91,11 @@
             stroke="#ffffff"
             stroke-width="4.08"
           />
-          <!-- White, matching the ring, so the mark reads as one object: a
-               filled centre and its outline in the same ink, on the dark header.
-
-               Not the lime accent, which it used to be. The accent means "live"
-               everywhere else in this UI — a streaming dot, an enabled toggle,
-               the active rail entry — so spending it on a mark that never
-               changes weakened what it signals. -->
-          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#ffffff" />
+          <!-- `signal.accent` (#c8ff00), the same lime Sentinel's mark uses.
+               The two apps' marks are one identity rather than two drawings of
+               it, which is worth more here than reserving the accent purely for
+               live state. -->
+          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#c8ff00" />
         </svg>
         <h1
           class="m-0 font-wordmark text-[23px] font-medium uppercase leading-none tracking-wordmark text-ink-inverse"
