@@ -28,17 +28,6 @@ export interface ConsoleAuthState {
   phase: ConsoleAuthPhase
   /** Operator-facing failure text, or null. Never contains a password. */
   errorMessage: string | null
-  /**
-   * Whether the "set a password" prompt is showing.
-   *
-   * Raised automatically once per visit while no password exists, and again
-   * whenever the operator asks for it from the warning that replaces it. The
-   * operator can decline; they are asked again next visit, because an open
-   * console is a standing condition rather than a one-off notice.
-   */
-  setupPromptOpen: boolean
-  /** True once the prompt has been declined this visit, which reveals the warning. */
-  setupDeclined: boolean
 }
 
 export const consoleAuthStore: Store<ConsoleAuthState> = createStore<ConsoleAuthState>({
@@ -50,8 +39,6 @@ export const consoleAuthStore: Store<ConsoleAuthState> = createStore<ConsoleAuth
   minimumPasswordLength: 8,
   phase: 'loading',
   errorMessage: null,
-  setupPromptOpen: false,
-  setupDeclined: false,
 })
 
 /** Whether the sign-in screen should replace the whole app. */
@@ -59,9 +46,15 @@ export function mustSignIn(state: Readonly<ConsoleAuthState>): boolean {
   return state.passwordSet && !state.authenticated
 }
 
-/** Whether the "no password set" warning should be visible. */
+/**
+ * Whether the "no password set" warning should be visible.
+ *
+ * It has no dismissal any more. An open console is a standing condition, not a
+ * notice to acknowledge, and the warning is now the only thing that says so —
+ * the dialog that used to raise itself on arrival has gone.
+ */
 export function shouldWarnUnprotected(state: Readonly<ConsoleAuthState>): boolean {
-  return state.phase !== 'loading' && !state.passwordSet && !state.setupPromptOpen
+  return state.phase !== 'loading' && !state.passwordSet
 }
 
 /**
@@ -80,9 +73,6 @@ export async function refreshAuthState(): Promise<void> {
       updatedAt: state.updated_at,
       minimumPasswordLength: state.minimum_password_length,
       phase: 'idle',
-      // Ask for a password on arrival at an unprotected console, unless this
-      // visit has already been asked and declined.
-      setupPromptOpen: !state.password_set && !consoleAuthStore.state.setupDeclined,
     })
   } catch {
     // A console that cannot report its auth state is broken in a way the device
@@ -137,19 +127,8 @@ export async function setPassword(
     })
     return false
   }
-  consoleAuthStore.setState({ setupPromptOpen: false, setupDeclined: false })
   await refreshAuthState()
   return true
-}
-
-/** Open the "set a password" prompt, from the warning or from Settings. */
-export function openSetupPrompt(): void {
-  consoleAuthStore.setState({ setupPromptOpen: true, errorMessage: null, phase: 'idle' })
-}
-
-/** Decline the prompt for this visit. The warning takes its place. */
-export function declineSetupPrompt(): void {
-  consoleAuthStore.setState({ setupPromptOpen: false, setupDeclined: true, errorMessage: null })
 }
 
 /** Note that a request came back 401, so the sign-in screen should appear. */

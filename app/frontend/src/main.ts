@@ -1,4 +1,3 @@
-import { passwordSetupPrompt } from './components/auth/passwordSetupPrompt.js'
 import { signInView } from './components/auth/signInView.js'
 import { unprotectedWarning } from './components/auth/unprotectedWarning.js'
 import { serialFlashDialog } from './components/serial/serialFlashDialog.js'
@@ -74,7 +73,6 @@ applyRailVisibility()
 // once here and never appended. The hotspot and configuration surfaces used to
 // be here too; they are sections of the Settings destination now.
 serialFlashDialog()
-passwordSetupPrompt()
 
 // ---------------------------------------------------------------------------
 // The views, and the stream that feeds them

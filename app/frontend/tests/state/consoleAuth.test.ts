@@ -3,10 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '../../src/api/client.js'
 import {
   consoleAuthStore,
-  declineSetupPrompt,
   markUnauthenticated,
   mustSignIn,
-  openSetupPrompt,
   refreshAuthState,
   setPassword,
   shouldWarnUnprotected,
@@ -41,8 +39,6 @@ function resetStore(): void {
     minimumPasswordLength: 8,
     phase: 'loading',
     errorMessage: null,
-    setupPromptOpen: false,
-    setupDeclined: false,
   })
 }
 
@@ -52,34 +48,14 @@ afterEach(() => {
 })
 
 describe('refreshAuthState', () => {
-  it('opens the setup prompt on an unprotected controller', async () => {
+  it('reports an unprotected controller without interrupting', async () => {
     vi.spyOn(apiClient, 'authState').mockResolvedValue(serverSays())
 
     await refreshAuthState()
 
-    expect(consoleAuthStore.state.setupPromptOpen).toBe(true)
-  })
-
-  it('does not reopen the prompt once declined this visit', async () => {
-    vi.spyOn(apiClient, 'authState').mockResolvedValue(serverSays())
-    await refreshAuthState()
-    declineSetupPrompt()
-
-    await refreshAuthState()
-
-    // Otherwise every background refresh would reopen a dialog the operator
-    // just dismissed — the console arguing with them rather than informing.
-    expect(consoleAuthStore.state.setupPromptOpen).toBe(false)
-  })
-
-  it('never prompts when a password already exists', async () => {
-    vi.spyOn(apiClient, 'authState').mockResolvedValue(
-      serverSays({ password_set: true, authenticated: true }),
-    )
-
-    await refreshAuthState()
-
-    expect(consoleAuthStore.state.setupPromptOpen).toBe(false)
+    // No dialog is raised on arrival any more: the standing banner says so, and
+    // its button navigates to the field in Settings.
+    expect(consoleAuthStore.state.passwordSet).toBe(false)
   })
 
   it('leaves the console usable when the request fails', async () => {
@@ -117,17 +93,10 @@ describe('mustSignIn', () => {
 })
 
 describe('shouldWarnUnprotected', () => {
-  it('stays hidden while the prompt is showing', () => {
-    // Saying the same thing twice, once behind the other.
-    expect(
-      shouldWarnUnprotected({ ...consoleAuthStore.state, phase: 'idle', setupPromptOpen: true }),
-    ).toBe(false)
-  })
-
-  it('appears once the prompt is declined', () => {
-    expect(
-      shouldWarnUnprotected({ ...consoleAuthStore.state, phase: 'idle', setupPromptOpen: false }),
-    ).toBe(true)
+  it('appears whenever the console has no password', () => {
+    // The only thing that says so now: the dialog that used to raise itself on
+    // arrival has gone, so nothing else would tell an operator.
+    expect(shouldWarnUnprotected({ ...consoleAuthStore.state, phase: 'idle' })).toBe(true)
   })
 
   it('stays hidden before the first answer arrives', () => {
@@ -201,17 +170,14 @@ describe('setPassword', () => {
     vi.spyOn(apiClient, 'authState').mockResolvedValue(
       serverSays({ password_set: true, authenticated: true }),
     )
-    declineSetupPrompt()
 
     await setPassword('a good long password', null)
 
-    expect(consoleAuthStore.state.setupPromptOpen).toBe(false)
-    expect(consoleAuthStore.state.setupDeclined).toBe(false)
+    expect(consoleAuthStore.state.passwordSet).toBe(true)
   })
 
-  it('keeps the prompt open and reports why on failure', async () => {
+  it('reports why a password was rejected', async () => {
     const { ApiError } = await import('../../src/api/client.js')
-    openSetupPrompt()
     vi.spyOn(apiClient, 'setConsolePassword').mockRejectedValue(
       new ApiError(422, { code: 'password_too_short', message: 'Too short.' }, 'x'),
     )
@@ -219,7 +185,6 @@ describe('setPassword', () => {
     const succeeded = await setPassword('abc', null)
 
     expect(succeeded).toBe(false)
-    expect(consoleAuthStore.state.setupPromptOpen).toBe(true)
     expect(consoleAuthStore.state.errorMessage).toBe('Too short.')
   })
 })
