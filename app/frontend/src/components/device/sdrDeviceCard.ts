@@ -307,10 +307,25 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   function render(): void {
     const device = currentDevice()
 
-    // Only clears/re-syncs a draft once the pending optimistic patch for
-    // this device (if any) has settled — otherwise a fresh SSE snapshot
-    // arriving mid-edit would stomp over what the operator is typing.
-    if (sdrsStore.state.pendingPatchesByDeviceId[device.device_id] === undefined) {
+    // Never re-sync a draft while the operator is working inside this card.
+    //
+    // The pending-patch check alone was not enough, and the gap it left was the
+    // whole editing session: a patch only exists *after* a field commits on
+    // blur, so from the first keystroke until the operator tabs away there is
+    // nothing pending — and `health` arrives every 5 seconds. Each one reset
+    // every draft to the stored value, wiped the input, and left a later blur
+    // committing the empty draft it had just been given. Typing a note and
+    // watching it vanish was the reported symptom; name, port and antenna were
+    // going the same way.
+    //
+    // Focus is the right test rather than "is this field dirty": it is what
+    // distinguishes "the operator is in the middle of something" from "this
+    // card is idle and should follow the server".
+    const isBeingEdited = article.contains(document.activeElement)
+    if (
+      !isBeingEdited &&
+      sdrsStore.state.pendingPatchesByDeviceId[device.device_id] === undefined
+    ) {
       nameDraft = device.name
       portDraft = device.output?.iq_port ?? null
       antennaDraft = device.antenna
@@ -344,6 +359,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       value: nameDraft,
       onChange: (value) => {
         nameDraft = value
+        render()
       },
       onCommit: commitName,
     })
@@ -353,6 +369,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       value: portDraft,
       onChange: (value) => {
         portDraft = value
+        render()
       },
       onCommit: commitPort,
       constraints: sdrsStore.state.constraints,
@@ -395,6 +412,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       value: antennaDraft,
       onChange: (value) => {
         antennaDraft = value
+        render()
       },
       onCommit: commitAntenna,
     })
@@ -403,6 +421,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       value: notesDraft,
       onChange: (value) => {
         notesDraft = value
+        render()
       },
       onCommit: commitNotes,
     })

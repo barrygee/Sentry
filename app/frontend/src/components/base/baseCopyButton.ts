@@ -65,15 +65,72 @@ export function baseCopyButton(props: BaseCopyButtonProps): Component<BaseCopyBu
     )
   }
 
+  /**
+   * The pre-`navigator.clipboard` route: select a detached textarea and copy.
+   *
+   * Deprecated, and load-bearing here. `navigator.clipboard` exists only in a
+   * secure context, and Sentry's normal deployment is not one — it is served
+   * over plain HTTP at `http://<PI_IP>:8000`. The modern API is therefore
+   * `undefined` for every real operator, and present only on `localhost`, which
+   * is exactly where anyone testing this would be. The button reported "Copy it
+   * manually" on every Pi in the world and worked perfectly on the developer's
+   * machine.
+   *
+   * Must run inside the click's user activation, which is why availability is
+   * checked synchronously below rather than after an `await`.
+   */
+  function copyBySelection(value: string): boolean {
+    const scratch = document.createElement('textarea')
+    scratch.value = value
+    scratch.setAttribute('readonly', '')
+    // Off-screen rather than hidden: `display:none` or `hidden` cannot be
+    // selected, and an unselected textarea copies nothing.
+    scratch.style.position = 'fixed'
+    scratch.style.top = '-9999px'
+    scratch.style.opacity = '0'
+    document.body.appendChild(scratch)
+
+    const previouslyFocused = document.activeElement
+    scratch.select()
+
+    let succeeded = false
+    try {
+      succeeded = document.execCommand('copy')
+    } catch {
+      succeeded = false
+    }
+
+    scratch.remove()
+    // Selecting the scratch element took focus; put it back rather than
+    // dropping a keyboard user onto `<body>`.
+    if (previouslyFocused instanceof HTMLElement) {
+      previouslyFocused.focus()
+    }
+    return succeeded
+  }
+
   async function copy(): Promise<void> {
     clearTimeout(resetTimer)
+
+    // Checked synchronously: `await` would end the user activation that
+    // `execCommand` needs, so the fallback has to be reachable without one.
+    if (typeof navigator.clipboard?.writeText !== 'function') {
+      outcome = copyBySelection(currentProps.value) ? 'copied' : 'failed'
+      renderOutcome()
+      resetTimer = setTimeout(() => {
+        outcome = 'idle'
+        renderOutcome()
+      }, RESET_DELAY_MS)
+      return
+    }
+
     try {
       await navigator.clipboard.writeText(currentProps.value)
       outcome = 'copied'
     } catch {
-      // Most likely an insecure origin or a denied permission. Either way the
-      // operator needs to know to select the text themselves.
-      outcome = 'failed'
+      // Present but refused — a denied permission, or a browser that rejects
+      // the write from this context. Worth one attempt at the old route.
+      outcome = copyBySelection(currentProps.value) ? 'copied' : 'failed'
     }
     renderOutcome()
     resetTimer = setTimeout(() => {

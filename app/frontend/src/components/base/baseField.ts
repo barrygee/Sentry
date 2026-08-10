@@ -219,7 +219,13 @@ export function baseField(props: BaseFieldProps): BaseFieldHandle {
 
       setText(label, nextProps.label)
 
-      if (control.value !== nextProps.value) {
+      // Never while it has focus. Writing `value` on a focused input replaces
+      // what is being typed and moves the caret to the end, so a background
+      // refresh — `health` arrives every 5 seconds — would eat keystrokes. The
+      // caller owning the draft is the one that decides what the value is
+      // while an edit is in progress; this is the last line of defence.
+      const hasFocus = document.activeElement === control
+      if (!hasFocus && control.value !== nextProps.value) {
         control.value = nextProps.value
       }
       control.disabled = nextProps.disabled ?? false
