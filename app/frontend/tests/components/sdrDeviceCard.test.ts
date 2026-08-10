@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { DeviceStatus } from '../../src/api/client.js'
+import { apiClient, type DeviceStatus } from '../../src/api/client.js'
 import type { Component } from '../../src/core/component.js'
 import { sdrDeviceCard } from '../../src/components/device/sdrDeviceCard.js'
 import { applySnapshot, sdrsStore } from '../../src/state/sdrsStore.js'
@@ -74,6 +74,15 @@ function fieldByLabel(label: string): HTMLTextAreaElement | HTMLInputElement {
 }
 
 beforeEach(() => {
+  // Stubbed because these assert the *optimistic* patch the store records, not
+  // the request. Left real, it reaches `fetch` with a relative URL, which has
+  // no base in Node and throws — passing locally under jsdom and failing in CI.
+  vi.spyOn(apiClient, 'patchDevice').mockResolvedValue(undefined as never)
+
+  // The store is a module-level singleton, so a pending patch left by an
+  // earlier test would keep the next card from ever re-syncing.
+  sdrsStore.setState({ pendingPatchesByDeviceId: {} })
+
   document.body.innerHTML = `
     <div id="live-region-polite"></div>
     <div id="live-region-assertive"></div>
@@ -85,6 +94,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   card.destroy()
   document.body.innerHTML = ''
 })
