@@ -47,8 +47,15 @@ function ownReservedPortsFor(device: DeviceStatus): number[] {
   return device.output ? [device.output.iq_port, device.output.control_port] : []
 }
 
-function enabledToggleLabel(device: DeviceStatus): string {
-  return device.enabled ? 'Disable SDR' : 'Enable SDR'
+/**
+ * The switch is labelled by what it *describes*, not by what pressing it does.
+ *
+ * "Disable SDR" beside an on switch reads as a claim about the current state to
+ * anyone scanning the card, which is the opposite of the truth. A toggle already
+ * shows its position; the label's job is to say what the position is about.
+ */
+function enabledToggleLabel(): string {
+  return 'SDR enabled'
 }
 
 /** Builds an `SdrDeviceCard`. `update` mutates the same DOM in place — the name, port, notes and antenna fields are edited inline, and rebuilding on update would drop the caret mid-keystroke. */
@@ -236,8 +243,8 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   const enabledToggle = baseToggle({
     value: props.device.enabled,
     onChange: commitEnabled,
-    label: enabledToggleLabel(props.device),
-    accessibleName: `${enabledToggleLabel(props.device)} — ${props.device.name || props.device.device_id}`,
+    label: enabledToggleLabel(),
+    accessibleName: `${enabledToggleLabel()} — ${props.device.name || props.device.device_id}`,
   })
   const togglesRow = el('div', { class: 'flex flex-wrap items-center gap-x-6 gap-y-2' }, [
     visibilityToggle.element,
@@ -462,8 +469,8 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     enabledToggle.update({
       value: device.enabled,
       onChange: commitEnabled,
-      label: enabledToggleLabel(device),
-      accessibleName: `${enabledToggleLabel(device)} — ${device.name || device.device_id}`,
+      label: enabledToggleLabel(),
+      accessibleName: `${enabledToggleLabel()} — ${device.name || device.device_id}`,
     })
 
     const isEditable = !device.needs_identification
@@ -552,8 +559,12 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       onCommit: commitNotes,
     })
 
-    const saving = isSaving()
-    setVisible(saveRow, hasUnsavedChanges() || saving)
+    // Keyed on the operator having text edits here, never on "a patch is in
+    // flight": the enabled and visibility switches patch immediately and have
+    // nothing to save, so keying on the request made the row flash into view
+    // and out again on every toggle.
+    const saving = isSaving() && hasLocalEdits
+    setVisible(saveRow, hasLocalEdits)
     saveButton.update({
       variant: 'primary',
       onClick: saveChanges,

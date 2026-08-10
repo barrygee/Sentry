@@ -107,3 +107,54 @@
     border-width: 0;
   }
 }
+
+@layer components {
+  /* Rail tooltips, matching Sentinel's `BaseIconAction`: black fill, 9px
+     uppercase with wide tracking, 28px tall, square corners, fading in beside
+     the button.
+
+     `title` alone is not enough here — it waits about a second, cannot be
+     styled, and never appears for a keyboard user tabbing the rail. This shows
+     on focus as well as hover, which is the half `title` cannot do. The
+     attribute stays on the markup regardless, as the accessible fallback.
+
+     `::after` rather than a real element so the icon buttons keep exactly one
+     child and the rail's flex centring is untouched. */
+  .rail-tip {
+    position: relative;
+  }
+
+  .rail-tip[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 14px;
+    background: #000;
+    color: theme('colors.ink.inverse');
+    font-size: 9px;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 30;
+  }
+
+  .rail-tip[data-tooltip]:hover::after,
+  .rail-tip[data-tooltip]:focus-visible::after {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rail-tip[data-tooltip]::after {
+      transition: none;
+    }
+  }
+}

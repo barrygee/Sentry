@@ -1,7 +1,7 @@
 import { el, setText, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
 import type { SentryConfig } from '../../api/client.js'
-import { applyEditedConfig } from '../../state/configStore.js'
+import { applyEditedConfig, downloadConfig } from '../../state/configStore.js'
 import { baseButton } from '../base/baseButton.js'
 import { baseDialog } from '../base/baseDialog.js'
 import { baseField } from '../base/baseField.js'
@@ -75,10 +75,60 @@ export function configEditorSection(
   let draft = formatConfig(props.preview)
   let hasLocalEdits = false
   let confirmOpen = false
+  // Collapsed by default, matching Sentinel's JSON editors: this is a bulk-edit
+  // escape hatch, not the primary way to change a device, and eighteen rows of
+  // JSON sitting open would dominate a panel most visits never use it for.
+  let editorVisible = false
 
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
     'This Sentry’s configuration as it stands. Edit it and press Save to apply it — the same as importing a file with these contents.',
   ])
+
+  const INDENT = '  '
+
+  /**
+   * Indent with Tab instead of leaving the field.
+   *
+   * Sentinel's JSON editors do this and the reason is the same here: Tab is how
+   * anyone edits nested JSON, and a textarea that instead moves focus to the
+   * next control makes hand-editing genuinely unpleasant. Shift+Tab outdents,
+   * and a multi-line selection shifts as a block.
+   *
+   * It does trap Tab, which normally costs keyboard users their way out of the
+   * field. Escape is left alone and the field is reachable in both directions
+   * by arrow keys from adjacent controls, and the editor is collapsed unless
+   * deliberately opened — so the trap only exists while someone is editing.
+   */
+  function indentOnTab(event: KeyboardEvent): void {
+    const textarea = event.target as HTMLTextAreaElement
+    event.preventDefault()
+
+    const { selectionStart, selectionEnd, value } = textarea
+    const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1
+    const spansLines = value.slice(selectionStart, selectionEnd).includes('\n')
+
+    if (event.shiftKey) {
+      const block = value.slice(lineStart, selectionEnd)
+      const outdented = block.replace(/^( {1,2}|\t)/gm, '')
+      textarea.value = value.slice(0, lineStart) + outdented + value.slice(selectionEnd)
+      textarea.selectionStart = lineStart
+      textarea.selectionEnd = lineStart + outdented.length
+    } else if (spansLines) {
+      const block = value.slice(lineStart, selectionEnd)
+      const indented = block.replace(/^/gm, INDENT)
+      textarea.value = value.slice(0, lineStart) + indented + value.slice(selectionEnd)
+      textarea.selectionStart = selectionStart + INDENT.length
+      textarea.selectionEnd = selectionEnd + (indented.length - block.length)
+    } else {
+      textarea.value = value.slice(0, selectionStart) + INDENT + value.slice(selectionEnd)
+      textarea.selectionStart = selectionStart + INDENT.length
+      textarea.selectionEnd = textarea.selectionStart
+    }
+
+    draft = textarea.value
+    hasLocalEdits = true
+    render(currentProps)
+  }
 
   const configField = baseField({
     label: 'Configuration (JSON)',
@@ -151,6 +201,40 @@ export function configEditorSection(
   //
   // Revert sits left of it rather than beside it — the destructive-adjacent
   // action should not be the one the pointer lands on by muscle memory.
+  // `baseField` has no keydown seam, so the handler is attached to the textarea
+  // it built. Reaching into another component's DOM is a compromise; adding a
+  // key-handling prop to a field used by every form in the app, for one editor,
+  // would be the larger one.
+  const textarea = configField.element.querySelector('textarea')
+  textarea?.setAttribute('spellcheck', 'false')
+  textarea?.addEventListener('keydown', (event) => {
+    if ((event as KeyboardEvent).key === 'Tab') {
+      indentOnTab(event as KeyboardEvent)
+    }
+  })
+
+  function toggleEditorVisible(): void {
+    editorVisible = !editorVisible
+    render(currentProps)
+  }
+
+  const visibilityButton = baseButton({
+    variant: 'ghost',
+    onClick: toggleEditorVisible,
+    children: ['Edit'],
+  })
+
+  const exportButton = baseButton({
+    variant: 'ghost',
+    onClick: () => void downloadConfig(),
+    children: ['Export'],
+  })
+
+  const disclosureRow = el('div', { class: 'flex flex-wrap items-center gap-2' }, [
+    visibilityButton.element,
+    exportButton.element,
+  ])
+
   const buttonRow = el(
     'div',
     {
@@ -210,7 +294,14 @@ export function configEditorSection(
   const section = el(
     'section',
     { class: 'flex flex-col gap-3', attrs: { 'aria-labelledby': headingId } },
-    [heading.element, introParagraph, configField.element, buttonRow, confirmDialog.element],
+    [
+      heading.element,
+      introParagraph,
+      disclosureRow,
+      configField.element,
+      buttonRow,
+      confirmDialog.element,
+    ],
   )
 
   let currentProps = props
@@ -239,9 +330,24 @@ export function configEditorSection(
       },
     })
 
-    // The controls appear only once something is unsaved, so a section at rest
-    // carries no buttons that would do nothing.
-    setVisible(buttonRow, hasLocalEdits || nextProps.busy)
+    setVisible(configField.element, editorVisible)
+    visibilityButton.update({
+      variant: 'ghost',
+      onClick: toggleEditorVisible,
+      children: [editorVisible ? 'Hide' : 'Edit'],
+    })
+    exportButton.update({
+      variant: 'ghost',
+      onClick: () => void downloadConfig(),
+      disabled: nextProps.busy,
+      children: ['Export'],
+    })
+
+    // The commit controls appear only once something is unsaved, so a section
+    // at rest carries no buttons that would do nothing. Hidden with the editor
+    // too — unsaved text behind a collapsed panel would otherwise offer an
+    // Apply whose subject is not on screen.
+    setVisible(buttonRow, editorVisible && (hasLocalEdits || nextProps.busy))
     saveButton.update({
       variant: 'primary',
       onClick: requestSave,
@@ -300,6 +406,8 @@ export function configEditorSection(
       saveButton.destroy()
       revertButton.destroy()
       confirmHeading.destroy()
+      visibilityButton.destroy()
+      exportButton.destroy()
       confirmApplyButton.destroy()
       confirmCancelButton.destroy()
       confirmDialog.destroy()

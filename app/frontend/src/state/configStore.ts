@@ -113,6 +113,28 @@ export function clearPendingImport(): void {
   configStore.setState({ pendingImport: null, pendingFileName: null })
 }
 
+/**
+ * Download the instance's configuration as a JSON file.
+ *
+ * Reloads first, so the file is what the Sentry holds now rather than whatever
+ * the panel last rendered — an export taken from a stale preview is the kind of
+ * thing nobody notices until they restore from it.
+ */
+export async function downloadConfig(): Promise<void> {
+  await loadPreview()
+  const preview = configStore.state.preview
+  if (preview === null) {
+    return
+  }
+  const blob = new Blob([JSON.stringify(preview, null, 2) + '\n'], { type: 'application/json' })
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = 'sentry-config.json'
+  link.click()
+  URL.revokeObjectURL(objectUrl)
+}
+
 /** Reloads the instance's current configuration for the export preview. */
 export async function loadPreview(): Promise<void> {
   configStore.setState({ phase: 'loading' })

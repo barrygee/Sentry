@@ -13,7 +13,7 @@ import {
   applyPendingImport,
   clearPendingImport,
   configStore,
-  loadPreview,
+  downloadConfig,
   pendingDeviceCount,
   pendingHasHotspot,
   stagePickedFile,
@@ -198,21 +198,6 @@ export function configPanel(): Component<void> {
    * browser history and the access log. `EventSource` has no choice; this
    * does.
    */
-  async function downloadConfig(): Promise<void> {
-    await loadPreview()
-    const preview = configStore.state.preview
-    if (preview === null) {
-      return
-    }
-    const blob = new Blob([JSON.stringify(preview, null, 2) + '\n'], { type: 'application/json' })
-    const objectUrl = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = objectUrl
-    link.download = 'sentry-config.json'
-    link.click()
-    URL.revokeObjectURL(objectUrl)
-  }
-
   function pickFile(): void {
     fileInput.click()
   }
