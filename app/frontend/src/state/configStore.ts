@@ -18,7 +18,8 @@ import * as sdrsStore from './sdrsStore.js'
  *
  * **No secret ever passes through here.** The exported file carries
  * `passphrase_set` and never a password, and the deploy-time gates
- * (`SENTRY_HOTSPOT_CONTROL_ENABLED`, `SENTRY_AUTH_TOKEN`) are `.env`-only by
+ * (`SENTRY_HOTSPOT_CONTROL_ENABLED`, since ADR-0013 an override rather than the
+ * only way to set it) are `.env`-only by
  * design — see `schemas/config.py`.
  */
 

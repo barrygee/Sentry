@@ -1500,6 +1500,42 @@
         "title": "HotspotConfigRequest",
         "type": "object"
       },
+      "HotspotControlRequest": {
+        "description": "Turn this Sentry's hotspot control on or off (ADR-0013).",
+        "properties": {
+          "enabled": {
+            "description": "Whether the API may reconfigure this host's WiFi",
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "HotspotControlRequest",
+        "type": "object"
+      },
+      "HotspotControlResponse": {
+        "description": "The state of the hotspot-control switch after a change.",
+        "properties": {
+          "control_enabled": {
+            "description": "Whether hotspot control is now in effect",
+            "title": "Control Enabled",
+            "type": "boolean"
+          },
+          "forced_by_environment": {
+            "description": "Whether SENTRY_HOTSPOT_CONTROL_ENABLED pins control on, making the stored value moot until it is removed",
+            "title": "Forced By Environment",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "control_enabled",
+          "forced_by_environment"
+        ],
+        "title": "HotspotControlResponse",
+        "type": "object"
+      },
       "HotspotErrorSummary": {
         "description": "The last control failure, kept so the UI can explain a hotspot that is not up.",
         "properties": {
@@ -3173,6 +3209,48 @@
           }
         },
         "summary": "Keep the hotspot that is awaiting confirmation",
+        "tags": [
+          "hotspot"
+        ]
+      }
+    },
+    "/api/hotspot/control": {
+      "put": {
+        "description": "Turn host-network control on or off without a restart (ADR-0013).\n\nThis is the one route that can *grant* the capability every other route in\nthis module guards, so it carries its own gate: a console with no password\nis refused outright, not merely warned. ADR-0007 made shell access the thing\nstanding between a stranger and this host's networking; moving the switch\ninto the UI replaces that with the console password, which therefore has to\nexist before the switch will move at all.\n\nDeliberately not guarded by `_require_control_enabled` \u2014 that would make the\nswitch require itself.",
+        "operationId": "set_hotspot_control_api_hotspot_control_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HotspotControlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotControlResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Switch this Sentry's hotspot control on or off",
         "tags": [
           "hotspot"
         ]

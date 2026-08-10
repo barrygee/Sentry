@@ -202,3 +202,37 @@ class ConsoleAuthModel(Base):
     """Unix ms the password last changed. Displayed; never used for auth decisions."""
 
     __table_args__ = (CheckConstraint("id = 1", name="ck_console_auth_single_row"),)
+
+
+class HostControlSettingsModel(Base):
+    """Host-capability switches an operator can flip from the UI (ADR-0013).
+
+    A single row, like `console_auth`. Holds the settings that used to be
+    deploy-time `.env` gates and are now operator-facing, because requiring a
+    terminal to turn on a feature the UI otherwise fully manages made the UI's
+    own instructions the product.
+
+    Only `hotspot_control_enabled` lives here so far. The bar for adding a
+    setting is that flipping it must be safe for whoever can reach the console —
+    which is why the hotspot toggle is refused while no console password is set
+    (ADR-0013), not merely hidden.
+    """
+
+    __tablename__ = "host_control_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    """Always 1. A single-row table, constrained below rather than by convention."""
+
+    hotspot_control_enabled: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default="0"
+    )
+    """Whether the API may reconfigure this host's WiFi (ADR-0007, ADR-0013).
+
+    `False` on a fresh install, which is the same default `SENTRY_HOTSPOT_CONTROL_ENABLED`
+    always had — what changed is who can flip it, not what it starts as.
+    """
+
+    updated_at: Mapped[int] = mapped_column(nullable=False, default=0)
+    """Unix ms this row last changed. Displayed; never used for an auth decision."""
+
+    __table_args__ = (CheckConstraint("id = 1", name="ck_host_control_settings_single_row"),)

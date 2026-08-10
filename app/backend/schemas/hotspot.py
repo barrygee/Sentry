@@ -366,3 +366,21 @@ class HotspotClientsResponse(BaseModel):
     clients: tuple[HotspotClientItem, ...] | None = None
     source: Literal["dnsmasq-leases"] = "dnsmasq-leases"
     generated_at: int = Field(description="Unix ms")
+
+
+class HotspotControlRequest(BaseModel):
+    """Turn this Sentry's hotspot control on or off (ADR-0013)."""
+
+    enabled: bool = Field(description="Whether the API may reconfigure this host's WiFi")
+
+
+class HotspotControlResponse(BaseModel):
+    """The state of the hotspot-control switch after a change."""
+
+    control_enabled: bool = Field(description="Whether hotspot control is now in effect")
+    forced_by_environment: bool = Field(
+        description=(
+            "Whether SENTRY_HOTSPOT_CONTROL_ENABLED pins control on, making the stored "
+            "value moot until it is removed"
+        )
+    )

@@ -62,7 +62,11 @@ offsetting isolation benefit.
 The mitigation is therefore **gating the capability, not isolating the transport**:
 
 1. `SENTRY_HOTSPOT_CONTROL_ENABLED` defaults **false**. The entire mutating surface is opt-in at
-   deploy time, in `.env`, by someone with shell access to the Pi. A stock `docker compose up`
+   deploy time, in `.env`, by someone with shell access to the Pi.
+   **Amended by [ADR-0013](0013-hotspot-control-is-operator-flippable.md):** the switch moved into
+   the console, protected by the console password rather than by shell access. The variable still
+   works and still wins, and the property that a switched-off Sentry executes no `nmcli` and makes
+   no D-Bus call is unchanged. Mitigations 2-4 below are untouched. A stock `docker compose up`
    cannot touch host networking, executes no `nmcli`, and makes no D-Bus call.
 2. `SENTRY_HOTSPOT_REQUIRE_AUTH_TOKEN` defaults **true**. With control enabled and
    `SENTRY_AUTH_TOKEN` unset, every mutating route refuses with `409 auth_token_required`,

@@ -12,6 +12,7 @@ export type PortConstraints = components['schemas']['PortConstraints']
 export type SerialFlashRequest = components['schemas']['SerialFlashRequest']
 export type SerialFlashAccepted = components['schemas']['SerialFlashAccepted']
 export type HotspotState = components['schemas']['HotspotStateResponse']
+export type HotspotControlResponse = components['schemas']['HotspotControlResponse']
 export type HotspotConfigRequest = components['schemas']['HotspotConfigRequest']
 export type HotspotActivationRequest = components['schemas']['HotspotActivationRequest']
 export type HotspotClientsResponse = components['schemas']['HotspotClientsResponse']
@@ -137,6 +138,13 @@ export const apiClient = {
         // password, matching how the hotspot form omits an unchanged passphrase.
         ...(currentPassword === null ? {} : { current_password: currentPassword }),
       }),
+    }),
+
+  /** Switch this Sentry's hotspot control on or off without a restart (ADR-0013). */
+  setHotspotControl: (enabled: boolean) =>
+    request<HotspotControlResponse>('/hotspot/control', {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
     }),
 
   getStatus: () => request<StatusResponse>('/status'),

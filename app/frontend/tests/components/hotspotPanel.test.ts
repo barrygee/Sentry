@@ -80,11 +80,9 @@ describe('hotspotPanel', () => {
   })
 
   it.each([
-    [
-      'hotspot control disabled in .env',
-      { control_enabled: false },
-      'SENTRY_HOTSPOT_CONTROL_ENABLED',
-    ],
+    // No longer an env var either: hotspot control is a switch in this panel
+    // (ADR-0013), so the panel points at itself rather than at a terminal.
+    ['hotspot control switched off', { control_enabled: false }, 'Turn it on'],
     // Not an env var any more: the controller password is set in the UI
     // (ADR-0010), so the panel points there rather than at `.env`.
     ['no controller password set', { auth_token_configured: false }, 'controller password'],

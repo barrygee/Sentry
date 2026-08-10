@@ -23,6 +23,7 @@ from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.eeprom import EepromService
 from app.backend.services.event_bus import EventBus
 from app.backend.services.health import HealthService
+from app.backend.services.host_control_settings import HostControlSettingsService
 from app.backend.services.hotspot import HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
 from app.backend.services.supervisor import SupervisorService
@@ -80,6 +81,14 @@ def get_console_auth_service(request: Request) -> ConsoleAuthService:
     """Return the process-wide `ConsoleAuthService` (ADR-0010)."""
     console_auth_service: ConsoleAuthService = request.app.state.container.console_auth_service
     return console_auth_service
+
+
+def get_host_control_settings(request: Request) -> HostControlSettingsService:
+    """Return the process-wide `HostControlSettingsService` (ADR-0013)."""
+    host_control_settings: HostControlSettingsService = (
+        request.app.state.container.host_control_settings
+    )
+    return host_control_settings
 
 
 def get_hotspot_service(request: Request) -> HotspotService:

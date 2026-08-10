@@ -26,6 +26,7 @@ from app.backend.config import Settings
 from app.backend.dependencies import (
     get_clock,
     get_console_auth_service,
+    get_host_control_settings,
     get_hotspot_service,
     get_settings_dependency,
 )
@@ -36,6 +37,8 @@ from app.backend.schemas.hotspot import (
     HotspotClientItem,
     HotspotClientsResponse,
     HotspotConfigRequest,
+    HotspotControlRequest,
+    HotspotControlResponse,
     HotspotErrorSummary,
     HotspotStateResponse,
     HotspotWarning,
@@ -44,6 +47,7 @@ from app.backend.schemas.hotspot import (
 )
 from app.backend.security import require_console_session
 from app.backend.services.console_auth import ConsoleAuthService
+from app.backend.services.host_control_settings import HostControlSettingsService
 from app.backend.services.hotspot import HotspotError, HotspotService, HotspotSnapshot
 
 router = APIRouter(
@@ -78,15 +82,20 @@ def _as_http_exception(error: HotspotError) -> HTTPException:
     )
 
 
-def _require_control_enabled(settings: Settings) -> None:
-    """Refuse a mutating call unless host-network control was enabled at deploy time."""
-    if not settings.hotspot_control_enabled:
+def _require_control_enabled(control_enabled: bool) -> None:
+    """Refuse a mutating call unless host-network control is switched on.
+
+    `control_enabled` is the *effective* value — the stored switch, or `.env`
+    forcing it on (ADR-0013). The message no longer names an environment
+    variable, because the console can now turn this on itself.
+    """
+    if not control_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=error_detail(
                 "hotspot_control_disabled",
-                "Hotspot control is switched off. Set SENTRY_HOTSPOT_CONTROL_ENABLED=true "
-                "in this deployment's .env and restart to enable it.",
+                "Hotspot control is switched off for this Sentry. Turn it on in "
+                "Settings, then try again.",
             ),
         )
 
@@ -116,9 +125,9 @@ def _require_console_password(settings: Settings, password_set: bool) -> None:
         )
 
 
-def _guard_mutation(settings: Settings, password_set: bool) -> None:
+def _guard_mutation(control_enabled: bool, settings: Settings, password_set: bool) -> None:
     """Apply both gates, in the order an operator should fix them."""
-    _require_control_enabled(settings)
+    _require_control_enabled(control_enabled)
     _require_console_password(settings, password_set)
 
 
@@ -148,7 +157,11 @@ def _build_warnings(
 
 
 def _to_state_response(
-    snapshot: HotspotSnapshot, settings: Settings, generated_at: int, password_set: bool
+    snapshot: HotspotSnapshot,
+    settings: Settings,
+    generated_at: int,
+    password_set: bool,
+    control_enabled: bool,
 ) -> HotspotStateResponse:
     """Map the service's snapshot onto the wire shape.
 
@@ -168,7 +181,7 @@ def _to_state_response(
 
     return HotspotStateResponse(
         available=snapshot.available,
-        control_enabled=settings.hotspot_control_enabled,
+        control_enabled=control_enabled,
         auth_token_configured=password_set,
         configured=state.profile_exists,
         enabled=state.autoconnect,
@@ -201,6 +214,7 @@ async def get_hotspot(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
     console_auth: ConsoleAuthService = Depends(get_console_auth_service),
+    host_control: HostControlSettingsService = Depends(get_host_control_settings),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Describe the hotspot, degrading rather than failing.
@@ -211,7 +225,11 @@ async def get_hotspot(
     """
     snapshot = await hotspot_service.get_snapshot()
     return _to_state_response(
-        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+        snapshot,
+        settings,
+        clock.now_ms(),
+        await console_auth.is_password_set(),
+        await host_control.hotspot_control_enabled(),
     )
 
 
@@ -292,6 +310,7 @@ async def put_hotspot(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
     console_auth: ConsoleAuthService = Depends(get_console_auth_service),
+    host_control: HostControlSettingsService = Depends(get_host_control_settings),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Write the whole configuration, then bring the hotspot up or down to match.
@@ -301,7 +320,11 @@ async def put_hotspot(
     again (WCAG 3.3.7 as much as security: not re-asking for something
     unchanged is a requirement, not a courtesy).
     """
-    _guard_mutation(settings, await console_auth.is_password_set())
+    _guard_mutation(
+        await host_control.hotspot_control_enabled(),
+        settings,
+        await console_auth.is_password_set(),
+    )
     try:
         snapshot = await hotspot_service.apply_configuration(
             ssid=request_body.ssid,
@@ -325,7 +348,11 @@ async def put_hotspot(
         # status. Catching them individually would only duplicate this line.
         raise _as_http_exception(error) from error
     return _to_state_response(
-        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+        snapshot,
+        settings,
+        clock.now_ms(),
+        await console_auth.is_password_set(),
+        await host_control.hotspot_control_enabled(),
     )
 
 
@@ -340,6 +367,7 @@ async def enable_hotspot(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
     console_auth: ConsoleAuthService = Depends(get_console_auth_service),
+    host_control: HostControlSettingsService = Depends(get_host_control_settings),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Bring the hotspot up provisionally; it rolls back unless confirmed.
@@ -348,13 +376,21 @@ async def enable_hotspot(
     configuration, and therefore never has to be holding the passphrase just to
     flip a switch.
     """
-    _guard_mutation(settings, await console_auth.is_password_set())
+    _guard_mutation(
+        await host_control.hotspot_control_enabled(),
+        settings,
+        await console_auth.is_password_set(),
+    )
     try:
         snapshot = await hotspot_service.enable(request_body.confirm_uplink_loss)
     except HotspotError as error:
         raise _as_http_exception(error) from error
     return _to_state_response(
-        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+        snapshot,
+        settings,
+        clock.now_ms(),
+        await console_auth.is_password_set(),
+        await host_control.hotspot_control_enabled(),
     )
 
 
@@ -369,16 +405,25 @@ async def disable_hotspot(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
     console_auth: ConsoleAuthService = Depends(get_console_auth_service),
+    host_control: HostControlSettingsService = Depends(get_host_control_settings),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Bring the hotspot down and stop it starting on boot."""
-    _guard_mutation(settings, await console_auth.is_password_set())
+    _guard_mutation(
+        await host_control.hotspot_control_enabled(),
+        settings,
+        await console_auth.is_password_set(),
+    )
     try:
         snapshot = await hotspot_service.disable(request_body.confirm_uplink_loss)
     except HotspotError as error:
         raise _as_http_exception(error) from error
     return _to_state_response(
-        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+        snapshot,
+        settings,
+        clock.now_ms(),
+        await console_auth.is_password_set(),
+        await host_control.hotspot_control_enabled(),
     )
 
 
@@ -392,6 +437,7 @@ async def confirm_hotspot(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
     console_auth: ConsoleAuthService = Depends(get_console_auth_service),
+    host_control: HostControlSettingsService = Depends(get_host_control_settings),
     clock: Clock = Depends(get_clock),
 ) -> HotspotStateResponse:
     """Cancel the pending rollback and let the hotspot survive a reboot.
@@ -399,13 +445,21 @@ async def confirm_hotspot(
     Reaching this route at all is the proof the commit-confirm flow wants: the
     API is still answering with the hotspot running.
     """
-    _guard_mutation(settings, await console_auth.is_password_set())
+    _guard_mutation(
+        await host_control.hotspot_control_enabled(),
+        settings,
+        await console_auth.is_password_set(),
+    )
     try:
         snapshot = await hotspot_service.confirm()
     except HotspotError as error:
         raise _as_http_exception(error) from error
     return _to_state_response(
-        snapshot, settings, clock.now_ms(), await console_auth.is_password_set()
+        snapshot,
+        settings,
+        clock.now_ms(),
+        await console_auth.is_password_set(),
+        await host_control.hotspot_control_enabled(),
     )
 
 
@@ -418,11 +472,57 @@ async def delete_hotspot(
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
     console_auth: ConsoleAuthService = Depends(get_console_auth_service),
+    host_control: HostControlSettingsService = Depends(get_host_control_settings),
 ) -> Response:
     """Forget the network entirely, including its stored password."""
-    _guard_mutation(settings, await console_auth.is_password_set())
+    _guard_mutation(
+        await host_control.hotspot_control_enabled(),
+        settings,
+        await console_auth.is_password_set(),
+    )
     try:
         await hotspot_service.forget()
     except HotspotError as error:
         raise _as_http_exception(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
+    "/control",
+    response_model=HotspotControlResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Switch this Sentry's hotspot control on or off",
+)
+async def set_hotspot_control(
+    request_body: HotspotControlRequest,
+    console_auth: ConsoleAuthService = Depends(get_console_auth_service),
+    host_control: HostControlSettingsService = Depends(get_host_control_settings),
+) -> HotspotControlResponse:
+    """Turn host-network control on or off without a restart (ADR-0013).
+
+    This is the one route that can *grant* the capability every other route in
+    this module guards, so it carries its own gate: a console with no password
+    is refused outright, not merely warned. ADR-0007 made shell access the thing
+    standing between a stranger and this host's networking; moving the switch
+    into the UI replaces that with the console password, which therefore has to
+    exist before the switch will move at all.
+
+    Deliberately not guarded by `_require_control_enabled` — that would make the
+    switch require itself.
+    """
+    if not await console_auth.is_password_set():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=error_detail(
+                "console_password_required",
+                "Set a Sentry controller password before switching hotspot control on: "
+                "it is what stops anyone who can reach this console reconfiguring the "
+                "Pi's networking.",
+            ),
+        )
+
+    await host_control.set_hotspot_control_enabled(request_body.enabled)
+    return HotspotControlResponse(
+        control_enabled=await host_control.hotspot_control_enabled(),
+        forced_by_environment=host_control.hotspot_control_is_forced,
+    )

@@ -43,6 +43,7 @@ from starlette.types import Scope
 from app.backend.adapters.asyncio_process import AsyncioProcessSpawner
 from app.backend.adapters.composite_hotplug import CompositeHotplugSource
 from app.backend.adapters.ctypes_rtlsdr import CtypesRtlSdrLibrary, RtlSdrLibraryUnavailableError
+from app.backend.adapters.gated_wifi_ap import GatedWifiApController
 from app.backend.adapters.net import SocketPortProber
 from app.backend.adapters.nmcli_wifi_ap import NmcliWifiApController, UnavailableWifiApController
 from app.backend.adapters.reconcile_hotplug import ReconcileHotplugSource
@@ -66,6 +67,7 @@ from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.eeprom import EepromService
 from app.backend.services.event_bus import EventBus
 from app.backend.services.health import HealthService
+from app.backend.services.host_control_settings import HostControlSettingsService
 from app.backend.services.hotplug import HotplugService
 from app.backend.services.hotspot import HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
@@ -173,16 +175,18 @@ def _build_wifi_ap_controller(
     """Construct the real nmcli-backed controller, degrading to the null object.
 
     Follows `_build_rtlsdr_library`'s precedent exactly: an optional capability
-    the host may simply not have must never crash startup. Three things have to
-    be true for real control — the operator enabled it, `nmcli` exists, and the
-    host's D-Bus socket is reachable — and each failing case names itself in the
-    log so an operator on the Pi knows which one to fix.
+    the host may simply not have must never crash startup. Two things have to be
+    true for real control — `nmcli` exists, and the host's D-Bus socket is
+    reachable — and each failing case names itself in the log so an operator on
+    the Pi knows which one to fix.
+
+    Whether the operator has *switched control on* is no longer decided here.
+    It used to be, and it could not stay: it is now a database value the
+    operator can flip at runtime (ADR-0013), so it is applied per call by
+    `GatedWifiApController` rather than once at assembly time. This function now
+    answers only "can this host do it at all", which really is fixed for the
+    life of the process.
     """
-    if not settings.hotspot_control_enabled:
-        return UnavailableWifiApController(
-            "Hotspot control is switched off (SENTRY_HOTSPOT_CONTROL_ENABLED).",
-            nm_state_root=Path(settings.nm_state_root),
-        )
     if shutil.which(settings.nmcli_path) is None:
         _logger.warning(
             "hotspot control is enabled but %s was not found; the hotspot API will report "
@@ -259,6 +263,7 @@ class AppContainer:
     health_service: HealthService
     hotspot_service: HotspotService
     console_auth_service: ConsoleAuthService
+    host_control_settings: HostControlSettingsService
     background_tasks: list[asyncio.Task[None]]
 
 
@@ -338,8 +343,28 @@ def _build_container(settings: Settings) -> AppContainer:
     # way device configuration does.
     console_auth_service = ConsoleAuthService(session_factory)
 
+    # `.env` can still force hotspot control on and, when it does, wins over the
+    # stored value permanently (ADR-0013).
+    host_control_settings = HostControlSettingsService(
+        session_factory,
+        clock,
+        forced_hotspot_control_enabled=settings.hotspot_control_enabled,
+    )
+    # Both controllers are built up front; which one answers is decided per call.
+    # With control switched off nothing reaches nmcli or D-Bus, which is
+    # ADR-0007's central property and the reason this is a delegating wrapper
+    # rather than a flag inside the nmcli adapter.
+    hotspot_controller = GatedWifiApController(
+        enabled_controller=_build_wifi_ap_controller(settings, process_spawner),
+        disabled_controller=UnavailableWifiApController(
+            "Hotspot control is switched off for this Sentry.",
+            nm_state_root=Path(settings.nm_state_root),
+        ),
+        control_enabled=host_control_settings.hotspot_control_enabled,
+    )
+
     hotspot_service = HotspotService(
-        controller=_build_wifi_ap_controller(settings, process_spawner),
+        controller=hotspot_controller,
         event_bus=event_bus,
         clock=clock,
         default_gateway_cidr=settings.hotspot_gateway_cidr,
@@ -362,6 +387,7 @@ def _build_container(settings: Settings) -> AppContainer:
         health_service=health_service,
         hotspot_service=hotspot_service,
         console_auth_service=console_auth_service,
+        host_control_settings=host_control_settings,
         background_tasks=[],
     )
 
