@@ -165,6 +165,39 @@ export function stagePickedFile(fileName: string, contents: string): void {
   })
 }
 
+/**
+ * Apply configuration the operator edited by hand in the console.
+ *
+ * Reuses the import path rather than adding a second write route: this *is* an
+ * import, just one whose source is a textarea instead of a file, and it should
+ * obey the same section toggles and produce the same result summary.
+ *
+ * There is no separate confirm step, unlike the file picker. Picking a file is
+ * a weak signal of intent — the operator may not remember what is in it — but
+ * typing into the configuration and pressing Save is the confirmation.
+ */
+export async function applyEditedConfig(contents: string): Promise<boolean> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(contents)
+  } catch (error) {
+    configStore.setState({
+      errorMessage: `That is not valid JSON: ${error instanceof Error ? error.message : 'it could not be parsed'}.`,
+      phase: 'failed',
+    })
+    return false
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    configStore.setState({
+      errorMessage: 'A Sentry configuration must be a JSON object.',
+      phase: 'failed',
+    })
+    return false
+  }
+  configStore.setState({ pendingImport: parsed as SentryConfigImport, pendingFileName: null })
+  return await applyPendingImport()
+}
+
 /** Sends the staged import to the server, applying whichever sections are enabled. */
 export async function applyPendingImport(): Promise<boolean> {
   const { pendingImport, applyDevices, applyHotspot } = configStore.state

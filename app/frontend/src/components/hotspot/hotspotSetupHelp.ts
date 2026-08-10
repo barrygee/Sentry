@@ -1,4 +1,4 @@
-import { el, setVisible } from '../../core/dom.js'
+import { el, setText, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
 import { setControlEnabled } from '../../state/hotspotStore.js'
 import { baseToggle } from '../base/baseToggle.js'
@@ -40,10 +40,9 @@ export interface HotspotSetupHelpProps {
 export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<HotspotSetupHelpProps> {
   let currentProps = props
 
-  const introParagraph = el('p', { class: 'm-0' }, [
-    el('strong', { class: 'font-semibold' }, ['Hotspot control is switched off.']),
-    ' Turn it on to let this Sentry configure the Pi’s WiFi.',
-  ])
+  const introLead = el('strong', { class: 'font-semibold' }, ['Hotspot control is switched off.'])
+  const introRest = el('span', {}, [])
+  const introParagraph = el('p', { class: 'm-0' }, [introLead, ' ', introRest])
 
   const controlToggle = baseToggle({
     value: false,
@@ -64,18 +63,9 @@ export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<Hotspo
   // and switch disappear together rather than leaving an orphan.
   const shellStep = el('div', { class: 'flex flex-col gap-3' }, [])
 
-  const controlEnabledParagraph = el('p', { class: 'm-0 text-[11px] leading-[1.6]' }, [
-    'Hotspot control is off by default because it is the one setting that lets this web API reconfigure the Pi’s own networking. It stays off until you turn it on, and needs a controller password first.',
-  ])
-  const passwordParagraph = el('p', { class: 'm-0 text-[11px] leading-[1.6]' }, [
-    'A controller password is also required before a hotspot can start: anyone connected to the Sentry WiFi is on the same network as this controller, and could change your SDR settings. Set one in ',
-    el('strong', { class: 'font-semibold' }, ['Sentry controller password']),
-    ' above.',
-  ])
+  shellStep.append(introParagraph, controlToggleRow)
 
-  shellStep.append(introParagraph, controlToggleRow, controlEnabledParagraph)
-
-  const wrapper = el('div', { class: 'flex flex-col gap-3' }, [shellStep, passwordParagraph])
+  const wrapper = el('div', { class: 'flex flex-col gap-3' }, [shellStep])
 
   // Roomier than the default `px-4 py-3`: this is a panel of instructions, not
   // a one-line alert, and at the default its code block and button sat against
@@ -94,7 +84,15 @@ export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<Hotspo
     // Each prerequisite shows only while it is unmet. A satisfied one left on
     // screen reads as another thing still to do.
     setVisible(shellStep, !nextProps.controlEnabled)
-    setVisible(passwordParagraph, !nextProps.authTokenConfigured)
+    // The one sentence carries the password requirement when there is one,
+    // because the toggle below it is disabled in that state and a control that
+    // refuses to move without saying why is worse than no control at all.
+    setText(
+      introRest,
+      nextProps.authTokenConfigured
+        ? 'Turn it on to let this Sentry configure the Pi’s WiFi.'
+        : 'Set a Sentry controller password above first — it is what stops anyone who joins the network reconfiguring this Pi.',
+    )
     controlToggle.update({
       value: nextProps.controlEnabled,
       onChange: (enabled) => {

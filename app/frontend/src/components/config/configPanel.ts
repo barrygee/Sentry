@@ -8,6 +8,8 @@ import { dataCell } from '../base/dataCell.js'
 import { nextElementId } from '../base/idGenerator.js'
 import { noticeBox } from '../base/noticeBox.js'
 import { sectionHeading } from '../base/sectionHeading.js'
+
+import { configEditorSection } from './configEditorSection.js'
 import {
   applyPendingImport,
   clearPendingImport,
@@ -85,6 +87,8 @@ export function configPanel(): Component<void> {
     { class: 'flex flex-col gap-3', attrs: { 'aria-labelledby': exportHeadingId } },
     [exportHeading.element, exportDetailsList, el('div', {}, [downloadButton.element])],
   )
+
+  const editorSection = configEditorSection({ preview: null, busy: false })
 
   // Import section.
   const importHeadingId = nextElementId('config-import-heading')
@@ -191,7 +195,11 @@ export function configPanel(): Component<void> {
       // own `gap-6`. At the same gap, IMPORT sat as close to the export button
       // as that button did to its own caption, so the two halves read as one
       // run of controls rather than two things you choose between.
-      el('div', { class: 'flex flex-col gap-10' }, [exportSection, importSection]),
+      el('div', { class: 'flex flex-col gap-10' }, [
+        exportSection,
+        editorSection.element,
+        importSection,
+      ]),
     ],
   )
 
@@ -247,6 +255,8 @@ export function configPanel(): Component<void> {
 
   function render(state: ConfigStoreState): void {
     const isBusy = state.phase === 'importing'
+
+    editorSection.update({ preview: state.preview, busy: isBusy })
 
     setText(busyStatusRegion, isBusy ? 'Importing configuration.' : '')
     setText(errorAlertRegion, state.errorMessage ?? '')
@@ -349,6 +359,7 @@ export function configPanel(): Component<void> {
 
     destroy(): void {
       unsubscribe()
+      editorSection.destroy()
       importReport?.destroy()
     },
   }
