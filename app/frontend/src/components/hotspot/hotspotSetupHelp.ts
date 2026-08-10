@@ -40,9 +40,13 @@ export interface HotspotSetupHelpProps {
 export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<HotspotSetupHelpProps> {
   let currentProps = props
 
-  const introLead = el('strong', { class: 'font-semibold' }, ['Hotspot control is switched off.'])
-  const introRest = el('span', {}, [])
-  const introParagraph = el('p', { class: 'm-0' }, [introLead, ' ', introRest])
+  // Two paragraphs rather than one wrapped line: the first states the condition,
+  // the second says what to do about it, and they are read at different moments.
+  // Running them together left the instruction starting mid-line, where it reads
+  // as a continuation of the state rather than an action.
+  const introLead = el('p', { class: 'm-0 font-semibold' }, ['Hotspot control is switched off.'])
+  const introRest = el('p', { class: 'm-0' }, [])
+  const introParagraph = el('div', { class: 'flex flex-col gap-1' }, [introLead, introRest])
 
   const controlToggle = baseToggle({
     value: false,
