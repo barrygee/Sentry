@@ -443,9 +443,10 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     // Dirtiness is the honest test. A card with no edits has drafts equal to
     // the device already, so syncing it is a no-op either way; a card with
     // edits keeps them until the operator saves or discards. That is the
-    // deliberate trade agreed for this UI — local drafts win over a concurrent
+    // deliberate trade recorded in ADR-0012 — local drafts win over a concurrent
     // change from elsewhere, silently, because a conflict notice on a
-    // single-operator device would be noise.
+    // single-operator device would be noise. That ADR also lists what should
+    // trigger revisiting it, the first being any second writer.
     if (!hasUnsavedChanges() && !isSaving()) {
       nameDraft = device.name
       portDraft = device.output?.iq_port ?? null
