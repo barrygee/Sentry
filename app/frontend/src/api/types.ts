@@ -4,2516 +4,2604 @@
  */
 
 export interface paths {
-  '/api/auth/login': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Sign in
-     * @description Exchange the console password for a session cookie.
-     */
-    post: operations['login_api_auth_login_post']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/auth/logout': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Sign out
-     * @description Discard this browser's session.
-     *
-     *     Clears the cookie and nothing else. Sessions are stateless signatures, so
-     *     there is no server-side record to delete — a copy of the cookie taken from
-     *     elsewhere stays valid until it expires or the password changes. Signing every
-     *     session out is what changing the password is for, and the UI says so.
-     */
-    post: operations['logout_api_auth_logout_post']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/auth/password': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Set or change the password
-     * @description Set the first password, or change an existing one.
-     *
-     *     Signs this browser straight back in. Changing the password invalidates every
-     *     session including the caller's, so without a fresh cookie the operator would
-     *     be bounced to a login screen by their own successful password change.
-     */
-    post: operations['set_password_api_auth_password_post']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/auth/state': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Authentication state
-     * @description Report whether a password is set and whether this request is authenticated.
-     *
-     *     The first call any client makes. An open console answers
-     *     `password_set=false, authenticated=true` — nothing to sign in to.
-     */
-    get: operations['get_auth_state_api_auth_state_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/config': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Export this instance's configuration
-     * @description Return the whole configuration as JSON, for import into another Sentry.
-     */
-    get: operations['export_config_api_config_get']
-    put?: never
-    /**
-     * Import a configuration exported from another Sentry
-     * @description Apply an exported configuration, reporting what landed and what did not.
-     */
-    post: operations['import_config_api_config_post']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/config/download': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Export the configuration as a downloadable file
-     * @description The same payload as `GET /api/config`, with a filename attached.
-     *
-     *     For `curl -O` and scripted backups. The web UI deliberately does *not* use
-     *     this route: a plain navigation cannot set an `Authorization` header, so
-     *     linking at it would 401 as soon as an operator sets a token, and the usual
-     *     workaround — putting the token in the query string, as `EventSource` is
-     *     forced to — would write a credential into browser history and the access
-     *     log. The UI fetches `GET /api/config` authenticated and saves the file
-     *     itself instead.
-     */
-    get: operations['download_config_api_config_download_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/devices': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * List configured and detected devices
-     * @description Return every configured device plus every detected-but-unconfigured one.
-     */
-    get: operations['list_devices_api_devices_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/devices/{device_id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Remove a device's persisted configuration
-     * @description Remove a device's persisted configuration.
-     *
-     *     Config-removal only, and only for a device that is not currently present
-     *     (settled contract, see module docstring): `404 unknown_device` for a
-     *     device_id with no persisted row, `409 device_present` while it is plugged
-     *     in, `204 No Content` otherwise.
-     */
-    delete: operations['delete_device_api_devices__device_id__delete']
-    options?: never
-    head?: never
-    /**
-     * Create or update a device's configuration
-     * @description Upsert one device's configuration; creates the row on first call for a detected device.
-     *
-     *     Validation order mirrors architecture §7.5's response list: the device
-     *     must be known and identified before any conflict is checked, the proposed
-     *     port is validated through the full six-rule `PortAllocatorService`
-     *     (returning its specific rejection code, not a generic one), then the name
-     *     is checked for a case-insensitive collision, and only then is the mutation
-     *     applied. When `output_port` is set, the whole validate-then-apply sequence
-     *     runs under `_port_allocation_lock` — the sole guard against a P/P+2
-     *     *adjacency* race between two concurrent requests (see that lock's
-     *     docstring); `DeviceConflictError` from the repository's unique index is
-     *     still caught separately as a defence against an *identical*-port race,
-     *     which the lock also happens to prevent but which existed as a fallback
-     *     before the lock did.
-     */
-    patch: operations['patch_device_api_devices__device_id__patch']
-    trace?: never
-  }
-  '/api/devices/{device_id}/serial': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Flash a unique serial to the dongle's EEPROM
-     * @description Begin the guarded EEPROM serial-flash flow; the outcome arrives via SSE `notice`.
-     *
-     *     `request.confirm`'s `Literal[True]` and `request.serial`'s allow-list
-     *     pattern are already enforced by Pydantic before this handler runs
-     *     (architecture §7.6 guards 1-2). This handler enforces guards 3-4 (serial
-     *     uniqueness, device idleness), then **synchronously** reserves the
-     *     per-device/per-serial lock via `EepromService.begin_flash()` before
-     *     dispatching — a separate `is_locked()` check followed by `create_task()`
-     *     is not atomic (two concurrent requests could both observe "not locked"),
-     *     so the reservation itself must happen inline in this handler, not inside
-     *     the task it starts. The actual guarded flash (charset re-check, pair
-     *     stop, list-argv exec) runs in `EepromService.flash_serial()` as a
-     *     background task — the endpoint itself never performs the flash inline,
-     *     matching the `202` contract.
-     */
-    post: operations['flash_serial_api_devices__device_id__serial_post']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/events': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Realtime SDR events (Server-Sent Events)
-     * @description Open an SSE stream of SDR events.
-     *
-     *     The response is `text/event-stream` and is not one flat JSON schema — the
-     *     frozen shape of each named event is documented in `schemas/device.py`,
-     *     `schemas/events.py` and `schemas/health.py`. Client disconnect cancels the
-     *     underlying generator (Starlette's normal `StreamingResponse` behaviour),
-     *     which the `finally` block above uses to release the bus subscription.
-     *
-     *     Refuses a new connection with `503` once `MAX_SSE_SUBSCRIBERS` are
-     *     already open, rather than accepting an unbounded number of concurrent
-     *     streams (each with its own queue and heartbeat timer).
-     */
-    get: operations['get_events_api_events_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/health': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Health snapshot
-     * @description Return the current health snapshot.
-     *
-     *     200 unless the database is unreachable, in which case 503 with the same
-     *     body shape — a flapping healthcheck on one degraded dongle must never
-     *     restart the container and take the healthy dongles down with it
-     *     (architecture §7.1). No auth dependency is declared on this router: the
-     *     Docker healthcheck must reach it regardless of `SENTRY_AUTH_TOKEN`.
-     */
-    get: operations['get_health_api_health_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/hotspot': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The hotspot's current configuration and state
-     * @description Describe the hotspot, degrading rather than failing.
-     *
-     *     Always 200. A host with no NetworkManager answers `available: false` and a
-     *     `nm_unavailable` warning — a client can therefore always render something
-     *     truthful instead of an error it cannot explain.
-     */
-    get: operations['get_hotspot_api_hotspot_get']
-    /**
-     * Replace the hotspot configuration
-     * @description Write the whole configuration, then bring the hotspot up or down to match.
-     *
-     *     Omitting `passphrase` keeps the stored one — the mechanism that lets an
-     *     operator rename the network without the server ever handling the secret
-     *     again (WCAG 3.3.7 as much as security: not re-asking for something
-     *     unchanged is a requirement, not a courtesy).
-     */
-    put: operations['put_hotspot_api_hotspot_put']
-    post?: never
-    /**
-     * Delete the hotspot configuration
-     * @description Forget the network entirely, including its stored password.
-     */
-    delete: operations['delete_hotspot_api_hotspot_delete']
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/hotspot/clients': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * DHCP leases the hotspot has issued
-     * @description Return the hotspot's leases, or `null` when they cannot be read.
-     *
-     *     `null` and `[]` are different answers and must stay so: one means "this host
-     *     cannot tell you", the other means "nothing is connected". Collapsing them
-     *     would have the UI confidently report an empty network on a machine that
-     *     simply has no lease file.
-     */
-    get: operations['list_clients_api_hotspot_clients_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/hotspot/confirm': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Keep the hotspot that is awaiting confirmation
-     * @description Cancel the pending rollback and let the hotspot survive a reboot.
-     *
-     *     Reaching this route at all is the proof the commit-confirm flow wants: the
-     *     API is still answering with the hotspot running.
-     */
-    post: operations['confirm_hotspot_api_hotspot_confirm_post']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/hotspot/disable': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Stop the hotspot
-     * @description Bring the hotspot down and stop it starting on boot.
-     */
-    post: operations['disable_hotspot_api_hotspot_disable_post']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/hotspot/enable': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Start the configured hotspot
-     * @description Bring the hotspot up provisionally; it rolls back unless confirmed.
-     *
-     *     Separate from `PUT` so the UI's on/off switch never resends the whole
-     *     configuration, and therefore never has to be holding the passphrase just to
-     *     flip a switch.
-     */
-    post: operations['enable_hotspot_api_hotspot_enable_post']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/hotspot/interfaces': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Wireless interfaces the hotspot could use
-     * @description List candidate interfaces, flagging which one carries the host's own link.
-     */
-    get: operations['list_interfaces_api_hotspot_interfaces_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/sdrs': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Permanent alias for the current stable /v1/sdrs
-     * @description Permanent convenience alias serving the current stable SDR export version.
-     */
-    get: operations['get_sdrs_alias_api_sdrs_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/status': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Realtime per-SDR status
-     * @description Return the realtime per-SDR view — identical payload to the SSE `snapshot` event.
-     *
-     *     The registry cannot know the publishable host, so it emits `output.host=""`;
-     *     it is overlaid here (architecture §7.7) so consumers of this endpoint get the
-     *     same reachable address `/api/v1/sdrs` reports.
-     */
-    get: operations['get_status_api_status_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/v1/sdrs': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The Sentinel-consumed export of public SDRs (versioned)
-     * @description Return every *public* configured device, mapped onto Sentinel's `SdrRadio` field names.
-     *
-     *     Devices left `private` are omitted from `sdrs` entirely — see
-     *     `_build_sdr_export`.
-     */
-    get: operations['get_sdrs_v1_api_v1_sdrs_get']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in
+         * @description Exchange the console password for a session cookie.
+         */
+        post: operations["login_api_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out
+         * @description Discard this browser's session.
+         *
+         *     Clears the cookie and nothing else. Sessions are stateless signatures, so
+         *     there is no server-side record to delete — a copy of the cookie taken from
+         *     elsewhere stays valid until it expires or the password changes. Signing every
+         *     session out is what changing the password is for, and the UI says so.
+         */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set or change the password
+         * @description Set the first password, or change an existing one.
+         *
+         *     Signs this browser straight back in. Changing the password invalidates every
+         *     session including the caller's, so without a fresh cookie the operator would
+         *     be bounced to a login screen by their own successful password change.
+         */
+        post: operations["set_password_api_auth_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Authentication state
+         * @description Report whether a password is set and whether this request is authenticated.
+         *
+         *     The first call any client makes. An open console answers
+         *     `password_set=false, authenticated=true` — nothing to sign in to.
+         */
+        get: operations["get_auth_state_api_auth_state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export this instance's configuration
+         * @description Return the whole configuration as JSON, for import into another Sentry.
+         */
+        get: operations["export_config_api_config_get"];
+        put?: never;
+        /**
+         * Import a configuration exported from another Sentry
+         * @description Apply an exported configuration, reporting what landed and what did not.
+         */
+        post: operations["import_config_api_config_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/config/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the configuration as a downloadable file
+         * @description The same payload as `GET /api/config`, with a filename attached.
+         *
+         *     For `curl -O` and scripted backups. The web UI deliberately does *not* use
+         *     this route: a plain navigation cannot set an `Authorization` header, so
+         *     linking at it would 401 as soon as an operator sets a token, and the usual
+         *     workaround — putting the token in the query string, as `EventSource` is
+         *     forced to — would write a credential into browser history and the access
+         *     log. The UI fetches `GET /api/config` authenticated and saves the file
+         *     itself instead.
+         */
+        get: operations["download_config_api_config_download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List configured and detected devices
+         * @description Return every configured device plus every detected-but-unconfigured one.
+         */
+        get: operations["list_devices_api_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/devices/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a device's persisted configuration
+         * @description Remove a device's persisted configuration.
+         *
+         *     Config-removal only, and only for a device that is not currently present
+         *     (settled contract, see module docstring): `404 unknown_device` for a
+         *     device_id with no persisted row, `409 device_present` while it is plugged
+         *     in, `204 No Content` otherwise.
+         */
+        delete: operations["delete_device_api_devices__device_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Create or update a device's configuration
+         * @description Upsert one device's configuration; creates the row on first call for a detected device.
+         *
+         *     Validation order mirrors architecture §7.5's response list: the device
+         *     must be known and identified before any conflict is checked, the proposed
+         *     port is validated through the full six-rule `PortAllocatorService`
+         *     (returning its specific rejection code, not a generic one), then the name
+         *     is checked for a case-insensitive collision, and only then is the mutation
+         *     applied. When `output_port` is set, the whole validate-then-apply sequence
+         *     runs under `_port_allocation_lock` — the sole guard against a P/P+2
+         *     *adjacency* race between two concurrent requests (see that lock's
+         *     docstring); `DeviceConflictError` from the repository's unique index is
+         *     still caught separately as a defence against an *identical*-port race,
+         *     which the lock also happens to prevent but which existed as a fallback
+         *     before the lock did.
+         */
+        patch: operations["patch_device_api_devices__device_id__patch"];
+        trace?: never;
+    };
+    "/api/devices/{device_id}/serial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Flash a unique serial to the dongle's EEPROM
+         * @description Begin the guarded EEPROM serial-flash flow; the outcome arrives via SSE `notice`.
+         *
+         *     `request.confirm`'s `Literal[True]` and `request.serial`'s allow-list
+         *     pattern are already enforced by Pydantic before this handler runs
+         *     (architecture §7.6 guards 1-2). This handler enforces guards 3-4 (serial
+         *     uniqueness, device idleness), then **synchronously** reserves the
+         *     per-device/per-serial lock via `EepromService.begin_flash()` before
+         *     dispatching — a separate `is_locked()` check followed by `create_task()`
+         *     is not atomic (two concurrent requests could both observe "not locked"),
+         *     so the reservation itself must happen inline in this handler, not inside
+         *     the task it starts. The actual guarded flash (charset re-check, pair
+         *     stop, list-argv exec) runs in `EepromService.flash_serial()` as a
+         *     background task — the endpoint itself never performs the flash inline,
+         *     matching the `202` contract.
+         */
+        post: operations["flash_serial_api_devices__device_id__serial_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Realtime SDR events (Server-Sent Events)
+         * @description Open an SSE stream of SDR events.
+         *
+         *     The response is `text/event-stream` and is not one flat JSON schema — the
+         *     frozen shape of each named event is documented in `schemas/device.py`,
+         *     `schemas/events.py` and `schemas/health.py`. Client disconnect cancels the
+         *     underlying generator (Starlette's normal `StreamingResponse` behaviour),
+         *     which the `finally` block above uses to release the bus subscription.
+         *
+         *     Refuses a new connection with `503` once `MAX_SSE_SUBSCRIBERS` are
+         *     already open, rather than accepting an unbounded number of concurrent
+         *     streams (each with its own queue and heartbeat timer).
+         */
+        get: operations["get_events_api_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health snapshot
+         * @description Return the current health snapshot.
+         *
+         *     200 unless the database is unreachable, in which case 503 with the same
+         *     body shape — a flapping healthcheck on one degraded dongle must never
+         *     restart the container and take the healthy dongles down with it
+         *     (architecture §7.1). No auth dependency is declared on this router: the
+         *     Docker healthcheck must reach it regardless of `SENTRY_AUTH_TOKEN`.
+         */
+        get: operations["get_health_api_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hotspot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The hotspot's current configuration and state
+         * @description Describe the hotspot, degrading rather than failing.
+         *
+         *     Always 200. A host with no NetworkManager answers `available: false` and a
+         *     `nm_unavailable` warning — a client can therefore always render something
+         *     truthful instead of an error it cannot explain.
+         */
+        get: operations["get_hotspot_api_hotspot_get"];
+        /**
+         * Replace the hotspot configuration
+         * @description Write the whole configuration, then bring the hotspot up or down to match.
+         *
+         *     Omitting `passphrase` keeps the stored one — the mechanism that lets an
+         *     operator rename the network without the server ever handling the secret
+         *     again (WCAG 3.3.7 as much as security: not re-asking for something
+         *     unchanged is a requirement, not a courtesy).
+         */
+        put: operations["put_hotspot_api_hotspot_put"];
+        post?: never;
+        /**
+         * Delete the hotspot configuration
+         * @description Forget the network entirely, including its stored password.
+         */
+        delete: operations["delete_hotspot_api_hotspot_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hotspot/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * DHCP leases the hotspot has issued
+         * @description Return the hotspot's leases, or `null` when they cannot be read.
+         *
+         *     `null` and `[]` are different answers and must stay so: one means "this host
+         *     cannot tell you", the other means "nothing is connected". Collapsing them
+         *     would have the UI confidently report an empty network on a machine that
+         *     simply has no lease file.
+         */
+        get: operations["list_clients_api_hotspot_clients_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hotspot/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep the hotspot that is awaiting confirmation
+         * @description Cancel the pending rollback and let the hotspot survive a reboot.
+         *
+         *     Reaching this route at all is the proof the commit-confirm flow wants: the
+         *     API is still answering with the hotspot running.
+         */
+        post: operations["confirm_hotspot_api_hotspot_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hotspot/control": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Switch this Sentry's hotspot control on or off
+         * @description Turn host-network control on or off without a restart (ADR-0013).
+         *
+         *     This is the one route that can *grant* the capability every other route in
+         *     this module guards, so it carries its own gate: a console with no password
+         *     is refused outright, not merely warned. ADR-0007 made shell access the thing
+         *     standing between a stranger and this host's networking; moving the switch
+         *     into the UI replaces that with the console password, which therefore has to
+         *     exist before the switch will move at all.
+         *
+         *     Deliberately not guarded by `_require_control_enabled` — that would make the
+         *     switch require itself.
+         */
+        put: operations["set_hotspot_control_api_hotspot_control_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hotspot/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the hotspot
+         * @description Bring the hotspot down and stop it starting on boot.
+         */
+        post: operations["disable_hotspot_api_hotspot_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hotspot/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the configured hotspot
+         * @description Bring the hotspot up provisionally; it rolls back unless confirmed.
+         *
+         *     Separate from `PUT` so the UI's on/off switch never resends the whole
+         *     configuration, and therefore never has to be holding the passphrase just to
+         *     flip a switch.
+         */
+        post: operations["enable_hotspot_api_hotspot_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hotspot/interfaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Wireless interfaces the hotspot could use
+         * @description List candidate interfaces, flagging which one carries the host's own link.
+         */
+        get: operations["list_interfaces_api_hotspot_interfaces_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sdrs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Permanent alias for the current stable /v1/sdrs
+         * @description Permanent convenience alias serving the current stable SDR export version.
+         */
+        get: operations["get_sdrs_alias_api_sdrs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Realtime per-SDR status
+         * @description Return the realtime per-SDR view — identical payload to the SSE `snapshot` event.
+         *
+         *     The registry cannot know the publishable host, so it emits `output.host=""`;
+         *     it is overlaid here (architecture §7.7) so consumers of this endpoint get the
+         *     same reachable address `/api/v1/sdrs` reports.
+         */
+        get: operations["get_status_api_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sdrs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Sentinel-consumed export of public SDRs (versioned)
+         * @description Return every *public* configured device, mapped onto Sentinel's `SdrRadio` field names.
+         *
+         *     Devices left `private` are omitted from `sdrs` entirely — see
+         *     `_build_sdr_export`.
+         */
+        get: operations["get_sdrs_v1_api_v1_sdrs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
-export type webhooks = Record<string, never>
+export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /**
-     * AuthStateResponse
-     * @description What a client needs to decide between "sign in", "set a password", and "carry on".
-     */
-    AuthStateResponse: {
-      /**
-       * Authenticated
-       * @description Whether this request carries a valid session, or none is required
-       */
-      authenticated: boolean
-      /**
-       * Minimum Password Length
-       * @description Shortest password the API will accept
-       * @default 8
-       */
-      minimum_password_length: number
-      /**
-       * Password Set
-       * @description Whether this console has a password at all
-       */
-      password_set: boolean
-      /**
-       * Updated At
-       * @description Unix ms the password last changed; 0 if never
-       */
-      updated_at: number
-    }
-    /**
-     * ClientCounts
-     * @description Per-port connected-client counts from `SocketStatsSource`.
-     *
-     *     Every field is nullable and advisory: `None` on platforms without
-     *     `/proc/net/tcp` (architecture decision — always nullable, never a hard
-     *     dependency for status reporting).
-     */
-    ClientCounts: {
-      /** Control */
-      control?: number | null
-      /** Iq */
-      iq?: number | null
-    }
-    /**
-     * ConfigImportRequest
-     * @description `POST /api/config` body — a previously exported file, optionally narrowed.
-     */
-    ConfigImportRequest: {
-      /**
-       * Apply Devices
-       * @description Apply the file's device configuration
-       * @default true
-       */
-      apply_devices: boolean
-      /**
-       * Apply Hotspot
-       * @description Apply the file's hotspot settings. Off by default: it can change which network this Pi serves, and never carries a password to start it with
-       * @default false
-       */
-      apply_hotspot: boolean
-      config: components['schemas']['SentryConfig-Input']
-    }
-    /**
-     * ConfigImportResult
-     * @description `POST /api/config` response — a per-entry report, not just a status code.
-     *
-     *     An import is partial by nature: a port in the file may already be taken on
-     *     this Pi, or a dongle may not be plugged in yet. Reporting each entry lets an
-     *     operator see exactly what landed rather than inferring it from a device list.
-     */
-    ConfigImportResult: {
-      /**
-       * Console Password Applied
-       * @default false
-       */
-      console_password_applied: boolean
-      /**
-       * Console Password Detail
-       * @description Why the controller password was not set, when it was not
-       * @default
-       */
-      console_password_detail: string
-      /**
-       * Devices
-       * @default []
-       */
-      devices: components['schemas']['DeviceImportOutcome'][]
-      /**
-       * Devices Applied
-       * @default 0
-       */
-      devices_applied: number
-      /**
-       * Devices Failed
-       * @default 0
-       */
-      devices_failed: number
-      /**
-       * Devices Skipped
-       * @default 0
-       */
-      devices_skipped: number
-      /**
-       * Generated At
-       * @description Unix ms
-       * @default 0
-       */
-      generated_at: number
-      /**
-       * Hotspot Applied
-       * @default false
-       */
-      hotspot_applied: boolean
-      /**
-       * Hotspot Detail
-       * @description Why the hotspot was not applied, when it was not
-       * @default
-       */
-      hotspot_detail: string
-    }
-    /**
-     * DeviceConfigEntry
-     * @description One device's operator-set configuration, keyed by its stable identity.
-     *
-     *     Deliberately keyed by `(identity_kind, identity_key)` rather than
-     *     `device_id` or `record_id`: the row id is local to one instance and means
-     *     nothing on another Pi, whereas the identity is the same fact about the same
-     *     physical dongle wherever it is plugged in (ADR-0003).
-     */
-    DeviceConfigEntry: {
-      /**
-       * Antenna
-       * @default
-       */
-      antenna: string
-      /** Bias Tee */
-      bias_tee?: boolean | null
-      /** Center Hz */
-      center_hz?: number | null
-      /**
-       * Description
-       * @default
-       */
-      description: string
-      /** Direct Sampling */
-      direct_sampling?: (0 | 1 | 2) | null
-      /**
-       * Enabled
-       * @default false
-       */
-      enabled: boolean
-      /**
-       * Gain Auto
-       * @default true
-       */
-      gain_auto: boolean
-      /** Gain Db */
-      gain_db?: number | null
-      /** Identity Key */
-      identity_key: string
-      /**
-       * Identity Kind
-       * @enum {string}
-       */
-      identity_kind: 'serial' | 'usb'
-      /** Name */
-      name: string
-      /**
-       * Notes
-       * @default
-       */
-      notes: string
-      /** Output Port */
-      output_port?: number | null
-      /**
-       * Ppm Correction
-       * @default 0
-       */
-      ppm_correction: number
-      /** Sample Rate */
-      sample_rate?: number | null
-      /**
-       * Visibility
-       * @default private
-       * @enum {string}
-       */
-      visibility: 'public' | 'private'
-    }
-    /**
-     * DeviceCounts
-     * @description Per-state device tallies surfaced in the health snapshot.
-     */
-    DeviceCounts: {
-      /** Configured */
-      configured: number
-      /** Degraded */
-      degraded: number
-      /** Error */
-      error: number
-      /** Needs Identification */
-      needs_identification: number
-      /** Present */
-      present: number
-      /** Streaming */
-      streaming: number
-    }
-    /**
-     * DeviceImportOutcome
-     * @description What happened to one device entry during an import.
-     */
-    DeviceImportOutcome: {
-      /**
-       * Detail
-       * @description Why it was skipped or how it failed
-       * @default
-       */
-      detail: string
-      /** Identity Key */
-      identity_key: string
-      /**
-       * Identity Kind
-       * @enum {string}
-       */
-      identity_kind: 'serial' | 'usb'
-      /**
-       * Outcome
-       * @enum {string}
-       */
-      outcome: 'applied' | 'skipped' | 'failed'
-    }
-    /**
-     * DevicePatch
-     * @description `PATCH /api/devices/{device_id}` request body — all fields optional, one required.
-     *
-     *     `extra="forbid"` rejects unknown fields outright rather than silently
-     *     ignoring operator typos (architecture §12.12).
-     */
-    DevicePatch: {
-      /**
-       * Antenna
-       * @description Operator-recorded antenna; '' clears it
-       */
-      antenna?: string | null
-      /** Bias Tee */
-      bias_tee?: boolean | null
-      /** Center Hz */
-      center_hz?: number | null
-      /** Description */
-      description?: string | null
-      /** Direct Sampling */
-      direct_sampling?: (0 | 1 | 2) | null
-      /** Enabled */
-      enabled?: boolean | null
-      /** Gain Auto */
-      gain_auto?: boolean | null
-      /** Gain Db */
-      gain_db?: number | null
-      /** Name */
-      name?: string | null
-      /**
-       * Notes
-       * @description The operator's free-text notes; '' clears it
-       */
-      notes?: string | null
-      /** Output Port */
-      output_port?: number | null
-      /** Ppm Correction */
-      ppm_correction?: number | null
-      /** Sample Rate */
-      sample_rate?: number | null
-      /**
-       * Visibility
-       * @description 'public' publishes this device in GET /api/v1/sdrs; 'private' omits it
-       */
-      visibility?: ('public' | 'private') | null
-    }
-    /**
-     * DeviceRecord
-     * @description One device's configuration-centric record — `GET /api/devices` item and PATCH response.
-     */
-    DeviceRecord: {
-      /**
-       * Antenna
-       * @description Operator-recorded antenna
-       * @default
-       */
-      antenna: string
-      /**
-       * Bias Tee
-       * @description Bias-T power, nullable
-       */
-      bias_tee?: boolean | null
-      /** Center Hz */
-      center_hz?: number | null
-      /** Control Port */
-      control_port?: number | null
-      /** Created At */
-      created_at: number
-      /** Description */
-      description: string
-      /** Device Id */
-      device_id: string
-      /**
-       * Direct Sampling
-       * @description Direct-sampling mode, nullable
-       */
-      direct_sampling?: (0 | 1 | 2) | null
-      /** Enabled */
-      enabled: boolean
-      /** Gain Auto */
-      gain_auto: boolean
-      /** Gain Db */
-      gain_db?: number | null
-      /** Identity Key */
-      identity_key: string
-      /**
-       * Identity Kind
-       * @enum {string}
-       */
-      identity_kind: 'serial' | 'usb'
-      /** Last Seen At */
-      last_seen_at?: number | null
-      /** Last Serial */
-      last_serial: string
-      /** Last Topology Path */
-      last_topology_path: string
-      /** Name */
-      name: string
-      /** Needs Identification */
-      needs_identification: boolean
-      /**
-       * Notes
-       * @description The operator's free-text notes
-       * @default
-       */
-      notes: string
-      /** Output Port */
-      output_port?: number | null
-      /** Ppm Correction */
-      ppm_correction: number
-      /** Present */
-      present: boolean
-      /** Record Id */
-      record_id: number | null
-      /** Sample Rate */
-      sample_rate?: number | null
-      /**
-       * State
-       * @enum {string}
-       */
-      state: 'detected' | 'configured' | 'starting' | 'streaming' | 'degraded' | 'stopped' | 'error'
-      /** Updated At */
-      updated_at: number
-      /**
-       * Visibility
-       * @description Whether this device is published in GET /api/v1/sdrs
-       * @default private
-       * @enum {string}
-       */
-      visibility: 'public' | 'private'
-    }
-    /**
-     * DeviceStatus
-     * @description One device's realtime status — the `GET /api/status` and SSE payload shape.
-     */
-    DeviceStatus: {
-      /**
-       * Antenna
-       * @description Operator-recorded antenna
-       * @default
-       */
-      antenna: string
-      clients?: components['schemas']['ClientCounts'] | null
-      /** Description */
-      description: string
-      /**
-       * Device Id
-       * @description The public key: "serial:<value>" or "usb:<path>"
-       */
-      device_id: string
-      /** Enabled */
-      enabled: boolean
-      /** Identity Key */
-      identity_key: string
-      /**
-       * Identity Kind
-       * @enum {string}
-       */
-      identity_kind: 'serial' | 'usb'
-      /** Last Seen At */
-      last_seen_at?: number | null
-      /** Name */
-      name: string
-      /** Needs Identification */
-      needs_identification: boolean
-      /**
-       * Notes
-       * @description The operator's free-text notes
-       * @default
-       */
-      notes: string
-      /** @description Null for an unconfigured device */
-      output?: components['schemas']['OutputInfo'] | null
-      /** Present */
-      present: boolean
-      processes?: components['schemas']['ProcessInfo'] | null
-      /**
-       * Record Id
-       * @description The DB surrogate key; null for a detected device
-       */
-      record_id: number | null
-      /**
-       * State
-       * @enum {string}
-       */
-      state: 'detected' | 'configured' | 'starting' | 'streaming' | 'degraded' | 'stopped' | 'error'
-      /**
-       * State Reason
-       * @description Machine code, non-null in error
-       */
-      state_reason?: string | null
-      /**
-       * State Since
-       * @description Unix ms this state began
-       */
-      state_since: number
-      /** @description Null until control_follower's first state event */
-      tuner?: components['schemas']['TunerInfo'] | null
-      /** @description Null when the device is absent */
-      usb?: components['schemas']['UsbInfo'] | null
-      /** @description Populated instead of `usb` for an absent configured device */
-      usb_last_known?: components['schemas']['UsbLastKnownInfo'] | null
-      /**
-       * Visibility
-       * @description Whether this device is published in GET /api/v1/sdrs
-       * @default private
-       * @enum {string}
-       */
-      visibility: 'public' | 'private'
-    }
-    /**
-     * DevicesListResponse
-     * @description `GET /api/devices` body: every configured and every detected device.
-     */
-    DevicesListResponse: {
-      constraints: components['schemas']['PortConstraints']
-      /** Devices */
-      devices: components['schemas']['DeviceRecord'][]
-      /** Port Suggestion */
-      port_suggestion: number | null
-    }
-    /** HTTPValidationError */
-    HTTPValidationError: {
-      /** Detail */
-      detail?: components['schemas']['ValidationError'][]
-    }
-    /**
-     * HealthResponse
-     * @description `GET /api/health` body. Auth-exempt; 503 only when the database is unreachable.
-     */
-    HealthResponse: {
-      /**
-       * Database
-       * @enum {string}
-       */
-      database: 'ok' | 'error'
-      devices: components['schemas']['DeviceCounts']
-      hotplug: components['schemas']['HotplugHealth']
-      /**
-       * Started At
-       * @description Unix ms the process started
-       */
-      started_at: number
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: 'ok' | 'degraded' | 'unhealthy'
-      /** Uptime S */
-      uptime_s: number
-      /** Version */
-      version: string
-    }
-    /**
-     * HotplugHealth
-     * @description Whether the primary hotplug mechanism (udev) or only the reconcile fallback is active.
-     */
-    HotplugHealth: {
-      /** Healthy */
-      healthy: boolean
-      /** Last Event At */
-      last_event_at?: number | null
-      /**
-       * Source
-       * @enum {string}
-       */
-      source: 'udev' | 'reconcile'
-    }
-    /**
-     * HotspotActivationRequest
-     * @description Body shared by `POST /api/hotspot/enable` and `/disable`.
-     *
-     *     These exist as their own routes so the UI's on/off switch never resends the
-     *     whole configuration — and therefore never has to be holding the passphrase
-     *     just to flip a switch.
-     */
-    HotspotActivationRequest: {
-      /**
-       * Confirm Uplink Loss
-       * @description Acknowledges that this call will drop a connection currently in use
-       * @default false
-       */
-      confirm_uplink_loss: boolean
-    }
-    /**
-     * HotspotClientItem
-     * @description One DHCP lease issued by the hotspot.
-     */
-    HotspotClientItem: {
-      /**
-       * Expired
-       * @description Whether the lease has already lapsed
-       */
-      expired: boolean
-      /** Hostname */
-      hostname?: string | null
-      /** Ip Address */
-      ip_address: string
-      /**
-       * Lease Expires At Ms
-       * @description Unix ms
-       */
-      lease_expires_at_ms: number
-      /** Mac Address */
-      mac_address: string
-    }
-    /**
-     * HotspotClientsResponse
-     * @description `GET /api/hotspot/clients` body.
-     *
-     *     `clients` is `null`, never `[]`, when no lease file could be read — "we
-     *     cannot tell" and "nobody is connected" are different answers and the UI
-     *     renders them differently.
-     */
-    HotspotClientsResponse: {
-      /** Clients */
-      clients?: components['schemas']['HotspotClientItem'][] | null
-      /**
-       * Generated At
-       * @description Unix ms
-       */
-      generated_at: number
-      /**
-       * Source
-       * @default dnsmasq-leases
-       * @constant
-       */
-      source: 'dnsmasq-leases'
-    }
-    /**
-     * HotspotConfigEntry
-     * @description The hotspot's shape. Its secret travels one way only — in.
-     *
-     *     `passphrase_set` is reported so an operator importing this file knows
-     *     whether the source instance had one, and therefore whether the destination
-     *     will need a password typing in before the hotspot can start. It is never
-     *     a credential and never round-trips one.
-     */
-    'HotspotConfigEntry-Input': {
-      /**
-       * Band
-       * @default bg
-       * @enum {string}
-       */
-      band: 'bg' | 'a'
-      /**
-       * Channel
-       * @default 0
-       */
-      channel: number
-      /**
-       * Enabled
-       * @description Whether the source instance had the hotspot starting on boot
-       * @default false
-       */
-      enabled: boolean
-      /** Gateway Cidr */
-      gateway_cidr?: string | null
-      /**
-       * Hidden
-       * @default true
-       */
-      hidden: boolean
-      /** Interface */
-      interface?: string | null
-      /**
-       * Passphrase
-       * @description Write-only: hand-added to a provisioning file to set the destination's hotspot password. Never present in an exported file
-       */
-      passphrase?: string | null
-      /**
-       * Passphrase Set
-       * @description Whether the source had a password stored. Never the password itself
-       * @default false
-       */
-      passphrase_set: boolean
-      /**
-       * Security
-       * @default wpa2
-       * @enum {string}
-       */
-      security: 'wpa2' | 'wpa3'
-      /** Ssid */
-      ssid?: string | null
-    }
-    /**
-     * HotspotConfigEntry
-     * @description The hotspot's shape. Its secret travels one way only — in.
-     *
-     *     `passphrase_set` is reported so an operator importing this file knows
-     *     whether the source instance had one, and therefore whether the destination
-     *     will need a password typing in before the hotspot can start. It is never
-     *     a credential and never round-trips one.
-     */
-    'HotspotConfigEntry-Output': {
-      /**
-       * Band
-       * @default bg
-       * @enum {string}
-       */
-      band: 'bg' | 'a'
-      /**
-       * Channel
-       * @default 0
-       */
-      channel: number
-      /**
-       * Enabled
-       * @description Whether the source instance had the hotspot starting on boot
-       * @default false
-       */
-      enabled: boolean
-      /** Gateway Cidr */
-      gateway_cidr?: string | null
-      /**
-       * Hidden
-       * @default true
-       */
-      hidden: boolean
-      /** Interface */
-      interface?: string | null
-      /**
-       * Passphrase Set
-       * @description Whether the source had a password stored. Never the password itself
-       * @default false
-       */
-      passphrase_set: boolean
-      /**
-       * Security
-       * @default wpa2
-       * @enum {string}
-       */
-      security: 'wpa2' | 'wpa3'
-      /** Ssid */
-      ssid?: string | null
-    }
-    /**
-     * HotspotConfigRequest
-     * @description `PUT /api/hotspot` body — a full replace, not a merge.
-     *
-     *     Deliberately not a PATCH. Merging a partial body would let a request that
-     *     says nothing about `hidden` silently inherit a previous `false`, which is
-     *     exactly the security-relevant field an operator most expects to be
-     *     explicit. The passphrase is the single exception, and only because omitting
-     *     it is the mechanism that keeps the secret write-only.
-     */
-    HotspotConfigRequest: {
-      /**
-       * Band
-       * @description bg is 2.4 GHz, a is 5 GHz
-       * @default bg
-       * @enum {string}
-       */
-      band: 'bg' | 'a'
-      /**
-       * Channel
-       * @description 0 chooses automatically
-       * @default 0
-       */
-      channel: number
-      /**
-       * Confirm Uplink Loss
-       * @description Acknowledges that the chosen interface currently carries a connection which raising the hotspot will drop
-       * @default false
-       */
-      confirm_uplink_loss: boolean
-      /**
-       * Enabled
-       * @description Whether the hotspot should be running after this call
-       * @default false
-       */
-      enabled: boolean
-      /**
-       * Gateway Cidr
-       * @description The Pi's address on the hotspot network; omit to use the configured default
-       */
-      gateway_cidr?: string | null
-      /**
-       * Hidden
-       * @description Suppress SSID broadcast so clients must know the name in advance. Not a security control on its own
-       * @default true
-       */
-      hidden: boolean
-      /**
-       * Interface
-       * @description Wireless interface to use; omit to choose one automatically
-       */
-      interface?: string | null
-      /**
-       * Passphrase
-       * @description Omit to keep the currently stored password unchanged
-       */
-      passphrase?: string | null
-      /**
-       * Security
-       * @description wpa3 is experimental on Raspberry Pi radios
-       * @default wpa2
-       * @enum {string}
-       */
-      security: 'wpa2' | 'wpa3'
-      /**
-       * Ssid
-       * @description The network name clients look for; 1-32 UTF-8 bytes
-       */
-      ssid: string
-    }
-    /**
-     * HotspotErrorSummary
-     * @description The last control failure, kept so the UI can explain a hotspot that is not up.
-     */
-    HotspotErrorSummary: {
-      /** Code */
-      code: string
-      /** Message */
-      message: string
-      /**
-       * Ts
-       * @description Unix ms
-       */
-      ts: number
-    }
-    /**
-     * HotspotStateResponse
-     * @description `GET /api/hotspot` and every mutator's success body.
-     *
-     *     Never 503s: a host that cannot do any of this answers 200 with
-     *     `available: false`, matching how the app already degrades when `librtlsdr`
-     *     is missing. A client can therefore always render *something*.
-     */
-    HotspotStateResponse: {
-      /**
-       * Active
-       * @description Whether the hotspot is running right now
-       */
-      active: boolean
-      /**
-       * Auth Token Configured
-       * @description Whether SENTRY_AUTH_TOKEN is set
-       */
-      auth_token_configured: boolean
-      /**
-       * Available
-       * @description Whether access-point control works on this host
-       */
-      available: boolean
-      /**
-       * Band
-       * @default bg
-       * @enum {string}
-       */
-      band: 'bg' | 'a'
-      /**
-       * Channel
-       * @default 0
-       */
-      channel: number
-      /**
-       * Configured
-       * @description Whether a hotspot profile exists
-       */
-      configured: boolean
-      /**
-       * Confirm Deadline Ms
-       * @description Unix ms by which POST /api/hotspot/confirm must arrive
-       */
-      confirm_deadline_ms?: number | null
-      /**
-       * Control Enabled
-       * @description Whether SENTRY_HOTSPOT_CONTROL_ENABLED is set
-       */
-      control_enabled: boolean
-      /**
-       * Enabled
-       * @description Whether the profile is set to come up on boot
-       */
-      enabled: boolean
-      /**
-       * Gateway Address
-       * @description The address a joined client should point Sentinel at, e.g. 10.42.0.1
-       */
-      gateway_address?: string | null
-      /** Gateway Cidr */
-      gateway_cidr?: string | null
-      /**
-       * Generated At
-       * @description Unix ms
-       */
-      generated_at: number
-      /**
-       * Hidden
-       * @default true
-       */
-      hidden: boolean
-      /** Interface */
-      interface?: string | null
-      last_error?: components['schemas']['HotspotErrorSummary'] | null
-      /**
-       * Passphrase Set
-       * @description Whether a password is stored; never the password itself
-       * @default false
-       */
-      passphrase_set: boolean
-      /**
-       * Pending Confirmation
-       * @description A hotspot change is awaiting confirmation and will roll back without it
-       * @default false
-       */
-      pending_confirmation: boolean
-      /**
-       * Security
-       * @default wpa2
-       * @enum {string}
-       */
-      security: 'wpa2' | 'wpa3'
-      /** Ssid */
-      ssid?: string | null
-      /**
-       * Uplink Interface Is Hotspot Interface
-       * @description True when raising the hotspot would drop this host's own connection
-       * @default false
-       */
-      uplink_interface_is_hotspot_interface: boolean
-      /**
-       * Warnings
-       * @default []
-       */
-      warnings: (
-        | 'auth_token_missing'
-        | 'advertised_host_overrides_gateway'
-        | 'single_radio_uplink_loss'
-        | 'nm_unavailable'
-      )[]
-    }
-    /**
-     * LoginRequest
-     * @description `POST /api/auth/login` body.
-     */
-    LoginRequest: {
-      /**
-       * Password
-       * Format: password
-       */
-      password: string
-    }
-    /**
-     * OutputInfo
-     * @description The public IQ/control endpoint for a configured device.
-     */
-    OutputInfo: {
-      /**
-       * Control Port
-       * @description P + 2, the NDJSON control port
-       */
-      control_port: number
-      /**
-       * Host
-       * @description The Pi's advertised LAN address
-       */
-      host: string
-      /**
-       * Iq Port
-       * @description The relay's public IQ port P
-       */
-      iq_port: number
-    }
-    /**
-     * PortConstraints
-     * @description Mirrors the port-allocator rule table so the UI can validate inline.
-     *
-     *     Advisory only — the server always re-validates on `PATCH` (architecture §7.4).
-     */
-    PortConstraints: {
-      /** In Use */
-      in_use: number[]
-      /** Internal Range */
-      internal_range: [number, number]
-      /** Port Max */
-      port_max: number
-      /** Port Min */
-      port_min: number
-      /** Reserved */
-      reserved: number[]
-    }
-    /**
-     * ProcessInfo
-     * @description Supervisor-owned process/lifecycle telemetry for a device's running pair.
-     */
-    ProcessInfo: {
-      /**
-       * Internal Port
-       * @description The loopback rtl_tcp port
-       */
-      internal_port?: number | null
-      /** Last Exit Code */
-      last_exit_code?: number | null
-      /** Last Restart At */
-      last_restart_at?: number | null
-      /** Relay Pid */
-      relay_pid?: number | null
-      /**
-       * Restarts
-       * @default 0
-       */
-      restarts: number
-      /** Rtl Tcp Pid */
-      rtl_tcp_pid?: number | null
-    }
-    /**
-     * SdrExportItem
-     * @description One configured device, mapped onto Sentinel's `SdrRadio` / `RadioIn` field names.
-     *
-     *     Field-by-field mapping and rationale: architecture §7.8.
-     */
-    SdrExportItem: {
-      /**
-       * Agc
-       * @description Sentry's gain_auto
-       */
-      agc?: boolean | null
-      /**
-       * Antenna
-       * @description The operator-recorded antenna, or empty
-       * @default
-       */
-      antenna: string
-      /**
-       * Available
-       * @description Display-only: grey out rather than hide when false
-       */
-      available: boolean
-      /**
-       * Bandwidth
-       * @description Sentry's sample_rate
-       */
-      bandwidth?: number | null
-      /**
-       * Control Port
-       * @description P + 2, sent for verification only
-       */
-      control_port: number
-      /** Description */
-      description: string
-      /** Enabled */
-      enabled: boolean
-      /** Host */
-      host: string
-      /** Name */
-      name: string
-      /**
-       * Notes
-       * @description The operator's free-text notes for this device
-       * @default
-       */
-      notes: string
-      /**
-       * Port
-       * @description The relay's IQ port P
-       */
-      port: number
-      /**
-       * Rf Gain
-       * @description Sentry's gain_db; null when AGC
-       */
-      rf_gain?: number | null
-      /**
-       * Sentry Device Id
-       * @description Idempotency key for Sentinel's import
-       */
-      sentry_device_id: string
-      /**
-       * State
-       * @description Display-only device state
-       */
-      state: string
-    }
-    /**
-     * SdrExportResponse
-     * @description `GET /api/v1/sdrs` and `GET /api/sdrs` (permanent alias) body.
-     */
-    SdrExportResponse: {
-      /**
-       * Api Version
-       * @default 1
-       */
-      api_version: number
-      /**
-       * Control Port Offset
-       * @description Sentinel already computes port + this offset
-       * @default 2
-       */
-      control_port_offset: number
-      /** Generated At */
-      generated_at: number
-      /**
-       * Sdrs
-       * @description Only devices the operator marked public; private ones are omitted
-       */
-      sdrs: components['schemas']['SdrExportItem'][]
-      source: components['schemas']['SdrExportSource']
-    }
-    /**
-     * SdrExportSource
-     * @description Identifies the Sentry instance that produced this export.
-     */
-    SdrExportSource: {
-      /**
-       * Host
-       * @description Never 0.0.0.0 or a container-internal address
-       */
-      host: string
-      /** Http Port */
-      http_port: number
-      /**
-       * Name
-       * @default sentry
-       * @constant
-       */
-      name: 'sentry'
-      /** Version */
-      version: string
-    }
-    /**
-     * SentryConfig
-     * @description The whole exportable configuration of one Sentry instance.
-     */
-    'SentryConfig-Input': {
-      /**
-       * Comment
-       * @description Free-text note carried in the file and otherwise ignored
-       * @default
-       */
-      _comment: string
-      /**
-       * Console Password
-       * @description Write-only: hand-added to a provisioning file to set the controller's password. Never present in an exported file
-       */
-      console_password?: string | null
-      /**
-       * Devices
-       * @default []
-       */
-      devices: components['schemas']['DeviceConfigEntry'][]
-      /**
-       * Generated At
-       * @description Unix ms the file was exported
-       * @default 0
-       */
-      generated_at: number
-      hotspot?: components['schemas']['HotspotConfigEntry-Input'] | null
-      /**
-       * Sentry Version
-       * @description The app version that wrote it
-       * @default
-       */
-      sentry_version: string
-      /**
-       * Version
-       * @description Config-file format version, not the app version
-       * @default 1
-       */
-      version: number
-    }
-    /**
-     * SentryConfig
-     * @description The whole exportable configuration of one Sentry instance.
-     */
-    'SentryConfig-Output': {
-      /**
-       * Comment
-       * @description Free-text note carried in the file and otherwise ignored
-       * @default
-       */
-      _comment: string
-      /**
-       * Devices
-       * @default []
-       */
-      devices: components['schemas']['DeviceConfigEntry'][]
-      /**
-       * Generated At
-       * @description Unix ms the file was exported
-       * @default 0
-       */
-      generated_at: number
-      hotspot?: components['schemas']['HotspotConfigEntry-Output'] | null
-      /**
-       * Sentry Version
-       * @description The app version that wrote it
-       * @default
-       */
-      sentry_version: string
-      /**
-       * Version
-       * @description Config-file format version, not the app version
-       * @default 1
-       */
-      version: number
-    }
-    /**
-     * SerialFlashAccepted
-     * @description `202 Accepted` body; the outcome arrives later as an SSE `notice`.
-     */
-    SerialFlashAccepted: {
-      /** Device Id */
-      device_id: string
-      /**
-       * Operation Id
-       * @description Correlates this request with its SSE notice events
-       */
-      operation_id: string
-      /**
-       * Requires Replug
-       * @description A physical replug is required before the new serial is visible
-       * @default true
-       */
-      requires_replug: boolean
-      /**
-       * Status
-       * @constant
-       */
-      status: 'in_progress'
-    }
-    /**
-     * SerialFlashRequest
-     * @description Request body for flashing a unique serial to a dongle's EEPROM.
-     */
-    SerialFlashRequest: {
-      /**
-       * Confirm
-       * @description Must be exactly true; a destructive hardware write requires explicit intent
-       * @constant
-       */
-      confirm: true
-      /** Serial */
-      serial: string
-    }
-    /**
-     * SetPasswordRequest
-     * @description `POST /api/auth/password` body — sets the first password, or changes an existing one.
-     */
-    SetPasswordRequest: {
-      /**
-       * Current Password
-       * @description Required when a password is already set; ignored when not
-       */
-      current_password?: string | null
-      /**
-       * New Password
-       * Format: password
-       */
-      new_password: string
-    }
-    /**
-     * StatusResponse
-     * @description `GET /api/status` and the SSE `snapshot` event body.
-     */
-    StatusResponse: {
-      /**
-       * Generated At
-       * @description Unix ms this snapshot was assembled
-       */
-      generated_at: number
-      /**
-       * Sdrs
-       * @description Sorted by usb.topology_path; absent devices last
-       */
-      sdrs: components['schemas']['DeviceStatus'][]
-    }
-    /**
-     * TunerInfo
-     * @description The live tuner state as last observed via `control_follower` (architecture §7.2).
-     */
-    TunerInfo: {
-      /**
-       * Bias Tee
-       * @description Bias-T power state, when the dongle supports it
-       */
-      bias_tee?: boolean | null
-      /** Center Hz */
-      center_hz: number
-      /**
-       * Direct Sampling
-       * @description Direct-sampling mode (0=off, 1=I-ADC, 2=Q-ADC), when in use
-       */
-      direct_sampling?: (0 | 1 | 2) | null
-      /** Gain Auto */
-      gain_auto: boolean
-      /** Gain Db */
-      gain_db: number
-      /**
-       * Locked
-       * @description Whether another owner currently holds the tuning token
-       */
-      locked: boolean
-      /**
-       * Observed At
-       * @description Unix ms this state was last observed on P+2
-       */
-      observed_at: number
-      /** Sample Rate */
-      sample_rate: number
-    }
-    /**
-     * UsbInfo
-     * @description The live USB descriptor and topology for a present device (architecture §7.2).
-     */
-    UsbInfo: {
-      /** Bus Number */
-      bus_number: number
-      /**
-       * Device Address
-       * @description Kernel devnum; unstable, display only
-       */
-      device_address: number
-      /**
-       * Driver
-       * @description Bound kernel driver name, if any
-       */
-      driver?: string | null
-      /**
-       * Driver Conflict
-       * @description True when the DVB kernel driver is bound instead of the userspace driver
-       */
-      driver_conflict: boolean
-      /**
-       * Hub Depth
-       * @description len(port_chain) - 1
-       */
-      hub_depth: number
-      /** Manufacturer */
-      manufacturer?: string | null
-      /**
-       * Port Chain
-       * @description The port path as integers, e.g. (1, 4, 2)
-       */
-      port_chain: number[]
-      /** Product */
-      product?: string | null
-      /**
-       * Product Id
-       * @description Lowercase hex, no "0x", e.g. "2838"
-       */
-      product_id: string
-      /**
-       * Serial
-       * @description The raw reported iSerial
-       */
-      serial?: string | null
-      /**
-       * Topology Path
-       * @description Bus-port path, e.g. "1-1.4.2"
-       */
-      topology_path: string
-      /**
-       * Vendor Id
-       * @description Lowercase hex, no "0x", e.g. "0bda"
-       */
-      vendor_id: string
-    }
-    /**
-     * UsbLastKnownInfo
-     * @description A reduced USB description for a configured device that is currently absent.
-     *
-     *     Populated from the persisted `last_*` columns so an absent device still
-     *     renders identifiably in the UI (architecture §7.2).
-     */
-    UsbLastKnownInfo: {
-      /** Manufacturer */
-      manufacturer?: string | null
-      /** Product */
-      product?: string | null
-      /** Product Id */
-      product_id: string
-      /** Serial */
-      serial?: string | null
-      /** Topology Path */
-      topology_path: string
-      /** Vendor Id */
-      vendor_id: string
-    }
-    /** ValidationError */
-    ValidationError: {
-      /** Context */
-      ctx?: Record<string, never>
-      /** Input */
-      input?: unknown
-      /** Location */
-      loc: (string | number)[]
-      /** Message */
-      msg: string
-      /** Error Type */
-      type: string
-    }
-    /**
-     * WirelessInterfaceItem
-     * @description One selectable wireless interface in `GET /api/hotspot/interfaces`.
-     */
-    WirelessInterfaceItem: {
-      /**
-       * Carries Default Route
-       * @default false
-       */
-      carries_default_route: boolean
-      /**
-       * In Use By
-       * @description The connection currently active on this interface, if any
-       */
-      in_use_by?: string | null
-      /**
-       * Ipv4 Addresses
-       * @default []
-       */
-      ipv4_addresses: string[]
-      /** Mac Address */
-      mac_address?: string | null
-      /** Name */
-      name: string
-      /** State */
-      state: string
-      /**
-       * Station Ssid
-       * @description The network this interface is joined to as a client, if any
-       */
-      station_ssid?: string | null
-      /**
-       * Supports Ap
-       * @description null when this NetworkManager version does not report it
-       */
-      supports_ap?: boolean | null
-    }
-    /**
-     * WirelessInterfacesResponse
-     * @description `GET /api/hotspot/interfaces` body. Empty when nothing can be enumerated.
-     */
-    WirelessInterfacesResponse: {
-      /**
-       * Generated At
-       * @description Unix ms
-       */
-      generated_at: number
-      /**
-       * Interfaces
-       * @default []
-       */
-      interfaces: components['schemas']['WirelessInterfaceItem'][]
-    }
-  }
-  responses: never
-  parameters: never
-  requestBodies: never
-  headers: never
-  pathItems: never
+    schemas: {
+        /**
+         * AuthStateResponse
+         * @description What a client needs to decide between "sign in", "set a password", and "carry on".
+         */
+        AuthStateResponse: {
+            /**
+             * Authenticated
+             * @description Whether this request carries a valid session, or none is required
+             */
+            authenticated: boolean;
+            /**
+             * Minimum Password Length
+             * @description Shortest password the API will accept
+             * @default 8
+             */
+            minimum_password_length: number;
+            /**
+             * Password Set
+             * @description Whether this console has a password at all
+             */
+            password_set: boolean;
+            /**
+             * Updated At
+             * @description Unix ms the password last changed; 0 if never
+             */
+            updated_at: number;
+        };
+        /**
+         * ClientCounts
+         * @description Per-port connected-client counts from `SocketStatsSource`.
+         *
+         *     Every field is nullable and advisory: `None` on platforms without
+         *     `/proc/net/tcp` (architecture decision — always nullable, never a hard
+         *     dependency for status reporting).
+         */
+        ClientCounts: {
+            /** Control */
+            control?: number | null;
+            /** Iq */
+            iq?: number | null;
+        };
+        /**
+         * ConfigImportRequest
+         * @description `POST /api/config` body — a previously exported file, optionally narrowed.
+         */
+        ConfigImportRequest: {
+            /**
+             * Apply Devices
+             * @description Apply the file's device configuration
+             * @default true
+             */
+            apply_devices: boolean;
+            /**
+             * Apply Hotspot
+             * @description Apply the file's hotspot settings. Off by default: it can change which network this Pi serves, and never carries a password to start it with
+             * @default false
+             */
+            apply_hotspot: boolean;
+            config: components["schemas"]["SentryConfig-Input"];
+        };
+        /**
+         * ConfigImportResult
+         * @description `POST /api/config` response — a per-entry report, not just a status code.
+         *
+         *     An import is partial by nature: a port in the file may already be taken on
+         *     this Pi, or a dongle may not be plugged in yet. Reporting each entry lets an
+         *     operator see exactly what landed rather than inferring it from a device list.
+         */
+        ConfigImportResult: {
+            /**
+             * Console Password Applied
+             * @default false
+             */
+            console_password_applied: boolean;
+            /**
+             * Console Password Detail
+             * @description Why the controller password was not set, when it was not
+             * @default
+             */
+            console_password_detail: string;
+            /**
+             * Devices
+             * @default []
+             */
+            devices: components["schemas"]["DeviceImportOutcome"][];
+            /**
+             * Devices Applied
+             * @default 0
+             */
+            devices_applied: number;
+            /**
+             * Devices Failed
+             * @default 0
+             */
+            devices_failed: number;
+            /**
+             * Devices Skipped
+             * @default 0
+             */
+            devices_skipped: number;
+            /**
+             * Generated At
+             * @description Unix ms
+             * @default 0
+             */
+            generated_at: number;
+            /**
+             * Hotspot Applied
+             * @default false
+             */
+            hotspot_applied: boolean;
+            /**
+             * Hotspot Detail
+             * @description Why the hotspot was not applied, when it was not
+             * @default
+             */
+            hotspot_detail: string;
+        };
+        /**
+         * DeviceConfigEntry
+         * @description One device's operator-set configuration, keyed by its stable identity.
+         *
+         *     Deliberately keyed by `(identity_kind, identity_key)` rather than
+         *     `device_id` or `record_id`: the row id is local to one instance and means
+         *     nothing on another Pi, whereas the identity is the same fact about the same
+         *     physical dongle wherever it is plugged in (ADR-0003).
+         */
+        DeviceConfigEntry: {
+            /**
+             * Antenna
+             * @default
+             */
+            antenna: string;
+            /** Bias Tee */
+            bias_tee?: boolean | null;
+            /** Center Hz */
+            center_hz?: number | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Direct Sampling */
+            direct_sampling?: (0 | 1 | 2) | null;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Gain Auto
+             * @default true
+             */
+            gain_auto: boolean;
+            /** Gain Db */
+            gain_db?: number | null;
+            /** Identity Key */
+            identity_key: string;
+            /**
+             * Identity Kind
+             * @enum {string}
+             */
+            identity_kind: "serial" | "usb";
+            /** Name */
+            name: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Output Port */
+            output_port?: number | null;
+            /**
+             * Ppm Correction
+             * @default 0
+             */
+            ppm_correction: number;
+            /** Sample Rate */
+            sample_rate?: number | null;
+            /**
+             * Visibility
+             * @default private
+             * @enum {string}
+             */
+            visibility: "public" | "private";
+        };
+        /**
+         * DeviceCounts
+         * @description Per-state device tallies surfaced in the health snapshot.
+         */
+        DeviceCounts: {
+            /** Configured */
+            configured: number;
+            /** Degraded */
+            degraded: number;
+            /** Error */
+            error: number;
+            /** Needs Identification */
+            needs_identification: number;
+            /** Present */
+            present: number;
+            /** Streaming */
+            streaming: number;
+        };
+        /**
+         * DeviceImportOutcome
+         * @description What happened to one device entry during an import.
+         */
+        DeviceImportOutcome: {
+            /**
+             * Detail
+             * @description Why it was skipped or how it failed
+             * @default
+             */
+            detail: string;
+            /** Identity Key */
+            identity_key: string;
+            /**
+             * Identity Kind
+             * @enum {string}
+             */
+            identity_kind: "serial" | "usb";
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "applied" | "skipped" | "failed";
+        };
+        /**
+         * DevicePatch
+         * @description `PATCH /api/devices/{device_id}` request body — all fields optional, one required.
+         *
+         *     `extra="forbid"` rejects unknown fields outright rather than silently
+         *     ignoring operator typos (architecture §12.12).
+         */
+        DevicePatch: {
+            /**
+             * Antenna
+             * @description Operator-recorded antenna; '' clears it
+             */
+            antenna?: string | null;
+            /** Bias Tee */
+            bias_tee?: boolean | null;
+            /** Center Hz */
+            center_hz?: number | null;
+            /** Description */
+            description?: string | null;
+            /** Direct Sampling */
+            direct_sampling?: (0 | 1 | 2) | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Gain Auto */
+            gain_auto?: boolean | null;
+            /** Gain Db */
+            gain_db?: number | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Notes
+             * @description The operator's free-text notes; '' clears it
+             */
+            notes?: string | null;
+            /** Output Port */
+            output_port?: number | null;
+            /** Ppm Correction */
+            ppm_correction?: number | null;
+            /** Sample Rate */
+            sample_rate?: number | null;
+            /**
+             * Visibility
+             * @description 'public' publishes this device in GET /api/v1/sdrs; 'private' omits it
+             */
+            visibility?: ("public" | "private") | null;
+        };
+        /**
+         * DeviceRecord
+         * @description One device's configuration-centric record — `GET /api/devices` item and PATCH response.
+         */
+        DeviceRecord: {
+            /**
+             * Antenna
+             * @description Operator-recorded antenna
+             * @default
+             */
+            antenna: string;
+            /**
+             * Bias Tee
+             * @description Bias-T power, nullable
+             */
+            bias_tee?: boolean | null;
+            /** Center Hz */
+            center_hz?: number | null;
+            /** Control Port */
+            control_port?: number | null;
+            /** Created At */
+            created_at: number;
+            /** Description */
+            description: string;
+            /** Device Id */
+            device_id: string;
+            /**
+             * Direct Sampling
+             * @description Direct-sampling mode, nullable
+             */
+            direct_sampling?: (0 | 1 | 2) | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Gain Auto */
+            gain_auto: boolean;
+            /** Gain Db */
+            gain_db?: number | null;
+            /** Identity Key */
+            identity_key: string;
+            /**
+             * Identity Kind
+             * @enum {string}
+             */
+            identity_kind: "serial" | "usb";
+            /** Last Seen At */
+            last_seen_at?: number | null;
+            /** Last Serial */
+            last_serial: string;
+            /** Last Topology Path */
+            last_topology_path: string;
+            /** Name */
+            name: string;
+            /** Needs Identification */
+            needs_identification: boolean;
+            /**
+             * Notes
+             * @description The operator's free-text notes
+             * @default
+             */
+            notes: string;
+            /** Output Port */
+            output_port?: number | null;
+            /** Ppm Correction */
+            ppm_correction: number;
+            /** Present */
+            present: boolean;
+            /** Record Id */
+            record_id: number | null;
+            /** Sample Rate */
+            sample_rate?: number | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "detected" | "configured" | "starting" | "streaming" | "degraded" | "stopped" | "error";
+            /** Updated At */
+            updated_at: number;
+            /**
+             * Visibility
+             * @description Whether this device is published in GET /api/v1/sdrs
+             * @default private
+             * @enum {string}
+             */
+            visibility: "public" | "private";
+        };
+        /**
+         * DeviceStatus
+         * @description One device's realtime status — the `GET /api/status` and SSE payload shape.
+         */
+        DeviceStatus: {
+            /**
+             * Antenna
+             * @description Operator-recorded antenna
+             * @default
+             */
+            antenna: string;
+            clients?: components["schemas"]["ClientCounts"] | null;
+            /** Description */
+            description: string;
+            /**
+             * Device Id
+             * @description The public key: "serial:<value>" or "usb:<path>"
+             */
+            device_id: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Identity Key */
+            identity_key: string;
+            /**
+             * Identity Kind
+             * @enum {string}
+             */
+            identity_kind: "serial" | "usb";
+            /** Last Seen At */
+            last_seen_at?: number | null;
+            /** Name */
+            name: string;
+            /** Needs Identification */
+            needs_identification: boolean;
+            /**
+             * Notes
+             * @description The operator's free-text notes
+             * @default
+             */
+            notes: string;
+            /** @description Null for an unconfigured device */
+            output?: components["schemas"]["OutputInfo"] | null;
+            /** Present */
+            present: boolean;
+            processes?: components["schemas"]["ProcessInfo"] | null;
+            /**
+             * Record Id
+             * @description The DB surrogate key; null for a detected device
+             */
+            record_id: number | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "detected" | "configured" | "starting" | "streaming" | "degraded" | "stopped" | "error";
+            /**
+             * State Reason
+             * @description Machine code, non-null in error
+             */
+            state_reason?: string | null;
+            /**
+             * State Since
+             * @description Unix ms this state began
+             */
+            state_since: number;
+            /** @description Null until control_follower's first state event */
+            tuner?: components["schemas"]["TunerInfo"] | null;
+            /** @description Null when the device is absent */
+            usb?: components["schemas"]["UsbInfo"] | null;
+            /** @description Populated instead of `usb` for an absent configured device */
+            usb_last_known?: components["schemas"]["UsbLastKnownInfo"] | null;
+            /**
+             * Visibility
+             * @description Whether this device is published in GET /api/v1/sdrs
+             * @default private
+             * @enum {string}
+             */
+            visibility: "public" | "private";
+        };
+        /**
+         * DevicesListResponse
+         * @description `GET /api/devices` body: every configured and every detected device.
+         */
+        DevicesListResponse: {
+            constraints: components["schemas"]["PortConstraints"];
+            /** Devices */
+            devices: components["schemas"]["DeviceRecord"][];
+            /** Port Suggestion */
+            port_suggestion: number | null;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HealthResponse
+         * @description `GET /api/health` body. Auth-exempt; 503 only when the database is unreachable.
+         */
+        HealthResponse: {
+            /**
+             * Database
+             * @enum {string}
+             */
+            database: "ok" | "error";
+            devices: components["schemas"]["DeviceCounts"];
+            hotplug: components["schemas"]["HotplugHealth"];
+            /**
+             * Started At
+             * @description Unix ms the process started
+             */
+            started_at: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "degraded" | "unhealthy";
+            /** Uptime S */
+            uptime_s: number;
+            /** Version */
+            version: string;
+        };
+        /**
+         * HotplugHealth
+         * @description Whether the primary hotplug mechanism (udev) or only the reconcile fallback is active.
+         */
+        HotplugHealth: {
+            /** Healthy */
+            healthy: boolean;
+            /** Last Event At */
+            last_event_at?: number | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "udev" | "reconcile";
+        };
+        /**
+         * HotspotActivationRequest
+         * @description Body shared by `POST /api/hotspot/enable` and `/disable`.
+         *
+         *     These exist as their own routes so the UI's on/off switch never resends the
+         *     whole configuration — and therefore never has to be holding the passphrase
+         *     just to flip a switch.
+         */
+        HotspotActivationRequest: {
+            /**
+             * Confirm Uplink Loss
+             * @description Acknowledges that this call will drop a connection currently in use
+             * @default false
+             */
+            confirm_uplink_loss: boolean;
+        };
+        /**
+         * HotspotClientItem
+         * @description One DHCP lease issued by the hotspot.
+         */
+        HotspotClientItem: {
+            /**
+             * Expired
+             * @description Whether the lease has already lapsed
+             */
+            expired: boolean;
+            /** Hostname */
+            hostname?: string | null;
+            /** Ip Address */
+            ip_address: string;
+            /**
+             * Lease Expires At Ms
+             * @description Unix ms
+             */
+            lease_expires_at_ms: number;
+            /** Mac Address */
+            mac_address: string;
+        };
+        /**
+         * HotspotClientsResponse
+         * @description `GET /api/hotspot/clients` body.
+         *
+         *     `clients` is `null`, never `[]`, when no lease file could be read — "we
+         *     cannot tell" and "nobody is connected" are different answers and the UI
+         *     renders them differently.
+         */
+        HotspotClientsResponse: {
+            /** Clients */
+            clients?: components["schemas"]["HotspotClientItem"][] | null;
+            /**
+             * Generated At
+             * @description Unix ms
+             */
+            generated_at: number;
+            /**
+             * Source
+             * @default dnsmasq-leases
+             * @constant
+             */
+            source: "dnsmasq-leases";
+        };
+        /**
+         * HotspotConfigEntry
+         * @description The hotspot's shape. Its secret travels one way only — in.
+         *
+         *     `passphrase_set` is reported so an operator importing this file knows
+         *     whether the source instance had one, and therefore whether the destination
+         *     will need a password typing in before the hotspot can start. It is never
+         *     a credential and never round-trips one.
+         */
+        "HotspotConfigEntry-Input": {
+            /**
+             * Band
+             * @default bg
+             * @enum {string}
+             */
+            band: "bg" | "a";
+            /**
+             * Channel
+             * @default 0
+             */
+            channel: number;
+            /**
+             * Enabled
+             * @description Whether the source instance had the hotspot starting on boot
+             * @default false
+             */
+            enabled: boolean;
+            /** Gateway Cidr */
+            gateway_cidr?: string | null;
+            /**
+             * Hidden
+             * @default true
+             */
+            hidden: boolean;
+            /** Interface */
+            interface?: string | null;
+            /**
+             * Passphrase
+             * @description Write-only: hand-added to a provisioning file to set the destination's hotspot password. Never present in an exported file
+             */
+            passphrase?: string | null;
+            /**
+             * Passphrase Set
+             * @description Whether the source had a password stored. Never the password itself
+             * @default false
+             */
+            passphrase_set: boolean;
+            /**
+             * Security
+             * @default wpa2
+             * @enum {string}
+             */
+            security: "wpa2" | "wpa3";
+            /** Ssid */
+            ssid?: string | null;
+        };
+        /**
+         * HotspotConfigEntry
+         * @description The hotspot's shape. Its secret travels one way only — in.
+         *
+         *     `passphrase_set` is reported so an operator importing this file knows
+         *     whether the source instance had one, and therefore whether the destination
+         *     will need a password typing in before the hotspot can start. It is never
+         *     a credential and never round-trips one.
+         */
+        "HotspotConfigEntry-Output": {
+            /**
+             * Band
+             * @default bg
+             * @enum {string}
+             */
+            band: "bg" | "a";
+            /**
+             * Channel
+             * @default 0
+             */
+            channel: number;
+            /**
+             * Enabled
+             * @description Whether the source instance had the hotspot starting on boot
+             * @default false
+             */
+            enabled: boolean;
+            /** Gateway Cidr */
+            gateway_cidr?: string | null;
+            /**
+             * Hidden
+             * @default true
+             */
+            hidden: boolean;
+            /** Interface */
+            interface?: string | null;
+            /**
+             * Passphrase Set
+             * @description Whether the source had a password stored. Never the password itself
+             * @default false
+             */
+            passphrase_set: boolean;
+            /**
+             * Security
+             * @default wpa2
+             * @enum {string}
+             */
+            security: "wpa2" | "wpa3";
+            /** Ssid */
+            ssid?: string | null;
+        };
+        /**
+         * HotspotConfigRequest
+         * @description `PUT /api/hotspot` body — a full replace, not a merge.
+         *
+         *     Deliberately not a PATCH. Merging a partial body would let a request that
+         *     says nothing about `hidden` silently inherit a previous `false`, which is
+         *     exactly the security-relevant field an operator most expects to be
+         *     explicit. The passphrase is the single exception, and only because omitting
+         *     it is the mechanism that keeps the secret write-only.
+         */
+        HotspotConfigRequest: {
+            /**
+             * Band
+             * @description bg is 2.4 GHz, a is 5 GHz
+             * @default bg
+             * @enum {string}
+             */
+            band: "bg" | "a";
+            /**
+             * Channel
+             * @description 0 chooses automatically
+             * @default 0
+             */
+            channel: number;
+            /**
+             * Confirm Uplink Loss
+             * @description Acknowledges that the chosen interface currently carries a connection which raising the hotspot will drop
+             * @default false
+             */
+            confirm_uplink_loss: boolean;
+            /**
+             * Enabled
+             * @description Whether the hotspot should be running after this call
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Gateway Cidr
+             * @description The Pi's address on the hotspot network; omit to use the configured default
+             */
+            gateway_cidr?: string | null;
+            /**
+             * Hidden
+             * @description Suppress SSID broadcast so clients must know the name in advance. Not a security control on its own
+             * @default true
+             */
+            hidden: boolean;
+            /**
+             * Interface
+             * @description Wireless interface to use; omit to choose one automatically
+             */
+            interface?: string | null;
+            /**
+             * Passphrase
+             * @description Omit to keep the currently stored password unchanged
+             */
+            passphrase?: string | null;
+            /**
+             * Security
+             * @description wpa3 is experimental on Raspberry Pi radios
+             * @default wpa2
+             * @enum {string}
+             */
+            security: "wpa2" | "wpa3";
+            /**
+             * Ssid
+             * @description The network name clients look for; 1-32 UTF-8 bytes
+             */
+            ssid: string;
+        };
+        /**
+         * HotspotControlRequest
+         * @description Turn this Sentry's hotspot control on or off (ADR-0013).
+         */
+        HotspotControlRequest: {
+            /**
+             * Enabled
+             * @description Whether the API may reconfigure this host's WiFi
+             */
+            enabled: boolean;
+        };
+        /**
+         * HotspotControlResponse
+         * @description The state of the hotspot-control switch after a change.
+         */
+        HotspotControlResponse: {
+            /**
+             * Control Enabled
+             * @description Whether hotspot control is now in effect
+             */
+            control_enabled: boolean;
+            /**
+             * Forced By Environment
+             * @description Whether SENTRY_HOTSPOT_CONTROL_ENABLED pins control on, making the stored value moot until it is removed
+             */
+            forced_by_environment: boolean;
+        };
+        /**
+         * HotspotErrorSummary
+         * @description The last control failure, kept so the UI can explain a hotspot that is not up.
+         */
+        HotspotErrorSummary: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /**
+             * Ts
+             * @description Unix ms
+             */
+            ts: number;
+        };
+        /**
+         * HotspotStateResponse
+         * @description `GET /api/hotspot` and every mutator's success body.
+         *
+         *     Never 503s: a host that cannot do any of this answers 200 with
+         *     `available: false`, matching how the app already degrades when `librtlsdr`
+         *     is missing. A client can therefore always render *something*.
+         */
+        HotspotStateResponse: {
+            /**
+             * Active
+             * @description Whether the hotspot is running right now
+             */
+            active: boolean;
+            /**
+             * Auth Token Configured
+             * @description Whether SENTRY_AUTH_TOKEN is set
+             */
+            auth_token_configured: boolean;
+            /**
+             * Available
+             * @description Whether access-point control works on this host
+             */
+            available: boolean;
+            /**
+             * Band
+             * @default bg
+             * @enum {string}
+             */
+            band: "bg" | "a";
+            /**
+             * Channel
+             * @default 0
+             */
+            channel: number;
+            /**
+             * Configured
+             * @description Whether a hotspot profile exists
+             */
+            configured: boolean;
+            /**
+             * Confirm Deadline Ms
+             * @description Unix ms by which POST /api/hotspot/confirm must arrive
+             */
+            confirm_deadline_ms?: number | null;
+            /**
+             * Control Enabled
+             * @description Whether SENTRY_HOTSPOT_CONTROL_ENABLED is set
+             */
+            control_enabled: boolean;
+            /**
+             * Enabled
+             * @description Whether the profile is set to come up on boot
+             */
+            enabled: boolean;
+            /**
+             * Gateway Address
+             * @description The address a joined client should point Sentinel at, e.g. 10.42.0.1
+             */
+            gateway_address?: string | null;
+            /** Gateway Cidr */
+            gateway_cidr?: string | null;
+            /**
+             * Generated At
+             * @description Unix ms
+             */
+            generated_at: number;
+            /**
+             * Hidden
+             * @default true
+             */
+            hidden: boolean;
+            /** Interface */
+            interface?: string | null;
+            last_error?: components["schemas"]["HotspotErrorSummary"] | null;
+            /**
+             * Passphrase Set
+             * @description Whether a password is stored; never the password itself
+             * @default false
+             */
+            passphrase_set: boolean;
+            /**
+             * Pending Confirmation
+             * @description A hotspot change is awaiting confirmation and will roll back without it
+             * @default false
+             */
+            pending_confirmation: boolean;
+            /**
+             * Security
+             * @default wpa2
+             * @enum {string}
+             */
+            security: "wpa2" | "wpa3";
+            /** Ssid */
+            ssid?: string | null;
+            /**
+             * Uplink Interface Is Hotspot Interface
+             * @description True when raising the hotspot would drop this host's own connection
+             * @default false
+             */
+            uplink_interface_is_hotspot_interface: boolean;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: ("auth_token_missing" | "advertised_host_overrides_gateway" | "single_radio_uplink_loss" | "nm_unavailable")[];
+        };
+        /**
+         * LoginRequest
+         * @description `POST /api/auth/login` body.
+         */
+        LoginRequest: {
+            /**
+             * Password
+             * Format: password
+             */
+            password: string;
+        };
+        /**
+         * OutputInfo
+         * @description The public IQ/control endpoint for a configured device.
+         */
+        OutputInfo: {
+            /**
+             * Control Port
+             * @description P + 2, the NDJSON control port
+             */
+            control_port: number;
+            /**
+             * Host
+             * @description The Pi's advertised LAN address
+             */
+            host: string;
+            /**
+             * Iq Port
+             * @description The relay's public IQ port P
+             */
+            iq_port: number;
+        };
+        /**
+         * PortConstraints
+         * @description Mirrors the port-allocator rule table so the UI can validate inline.
+         *
+         *     Advisory only — the server always re-validates on `PATCH` (architecture §7.4).
+         */
+        PortConstraints: {
+            /** In Use */
+            in_use: number[];
+            /** Internal Range */
+            internal_range: [
+                number,
+                number
+            ];
+            /** Port Max */
+            port_max: number;
+            /** Port Min */
+            port_min: number;
+            /** Reserved */
+            reserved: number[];
+        };
+        /**
+         * ProcessInfo
+         * @description Supervisor-owned process/lifecycle telemetry for a device's running pair.
+         */
+        ProcessInfo: {
+            /**
+             * Internal Port
+             * @description The loopback rtl_tcp port
+             */
+            internal_port?: number | null;
+            /** Last Exit Code */
+            last_exit_code?: number | null;
+            /** Last Restart At */
+            last_restart_at?: number | null;
+            /** Relay Pid */
+            relay_pid?: number | null;
+            /**
+             * Restarts
+             * @default 0
+             */
+            restarts: number;
+            /** Rtl Tcp Pid */
+            rtl_tcp_pid?: number | null;
+        };
+        /**
+         * SdrExportItem
+         * @description One configured device, mapped onto Sentinel's `SdrRadio` / `RadioIn` field names.
+         *
+         *     Field-by-field mapping and rationale: architecture §7.8.
+         */
+        SdrExportItem: {
+            /**
+             * Agc
+             * @description Sentry's gain_auto
+             */
+            agc?: boolean | null;
+            /**
+             * Antenna
+             * @description The operator-recorded antenna, or empty
+             * @default
+             */
+            antenna: string;
+            /**
+             * Available
+             * @description Display-only: grey out rather than hide when false
+             */
+            available: boolean;
+            /**
+             * Bandwidth
+             * @description Sentry's sample_rate
+             */
+            bandwidth?: number | null;
+            /**
+             * Control Port
+             * @description P + 2, sent for verification only
+             */
+            control_port: number;
+            /** Description */
+            description: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Host */
+            host: string;
+            /** Name */
+            name: string;
+            /**
+             * Notes
+             * @description The operator's free-text notes for this device
+             * @default
+             */
+            notes: string;
+            /**
+             * Port
+             * @description The relay's IQ port P
+             */
+            port: number;
+            /**
+             * Rf Gain
+             * @description Sentry's gain_db; null when AGC
+             */
+            rf_gain?: number | null;
+            /**
+             * Sentry Device Id
+             * @description Idempotency key for Sentinel's import
+             */
+            sentry_device_id: string;
+            /**
+             * State
+             * @description Display-only device state
+             */
+            state: string;
+        };
+        /**
+         * SdrExportResponse
+         * @description `GET /api/v1/sdrs` and `GET /api/sdrs` (permanent alias) body.
+         */
+        SdrExportResponse: {
+            /**
+             * Api Version
+             * @default 1
+             */
+            api_version: number;
+            /**
+             * Control Port Offset
+             * @description Sentinel already computes port + this offset
+             * @default 2
+             */
+            control_port_offset: number;
+            /** Generated At */
+            generated_at: number;
+            /**
+             * Sdrs
+             * @description Only devices the operator marked public; private ones are omitted
+             */
+            sdrs: components["schemas"]["SdrExportItem"][];
+            source: components["schemas"]["SdrExportSource"];
+        };
+        /**
+         * SdrExportSource
+         * @description Identifies the Sentry instance that produced this export.
+         */
+        SdrExportSource: {
+            /**
+             * Host
+             * @description Never 0.0.0.0 or a container-internal address
+             */
+            host: string;
+            /** Http Port */
+            http_port: number;
+            /**
+             * Name
+             * @default sentry
+             * @constant
+             */
+            name: "sentry";
+            /** Version */
+            version: string;
+        };
+        /**
+         * SentryConfig
+         * @description The whole exportable configuration of one Sentry instance.
+         */
+        "SentryConfig-Input": {
+            /**
+             * Comment
+             * @description Free-text note carried in the file and otherwise ignored
+             * @default
+             */
+            _comment: string;
+            /**
+             * Console Password
+             * @description Write-only: hand-added to a provisioning file to set the controller's password. Never present in an exported file
+             */
+            console_password?: string | null;
+            /**
+             * Devices
+             * @default []
+             */
+            devices: components["schemas"]["DeviceConfigEntry"][];
+            /**
+             * Generated At
+             * @description Unix ms the file was exported
+             * @default 0
+             */
+            generated_at: number;
+            hotspot?: components["schemas"]["HotspotConfigEntry-Input"] | null;
+            /**
+             * Sentry Version
+             * @description The app version that wrote it
+             * @default
+             */
+            sentry_version: string;
+            /**
+             * Version
+             * @description Config-file format version, not the app version
+             * @default 1
+             */
+            version: number;
+        };
+        /**
+         * SentryConfig
+         * @description The whole exportable configuration of one Sentry instance.
+         */
+        "SentryConfig-Output": {
+            /**
+             * Comment
+             * @description Free-text note carried in the file and otherwise ignored
+             * @default
+             */
+            _comment: string;
+            /**
+             * Devices
+             * @default []
+             */
+            devices: components["schemas"]["DeviceConfigEntry"][];
+            /**
+             * Generated At
+             * @description Unix ms the file was exported
+             * @default 0
+             */
+            generated_at: number;
+            hotspot?: components["schemas"]["HotspotConfigEntry-Output"] | null;
+            /**
+             * Sentry Version
+             * @description The app version that wrote it
+             * @default
+             */
+            sentry_version: string;
+            /**
+             * Version
+             * @description Config-file format version, not the app version
+             * @default 1
+             */
+            version: number;
+        };
+        /**
+         * SerialFlashAccepted
+         * @description `202 Accepted` body; the outcome arrives later as an SSE `notice`.
+         */
+        SerialFlashAccepted: {
+            /** Device Id */
+            device_id: string;
+            /**
+             * Operation Id
+             * @description Correlates this request with its SSE notice events
+             */
+            operation_id: string;
+            /**
+             * Requires Replug
+             * @description A physical replug is required before the new serial is visible
+             * @default true
+             */
+            requires_replug: boolean;
+            /**
+             * Status
+             * @constant
+             */
+            status: "in_progress";
+        };
+        /**
+         * SerialFlashRequest
+         * @description Request body for flashing a unique serial to a dongle's EEPROM.
+         */
+        SerialFlashRequest: {
+            /**
+             * Confirm
+             * @description Must be exactly true; a destructive hardware write requires explicit intent
+             * @constant
+             */
+            confirm: true;
+            /** Serial */
+            serial: string;
+        };
+        /**
+         * SetPasswordRequest
+         * @description `POST /api/auth/password` body — sets the first password, or changes an existing one.
+         */
+        SetPasswordRequest: {
+            /**
+             * Current Password
+             * @description Required when a password is already set; ignored when not
+             */
+            current_password?: string | null;
+            /**
+             * New Password
+             * Format: password
+             */
+            new_password: string;
+        };
+        /**
+         * StatusResponse
+         * @description `GET /api/status` and the SSE `snapshot` event body.
+         */
+        StatusResponse: {
+            /**
+             * Generated At
+             * @description Unix ms this snapshot was assembled
+             */
+            generated_at: number;
+            /**
+             * Sdrs
+             * @description Sorted by usb.topology_path; absent devices last
+             */
+            sdrs: components["schemas"]["DeviceStatus"][];
+        };
+        /**
+         * TunerInfo
+         * @description The live tuner state as last observed via `control_follower` (architecture §7.2).
+         */
+        TunerInfo: {
+            /**
+             * Bias Tee
+             * @description Bias-T power state, when the dongle supports it
+             */
+            bias_tee?: boolean | null;
+            /** Center Hz */
+            center_hz: number;
+            /**
+             * Direct Sampling
+             * @description Direct-sampling mode (0=off, 1=I-ADC, 2=Q-ADC), when in use
+             */
+            direct_sampling?: (0 | 1 | 2) | null;
+            /** Gain Auto */
+            gain_auto: boolean;
+            /** Gain Db */
+            gain_db: number;
+            /**
+             * Locked
+             * @description Whether another owner currently holds the tuning token
+             */
+            locked: boolean;
+            /**
+             * Observed At
+             * @description Unix ms this state was last observed on P+2
+             */
+            observed_at: number;
+            /** Sample Rate */
+            sample_rate: number;
+        };
+        /**
+         * UsbInfo
+         * @description The live USB descriptor and topology for a present device (architecture §7.2).
+         */
+        UsbInfo: {
+            /** Bus Number */
+            bus_number: number;
+            /**
+             * Device Address
+             * @description Kernel devnum; unstable, display only
+             */
+            device_address: number;
+            /**
+             * Driver
+             * @description Bound kernel driver name, if any
+             */
+            driver?: string | null;
+            /**
+             * Driver Conflict
+             * @description True when the DVB kernel driver is bound instead of the userspace driver
+             */
+            driver_conflict: boolean;
+            /**
+             * Hub Depth
+             * @description len(port_chain) - 1
+             */
+            hub_depth: number;
+            /** Manufacturer */
+            manufacturer?: string | null;
+            /**
+             * Port Chain
+             * @description The port path as integers, e.g. (1, 4, 2)
+             */
+            port_chain: number[];
+            /** Product */
+            product?: string | null;
+            /**
+             * Product Id
+             * @description Lowercase hex, no "0x", e.g. "2838"
+             */
+            product_id: string;
+            /**
+             * Serial
+             * @description The raw reported iSerial
+             */
+            serial?: string | null;
+            /**
+             * Topology Path
+             * @description Bus-port path, e.g. "1-1.4.2"
+             */
+            topology_path: string;
+            /**
+             * Vendor Id
+             * @description Lowercase hex, no "0x", e.g. "0bda"
+             */
+            vendor_id: string;
+        };
+        /**
+         * UsbLastKnownInfo
+         * @description A reduced USB description for a configured device that is currently absent.
+         *
+         *     Populated from the persisted `last_*` columns so an absent device still
+         *     renders identifiably in the UI (architecture §7.2).
+         */
+        UsbLastKnownInfo: {
+            /** Manufacturer */
+            manufacturer?: string | null;
+            /** Product */
+            product?: string | null;
+            /** Product Id */
+            product_id: string;
+            /** Serial */
+            serial?: string | null;
+            /** Topology Path */
+            topology_path: string;
+            /** Vendor Id */
+            vendor_id: string;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
+        /**
+         * WirelessInterfaceItem
+         * @description One selectable wireless interface in `GET /api/hotspot/interfaces`.
+         */
+        WirelessInterfaceItem: {
+            /**
+             * Carries Default Route
+             * @default false
+             */
+            carries_default_route: boolean;
+            /**
+             * In Use By
+             * @description The connection currently active on this interface, if any
+             */
+            in_use_by?: string | null;
+            /**
+             * Ipv4 Addresses
+             * @default []
+             */
+            ipv4_addresses: string[];
+            /** Mac Address */
+            mac_address?: string | null;
+            /** Name */
+            name: string;
+            /** State */
+            state: string;
+            /**
+             * Station Ssid
+             * @description The network this interface is joined to as a client, if any
+             */
+            station_ssid?: string | null;
+            /**
+             * Supports Ap
+             * @description null when this NetworkManager version does not report it
+             */
+            supports_ap?: boolean | null;
+        };
+        /**
+         * WirelessInterfacesResponse
+         * @description `GET /api/hotspot/interfaces` body. Empty when nothing can be enumerated.
+         */
+        WirelessInterfacesResponse: {
+            /**
+             * Generated At
+             * @description Unix ms
+             */
+            generated_at: number;
+            /**
+             * Interfaces
+             * @default []
+             */
+            interfaces: components["schemas"]["WirelessInterfaceItem"][];
+        };
+    };
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
-export type $defs = Record<string, never>
+export type $defs = Record<string, never>;
 export interface operations {
-  login_api_auth_login_post: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['LoginRequest']
-      }
-    }
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  logout_api_auth_logout_post: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-    }
-  }
-  set_password_api_auth_password_post: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SetPasswordRequest']
-      }
-    }
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  get_auth_state_api_auth_state_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['AuthStateResponse']
-        }
-      }
-    }
-  }
-  export_config_api_config_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['SentryConfig-Output']
-        }
-      }
-    }
-  }
-  import_config_api_config_post: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ConfigImportRequest']
-      }
-    }
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ConfigImportResult']
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  download_config_api_config_download_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-    }
-  }
-  list_devices_api_devices_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['DevicesListResponse']
-        }
-      }
-    }
-  }
-  delete_device_api_devices__device_id__delete: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Either "serial:<value>" or "usb:<topology_path>" */
-        device_id: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  patch_device_api_devices__device_id__patch: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Either "serial:<value>" or "usb:<topology_path>" */
-        device_id: string
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['DevicePatch']
-      }
-    }
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['DeviceRecord']
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  flash_serial_api_devices__device_id__serial_post: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Either "serial:<value>" or "usb:<topology_path>" */
-        device_id: string
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SerialFlashRequest']
-      }
-    }
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['SerialFlashAccepted']
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  get_events_api_events_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': unknown
-        }
-      }
-    }
-  }
-  get_health_api_health_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HealthResponse']
-        }
-      }
-    }
-  }
-  get_hotspot_api_hotspot_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HotspotStateResponse']
-        }
-      }
-    }
-  }
-  put_hotspot_api_hotspot_put: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['HotspotConfigRequest']
-      }
-    }
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HotspotStateResponse']
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  delete_hotspot_api_hotspot_delete: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-    }
-  }
-  list_clients_api_hotspot_clients_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HotspotClientsResponse']
-        }
-      }
-    }
-  }
-  confirm_hotspot_api_hotspot_confirm_post: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HotspotStateResponse']
-        }
-      }
-    }
-  }
-  disable_hotspot_api_hotspot_disable_post: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['HotspotActivationRequest']
-      }
-    }
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HotspotStateResponse']
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  enable_hotspot_api_hotspot_enable_post: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['HotspotActivationRequest']
-      }
-    }
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HotspotStateResponse']
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  list_interfaces_api_hotspot_interfaces_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['WirelessInterfacesResponse']
-        }
-      }
-    }
-  }
-  get_sdrs_alias_api_sdrs_get: {
-    parameters: {
-      query?: {
-        include_disabled?: boolean
-        available_only?: boolean
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['SdrExportResponse']
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
-  get_status_api_status_get: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StatusResponse']
-        }
-      }
-    }
-  }
-  get_sdrs_v1_api_v1_sdrs_get: {
-    parameters: {
-      query?: {
-        include_disabled?: boolean
-        available_only?: boolean
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['SdrExportResponse']
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['HTTPValidationError']
-        }
-      }
-    }
-  }
+    login_api_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_password_api_auth_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_auth_state_api_auth_state_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthStateResponse"];
+                };
+            };
+        };
+    };
+    export_config_api_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentryConfig-Output"];
+                };
+            };
+        };
+    };
+    import_config_api_config_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_config_api_config_download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_devices_api_devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicesListResponse"];
+                };
+            };
+        };
+    };
+    delete_device_api_devices__device_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Either "serial:<value>" or "usb:<topology_path>" */
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_device_api_devices__device_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Either "serial:<value>" or "usb:<topology_path>" */
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevicePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    flash_serial_api_devices__device_id__serial_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Either "serial:<value>" or "usb:<topology_path>" */
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SerialFlashRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SerialFlashAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_events_api_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_health_api_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    get_hotspot_api_hotspot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotStateResponse"];
+                };
+            };
+        };
+    };
+    put_hotspot_api_hotspot_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotspotConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_hotspot_api_hotspot_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_clients_api_hotspot_clients_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotClientsResponse"];
+                };
+            };
+        };
+    };
+    confirm_hotspot_api_hotspot_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotStateResponse"];
+                };
+            };
+        };
+    };
+    set_hotspot_control_api_hotspot_control_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotspotControlRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotControlResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_hotspot_api_hotspot_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotspotActivationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_hotspot_api_hotspot_enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotspotActivationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_interfaces_api_hotspot_interfaces_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WirelessInterfacesResponse"];
+                };
+            };
+        };
+    };
+    get_sdrs_alias_api_sdrs_get: {
+        parameters: {
+            query?: {
+                include_disabled?: boolean;
+                available_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdrExportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    get_sdrs_v1_api_v1_sdrs_get: {
+        parameters: {
+            query?: {
+                include_disabled?: boolean;
+                available_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdrExportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
 }

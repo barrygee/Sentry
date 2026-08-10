@@ -20,6 +20,7 @@ and update the old one's status to `Superseded by ADR-NNNN`.
 | [0010](0010-sentinel-reads-sentry-manages.md) | Sentinel reads, Sentry manages; a console password replaces the API token | Accepted |
 | [0011](0011-drop-automated-accessibility-testing.md) | Drop automated accessibility testing as a requirement | Accepted |
 | [0012](0012-last-write-wins-on-device-edits.md) | Local drafts win on device edits; no conflict detection | Accepted |
+| [0013](0013-hotspot-control-is-operator-flippable.md) | Hotspot control moves from `.env` to a console switch | Accepted |
 
 The design these decisions serve is
 [`docs/architecture/sentry-sdr-controller.md`](../architecture/sentry-sdr-controller.md).

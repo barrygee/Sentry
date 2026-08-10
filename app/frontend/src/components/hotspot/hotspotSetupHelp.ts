@@ -1,6 +1,7 @@
 import { el, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
-import { baseCopyButton } from '../base/baseCopyButton.js'
+import { setControlEnabled } from '../../state/hotspotStore.js'
+import { baseToggle } from '../base/baseToggle.js'
 import { noticeBox } from '../base/noticeBox.js'
 
 /**
@@ -9,22 +10,18 @@ import { noticeBox } from '../base/noticeBox.js'
  * Two prerequisites, and they are satisfied in different places — which is the
  * whole reason this card exists rather than a form.
  *
- * `SENTRY_HOTSPOT_CONTROL_ENABLED` is `.env`-only, deliberately.
- * It is what makes driving the host's NetworkManager from this container
- * defensible instead of a privileged sidecar (ADR-0007): its entire value is
- * that turning it on requires shell access to the Pi. A toggle here would
- * delete the control it represents. It also could not work — `.env` is not
- * mounted into this container, and a container's environment is fixed when it
- * is created.
+ * Hotspot control is now a switch here rather than a line to paste into `.env`
+ * (ADR-0013). It used to be deploy-time only, and the reasoning was sound while
+ * it held: shell access to the Pi was the thing standing between a stranger and
+ * this host's networking (ADR-0007). What replaced it is the controller
+ * password — which is why the toggle is *refused*, not merely hidden, until one
+ * is set, and why the password prerequisite is stated before the switch rather
+ * than after it.
  *
  * The **controller password** is set in the UI, one section above this one. It
  * used to be `SENTRY_AUTH_TOKEN` in the same `.env`, and this card still said
- * so long after ADR-0010 removed it — telling operators to add a line that does
+ * so long after ADR-0010 removed it — telling operators to add a line that did
  * nothing.
- *
- * So the card does the part it usefully can: gives the shell step as one
- * command that can be pasted whole, and points at the UI for the part that
- * belongs there.
  */
 export interface HotspotSetupHelpProps {
   /** Whether host WiFi control is switched on for this deployment. */
@@ -39,47 +36,36 @@ export interface HotspotSetupHelpProps {
   authTokenConfigured: boolean
 }
 
-/**
- * The shell step, as one command rather than a line to paste into a file.
- *
- * `>> .env` then `up -d`, not "edit the file and restart it": `docker compose
- * restart` reuses the existing container and therefore its original
- * environment, so the change appears not to have worked. That trap has already
- * cost this project an hour of debugging on a real Pi.
- */
-const CONTROL_ENABLED_COMMAND =
-  "echo 'SENTRY_HOTSPOT_CONTROL_ENABLED=true' >> .env && docker compose up -d"
-
 /** Builds a `HotspotSetupHelp`. `update` mutates the same notice in place. */
 export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<HotspotSetupHelpProps> {
+  let currentProps = props
+
   const introParagraph = el('p', { class: 'm-0' }, [
-    el('strong', { class: 'font-semibold' }, ['One-time setup on the Pi.']),
-    ' Run this in Sentry’s directory — it appends the setting to ',
-    el('code', { class: 'font-tabular' }, ['.env']),
-    ' and recreates the container so it takes effect.',
+    el('strong', { class: 'font-semibold' }, ['Hotspot control is switched off.']),
+    ' Turn it on to let this Sentry configure the Pi’s WiFi.',
   ])
 
-  const envBlockPre = el(
-    'pre',
-    {
-      class:
-        'm-0 overflow-x-auto rounded-rack bg-ground-raised px-3 py-2 font-tabular text-[12px] leading-[1.7] text-ink-primary',
+  const controlToggle = baseToggle({
+    value: false,
+    onChange: (enabled) => {
+      void setControlEnabled(enabled)
     },
-    [el('code', {}, [CONTROL_ENABLED_COMMAND])],
-  )
-
-  const copyButton = baseCopyButton({
-    value: CONTROL_ENABLED_COMMAND,
-    accessibleName: 'Copy the setup command',
-    label: 'Copy this command',
+    label: 'Allow hotspot control',
+    accessibleName: 'Allow this Sentry to configure the Pi’s WiFi',
   })
 
-  // The whole shell step, hidden once control is enabled. Grouped so intro,
-  // command and button disappear together rather than leaving an orphan.
+  // The switch grants the capability every other hotspot control depends on, so
+  // it is disabled — not hidden — until a password exists. Hidden would read as
+  // "not available on this Pi"; disabled alongside the reason reads as "do this
+  // first", which is what is actually true.
+  const controlToggleRow = el('div', { class: 'flex flex-col gap-2' }, [controlToggle.element])
+
+  // The whole control step, hidden once control is enabled. Grouped so intro
+  // and switch disappear together rather than leaving an orphan.
   const shellStep = el('div', { class: 'flex flex-col gap-3' }, [])
 
   const controlEnabledParagraph = el('p', { class: 'm-0 text-[11px] leading-[1.6]' }, [
-    'Hotspot control is off by default because it is the one setting that lets this web API reconfigure the Pi’s own networking. Turning it on is deliberately something only someone with access to the Pi can do.',
+    'Hotspot control is off by default because it is the one setting that lets this web API reconfigure the Pi’s own networking. It stays off until you turn it on, and needs a controller password first.',
   ])
   const passwordParagraph = el('p', { class: 'm-0 text-[11px] leading-[1.6]' }, [
     'A controller password is also required before a hotspot can start: anyone connected to the Sentry WiFi is on the same network as this controller, and could change your SDR settings. Set one in ',
@@ -87,7 +73,7 @@ export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<Hotspo
     ' above.',
   ])
 
-  shellStep.append(introParagraph, envBlockPre, copyButton.element, controlEnabledParagraph)
+  shellStep.append(introParagraph, controlToggleRow, controlEnabledParagraph)
 
   const wrapper = el('div', { class: 'flex flex-col gap-3' }, [shellStep, passwordParagraph])
 
@@ -104,10 +90,20 @@ export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<Hotspo
   })
 
   function render(nextProps: HotspotSetupHelpProps): void {
+    currentProps = nextProps
     // Each prerequisite shows only while it is unmet. A satisfied one left on
     // screen reads as another thing still to do.
     setVisible(shellStep, !nextProps.controlEnabled)
     setVisible(passwordParagraph, !nextProps.authTokenConfigured)
+    controlToggle.update({
+      value: nextProps.controlEnabled,
+      onChange: (enabled) => {
+        void setControlEnabled(enabled)
+      },
+      label: 'Allow hotspot control',
+      accessibleName: 'Allow this Sentry to configure the Pi’s WiFi',
+      disabled: !currentProps.authTokenConfigured,
+    })
   }
 
   render(props)
@@ -120,7 +116,7 @@ export function hotspotSetupHelp(props: HotspotSetupHelpProps): Component<Hotspo
     },
 
     destroy(): void {
-      copyButton.destroy()
+      controlToggle.destroy()
       notice.destroy()
     },
   }

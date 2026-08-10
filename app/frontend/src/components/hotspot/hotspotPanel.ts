@@ -42,10 +42,10 @@ import type { HotspotStatusPanelProps } from './hotspotStatusPanel.js'
 
 function blockedReason(state: HotspotState): string | null {
   if (!state.control_enabled) {
-    return 'Hotspot control is switched off on this Sentry. Set SENTRY_HOTSPOT_CONTROL_ENABLED=true in its .env file and restart it.'
+    return 'Hotspot control is switched off on this Sentry. Turn it on below.'
   }
   if (!state.auth_token_configured) {
-    return 'Set an API access token (SENTRY_AUTH_TOKEN) before starting a hotspot. Without one, anyone who joins the network can reach this API with no credentials.'
+    return 'Set a Sentry controller password before starting a hotspot. Without one, anyone who joins the network can reach this controller with no credentials.'
   }
   if (!state.available) {
     return 'This Sentry cannot manage a WiFi hotspot: NetworkManager was not reachable. On the Pi, check that NetworkManager is running and that the D-Bus socket is mounted into the container.'

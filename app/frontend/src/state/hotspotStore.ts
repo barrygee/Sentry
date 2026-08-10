@@ -50,9 +50,9 @@ export interface HotspotStoreState {
 export function humanizeHotspotError(code: string, fallback: string): string {
   switch (code) {
     case 'hotspot_control_disabled':
-      return 'Hotspot control is switched off on this Sentry. Set SENTRY_HOTSPOT_CONTROL_ENABLED=true in its .env and restart.'
+      return 'Hotspot control is switched off on this Sentry. Turn it on in the hotspot settings.'
     case 'auth_token_required':
-      return 'Set an API access token on this Sentry before starting a hotspot — otherwise anyone who joins the network can reach it without credentials.'
+      return 'Set a Sentry controller password before starting a hotspot — otherwise anyone who joins the network can reach this controller without credentials.'
     case 'hotspot_unavailable':
       return 'This Sentry cannot manage a WiFi hotspot: NetworkManager was not reachable.'
     case 'passphrase_required':
@@ -167,6 +167,24 @@ export async function refresh(): Promise<void> {
     recordError(error, 'Could not read the hotspot settings.')
   }
   await refreshClients()
+}
+
+/**
+ * Switch this Sentry's hotspot control on or off (ADR-0013).
+ *
+ * Refreshes afterwards rather than assuming: turning control on changes which
+ * controller answers every other hotspot route, so what the host actually
+ * reports back is the only trustworthy picture of the new state.
+ */
+export async function setControlEnabled(enabled: boolean): Promise<boolean> {
+  try {
+    await apiClient.setHotspotControl(enabled)
+  } catch (error) {
+    recordError(error, 'Could not change hotspot control.')
+    return false
+  }
+  await refresh()
+  return true
 }
 
 /** Reloads only the connected-client list, without disturbing the settings form. */
