@@ -48,14 +48,19 @@ function ownReservedPortsFor(device: DeviceStatus): number[] {
 }
 
 /**
- * The switch is labelled by what it *describes*, not by what pressing it does.
+ * "SDR enabled" while it is on, "Enable SDR" while it is off.
  *
- * "Disable SDR" beside an on switch reads as a claim about the current state to
- * anyone scanning the card, which is the opposite of the truth. A toggle already
- * shows its position; the label's job is to say what the position is about.
+ * Not symmetrical, deliberately. An on switch labelled "Disable SDR" reads as a
+ * claim about the current state to anyone scanning the card — the opposite of
+ * the truth — so the on state describes itself. An off switch has the opposite
+ * problem: "SDR enabled" beside an off switch is a flat contradiction, and the
+ * useful thing to say there is what turning it on would do.
+ *
+ * The accessible name carries the device with it either way, since a screen
+ * reader user meets these labels one at a time with no card to look at.
  */
-function enabledToggleLabel(): string {
-  return 'SDR enabled'
+function enabledToggleLabel(device: DeviceStatus): string {
+  return device.enabled ? 'SDR enabled' : 'Enable SDR'
 }
 
 /** Builds an `SdrDeviceCard`. `update` mutates the same DOM in place — the name, port, notes and antenna fields are edited inline, and rebuilding on update would drop the caret mid-keystroke. */
@@ -243,8 +248,8 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   const enabledToggle = baseToggle({
     value: props.device.enabled,
     onChange: commitEnabled,
-    label: enabledToggleLabel(),
-    accessibleName: `${enabledToggleLabel()} — ${props.device.name || props.device.device_id}`,
+    label: enabledToggleLabel(props.device),
+    accessibleName: `${enabledToggleLabel(props.device)} — ${props.device.name || props.device.device_id}`,
   })
   const togglesRow = el('div', { class: 'flex flex-wrap items-center gap-x-6 gap-y-2' }, [
     visibilityToggle.element,
@@ -469,8 +474,8 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     enabledToggle.update({
       value: device.enabled,
       onChange: commitEnabled,
-      label: enabledToggleLabel(),
-      accessibleName: `${enabledToggleLabel()} — ${device.name || device.device_id}`,
+      label: enabledToggleLabel(device),
+      accessibleName: `${enabledToggleLabel(device)} — ${device.name || device.device_id}`,
     })
 
     const isEditable = !device.needs_identification
