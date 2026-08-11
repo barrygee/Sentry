@@ -75,6 +75,15 @@ export interface DisclosureSectionProps {
    * already supplies the surrounding space and the summary must add none.
    */
   isBoxTitle?: boolean
+  /**
+   * Put the chevron on its own line above the summary content, right-aligned,
+   * instead of inline at the end of it.
+   *
+   * For a summary whose content is a full row of controls: inline, the chevron
+   * lands immediately beside the last switch and reads as a third control in
+   * that group rather than as the card's own affordance.
+   */
+  chevronAbove?: boolean
 }
 
 const TONE_CLASSES = {
@@ -88,8 +97,12 @@ const TONE_CLASSES = {
 // of its own and an `ml-auto` on it is silently a no-op — the SVG inside is the
 // real flex item here. The inherited `absentDeviceGroup` code set that margin
 // and never got the alignment it was asking for.
-const SUMMARY_CLASSES =
-  'flex cursor-pointer list-none items-center justify-between gap-2 rounded-rack font-sans font-semibold uppercase transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden'
+// Everything both layouts share. The inline variant adds its own row
+// alignment; the `chevronAbove` one stacks instead.
+const SUMMARY_CLASSES_BASE =
+  'flex cursor-pointer list-none rounded-rack font-sans font-semibold uppercase transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden'
+
+const SUMMARY_CLASSES = classes(SUMMARY_CLASSES_BASE, 'items-center justify-between gap-2')
 
 // A standalone disclosure carries its own comfortable target. One that *is* a
 // box's title sits inside the box's `p-card`, and adding to that padded the top
@@ -124,17 +137,30 @@ export function disclosureSection(
           props.label,
         )
 
-  const summary = el(
-    'summary',
-    {
-      class: classes(
-        SUMMARY_CLASSES,
-        SUMMARY_SPACING[props.isBoxTitle ? 'boxTitle' : 'standalone'],
-        TONE_CLASSES[props.tone ?? 'group'],
-      ),
-    },
-    [labelHost, chevron.element],
-  )
+  const summary = props.chevronAbove
+    ? el(
+        'summary',
+        {
+          class: classes(
+            SUMMARY_CLASSES_BASE,
+            'flex-col items-stretch gap-2',
+            SUMMARY_SPACING[props.isBoxTitle ? 'boxTitle' : 'standalone'],
+            TONE_CLASSES[props.tone ?? 'group'],
+          ),
+        },
+        [el('div', { class: 'flex justify-end' }, [chevron.element]), labelHost],
+      )
+    : el(
+        'summary',
+        {
+          class: classes(
+            SUMMARY_CLASSES,
+            SUMMARY_SPACING[props.isBoxTitle ? 'boxTitle' : 'standalone'],
+            TONE_CLASSES[props.tone ?? 'group'],
+          ),
+        },
+        [labelHost, chevron.element],
+      )
 
   const body = el(
     'div',

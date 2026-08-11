@@ -273,11 +273,14 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   // finger that did it.
   togglesRow.addEventListener('click', (event) => event.stopPropagation())
 
-  const headerRow = el(
-    'div',
-    { class: 'flex flex-1 flex-wrap items-center justify-between gap-x-6 gap-y-3' },
-    [identityRow, togglesRow],
-  )
+  // Status on one line, the switches left-aligned on the next. Side by side
+  // they were pushed to the far right of the card, a long way from the state
+  // they act on; stacked, both start at the same left edge as everything else
+  // in the card.
+  const headerRow = el('div', { class: 'flex flex-1 flex-col items-start gap-3' }, [
+    identityRow,
+    togglesRow,
+  ])
 
   const needsIdNotice = needsIdentificationNotice({ onRequestSerialFlash: requestSerialFlash })
   const absentNotice = deviceAbsentNotice({
@@ -443,8 +446,10 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     summaryContent: [headerRow],
     defaultOpen: true,
     isBoxTitle: true,
-    // Before the disclosure, the card was a `flex flex-col gap-6`, so its header sat 24px above the first row;
-    // a `<summary>` sits flush against the body, so that gap is restored here.
+    chevronAbove: true,
+    // Before the disclosure, the card was a `flex flex-col gap-6`, so its header
+    // sat 24px above the first row; a `<summary>` sits flush against the body,
+    // so that gap is restored here.
     bodyClass: 'flex flex-col gap-6 pt-6',
     children: [
       needsIdNotice.element,
