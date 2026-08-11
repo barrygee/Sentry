@@ -38,6 +38,7 @@ from app.backend.services.supervisor import (
     RESTART_BUDGET_WINDOW_S,
     WEDGE_EXIT_CODE,
     SupervisorService,
+    _RestartBookkeeping,
 )
 
 from ..fakes.clock import FakeClock
@@ -647,7 +648,7 @@ class TestHandlePairExit:
         registry = ScriptedDeviceRegistry(runnable=(runnable_device(),))
         clock = FakeClock()
         supervisor = build_supervisor(spawner=spawner, registry=registry, clock=clock)
-        stats = _bookkeeping()
+        stats = _RestartBookkeeping()
         stats.backoff_s = BACKOFF_MAX_S
         supervisor._restart_bookkeeping[DEVICE_ID] = stats  # noqa: SLF001
         await spawn_running_pair(supervisor, spawner)
@@ -672,7 +673,7 @@ class TestHandlePairExit:
         registry = ScriptedDeviceRegistry()
         clock = FakeClock()
         supervisor = build_supervisor(spawner=spawner, registry=registry, clock=clock)
-        stats = _bookkeeping()
+        stats = _RestartBookkeeping()
         # One short of the budget, all inside the window.
         stats.restart_timestamps = [clock.monotonic()] * RESTART_BUDGET_MAX_RESTARTS
         supervisor._restart_bookkeeping[DEVICE_ID] = stats  # noqa: SLF001
@@ -698,7 +699,7 @@ class TestHandlePairExit:
         registry = ScriptedDeviceRegistry()
         clock = FakeClock()
         supervisor = build_supervisor(spawner=spawner, registry=registry, clock=clock)
-        stats = _bookkeeping()
+        stats = _RestartBookkeeping()
         stats.restart_timestamps = [clock.monotonic()] * RESTART_BUDGET_MAX_RESTARTS
         supervisor._restart_bookkeeping[DEVICE_ID] = stats  # noqa: SLF001
         await spawn_running_pair(supervisor, spawner)
@@ -787,10 +788,3 @@ class TestHandlePairExit:
         await settle()
 
         assert DEVICE_ID not in supervisor._pending_restart  # noqa: SLF001
-
-
-def _bookkeeping():  # type: ignore[no-untyped-def]
-    """Build a `_RestartBookkeeping` without importing a private name at module scope."""
-    from app.backend.services.supervisor import _RestartBookkeeping
-
-    return _RestartBookkeeping()

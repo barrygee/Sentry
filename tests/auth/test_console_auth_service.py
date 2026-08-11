@@ -13,7 +13,7 @@ Run with:  uv run pytest tests/auth
 from __future__ import annotations
 
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
 import pytest
@@ -191,7 +191,7 @@ class TestSessions:
         ],
     )
     async def test_a_tampered_cookie_is_rejected(
-        self, service: ConsoleAuthService, corrupt
+        self, service: ConsoleAuthService, corrupt: Callable[[str], str]
     ) -> None:
         await service.set_password(PASSWORD, current_password=None)
         cookie = await service.issue_session()

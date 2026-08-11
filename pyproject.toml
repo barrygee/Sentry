@@ -23,6 +23,7 @@ dev = [
     "httpx>=0.28",
     "ruff>=0.8",
     "mypy>=1.13",
+    "pytest-timeout>=2.3",
 ]
 
 [tool.pytest.ini_options]
@@ -31,6 +32,12 @@ dev = [
 # rather than requiring the test to know its package location.
 pythonpath = ["app/backend/relay"]
 testpaths = ["tests"]
+# A hung test is indistinguishable from a slow one in CI, and the suite is
+# full of `asyncio.wait`/`Event.wait` calls that block forever if the thing
+# they are waiting on never happens. The whole suite runs in ~30s, so a
+# per-test minute is generous and still fails fast instead of burning the
+# job's time limit.
+timeout = 60
 
 [tool.ruff]
 line-length = 100
@@ -52,6 +59,16 @@ ignore = ["B008"]
 python_version = "3.12"
 strict = true
 exclude = ["app/backend/relay/rtl_tcp_relay.py"]
+
+# The relay is vendored and frozen (architecture §2), so it is excluded from
+# checking above — but `tests/relay/test_rtl_tcp_relay.py` imports it as a
+# top-level module (see `pythonpath` under `[tool.pytest.ini_options]`), which
+# mypy cannot resolve and reports as a missing import. Treating just this module
+# as untyped keeps the test file itself checkable without dragging the frozen
+# relay into strict mode.
+[[tool.mypy.overrides]]
+module = "rtl_tcp_relay"
+ignore_missing_imports = true
 
 [build-system]
 requires = ["hatchling"]
