@@ -230,7 +230,17 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
 
   // --- Row 1 — identity and the one control that changes what the device is
   // doing right now. ---
-  const headingElement = el('h3', { class: 'sr-only' }, [])
+  // Visible only while the card is collapsed. Open, the Name field a few rows
+  // down already shows it and a second copy in the header is just two places
+  // for one value to disagree; collapsed, it is the only thing that says which
+  // dongle this card is. `group-open:` reads the `<details open>` state that
+  // `DisclosureSection` puts the `group` class on. It stays an `h3` either way,
+  // so the heading never leaves the accessibility tree.
+  const headingElement = el(
+    'h3',
+    { class: 'm-0 font-sans text-[13px] font-semibold text-ink-primary group-open:sr-only' },
+    [],
+  )
   const statusBadge = deviceStatusBadge({
     state: props.device.state,
     reason: props.device.state_reason ?? null,
@@ -433,7 +443,9 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     summaryContent: [headerRow],
     defaultOpen: true,
     isBoxTitle: true,
-    bodyClass: 'flex flex-col gap-6',
+    // Before the disclosure, the card was a `flex flex-col gap-6`, so its header sat 24px above the first row;
+    // a `<summary>` sits flush against the body, so that gap is restored here.
+    bodyClass: 'flex flex-col gap-6 pt-6',
     children: [
       needsIdNotice.element,
       absentNotice.element,

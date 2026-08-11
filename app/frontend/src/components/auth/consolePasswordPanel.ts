@@ -104,7 +104,9 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
     // `gap-6`, matching the hotspot and configuration boxes. This one sat at
     // `gap-4`, which read as cramped precisely where it mattered — the
     // "Last changed" line ran into the first field label below it.
-    bodyClass: 'flex flex-col gap-6',
+    // Before the disclosure, the heading and its description were a `gap-2` pair;
+    // a `<summary>` sits flush against the body, so that gap is restored here.
+    bodyClass: 'flex flex-col gap-6 pt-2',
     children: [
       el('div', { class: 'flex flex-col gap-2' }, [introParagraph, statusLine]),
       errorNotice.element,
