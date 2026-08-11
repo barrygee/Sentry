@@ -14,6 +14,7 @@ import { portAssignmentField } from '../forms/portAssignmentField.js'
 import { deviceAbsentNotice } from './deviceAbsentNotice.js'
 import { deviceStatusBadge } from './deviceStatusBadge.js'
 import { deviceVisibilityToggle } from './deviceVisibilityToggle.js'
+import { disclosureSection } from '../base/disclosureSection.js'
 import { needsIdentificationNotice } from './needsIdentificationNotice.js'
 
 /**
@@ -256,9 +257,15 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     enabledToggle.element,
   ])
 
+  // A click on a toggle inside a `<summary>` also reaches the summary and
+  // collapses the card. Stopping it here keeps the switches usable in place —
+  // without this, turning an SDR off would fold the card shut underneath the
+  // finger that did it.
+  togglesRow.addEventListener('click', (event) => event.stopPropagation())
+
   const headerRow = el(
     'div',
-    { class: 'flex flex-wrap items-center justify-between gap-x-6 gap-y-3' },
+    { class: 'flex flex-1 flex-wrap items-center justify-between gap-x-6 gap-y-3' },
     [identityRow, togglesRow],
   )
 
@@ -418,14 +425,16 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     [saveButton.element, discardButton.element, unsavedLabel],
   )
 
-  const article = el(
-    'article',
-    {
-      attrs: { id: `device-card-${props.device.device_id}`, tabindex: -1 },
-      class: 'flex flex-col gap-6 rounded-rack bg-ground-panel p-card outline-none',
-    },
-    [
-      headerRow,
+  // Collapsible, open by default: a rack of eight dongles is a lot of page,
+  // and folding the ones already configured is the point. The header stays
+  // visible when shut, so state and the two switches remain reachable.
+  const disclosure = disclosureSection({
+    label: [],
+    summaryContent: [headerRow],
+    defaultOpen: true,
+    isBoxTitle: true,
+    bodyClass: 'flex flex-col gap-6',
+    children: [
       needsIdNotice.element,
       absentNotice.element,
       fieldsGrid,
@@ -433,6 +442,15 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       notesField.element,
       saveRow,
     ],
+  })
+
+  const article = el(
+    'article',
+    {
+      attrs: { id: `device-card-${props.device.device_id}`, tabindex: -1 },
+      class: 'flex flex-col rounded-rack bg-ground-panel p-card outline-none',
+    },
+    [disclosure.element],
   )
 
   function render(): void {
