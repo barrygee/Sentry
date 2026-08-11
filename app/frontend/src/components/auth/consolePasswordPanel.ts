@@ -97,7 +97,7 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
       // Wrapped, not bare: a direct child of a `flex-col` stretches to the
       // container's width, which made this the only full-width button in the
       // app. The hotspot form's action row solves it the same way.
-      el('div', { class: 'flex flex-wrap items-center gap-2' }, [saveButton.element]),
+      el('div', { class: 'flex flex-wrap items-center justify-end gap-2' }, [saveButton.element]),
     ],
   )
 

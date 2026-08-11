@@ -68,14 +68,16 @@ function buildHotspotFormActions(
 ): Component<HotspotFormActionsProps> {
   const saveButton = baseButton({
     type: 'submit',
-    variant: 'primary',
+    variant: 'on-bright',
     disabled: !props.canSubmit,
     children: [props.busy ? 'Saving…' : 'Save hotspot settings'],
   })
   // No Close here: the dialog owns one, unconditionally. This row is rendered
   // only when the hotspot is manageable, so a Close living here disappeared in
   // precisely the states that needed it.
-  const root = el('div', { class: 'flex flex-wrap items-center gap-2' }, [saveButton.element])
+  const root = el('div', { class: 'flex flex-wrap items-center justify-end gap-2' }, [
+    saveButton.element,
+  ])
 
   return {
     element: root,
@@ -83,7 +85,7 @@ function buildHotspotFormActions(
     update(nextProps): void {
       saveButton.update({
         type: 'submit',
-        variant: 'primary',
+        variant: 'on-bright',
         disabled: !nextProps.canSubmit,
         children: [nextProps.busy ? 'Saving…' : 'Save hotspot settings'],
       })
@@ -111,7 +113,25 @@ export function hotspotPanel(): Component<void> {
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
     'Run a WiFi network from this Sentry so clients can reach the SDRs with no LAN.',
   ])
-  const headerBlock = el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph])
+
+  // The form mounts its two toggles here. `shrink-0` keeps them on the title's
+  // line: without it the intro paragraph makes the title block greedy enough to
+  // push them onto a row of their own even on a wide screen.
+  const headerControlsHost = el('div', { class: 'flex shrink-0 items-center' })
+
+  // `min-w-0 flex-1` is the other half of that — the title block is the one
+  // that gives, so the toggles keep their width and stay hard right.
+  const titleBlock = el('div', { class: 'flex min-w-0 flex-1 flex-col gap-2' }, [
+    heading.element,
+    introParagraph,
+  ])
+  // Still wraps below the title on a genuinely narrow screen rather than
+  // crushing a heading and two toggles onto one line.
+  const headerBlock = el(
+    'div',
+    { class: 'flex flex-wrap items-start justify-between gap-x-6 gap-y-3' },
+    [titleBlock, headerControlsHost],
+  )
 
   // Both live regions stay mounted for the dialog's whole lifetime and only
   // change text. Mounting a live region that already contains its message
@@ -284,6 +304,7 @@ export function hotspotPanel(): Component<void> {
           // of the panel it sat a full screen away from the control an operator
           // had just used, and its two actions read as unrelated to the form.
           beforeActions: [countdownSlot],
+          headerControlsHost,
         }
         if (!form) {
           form = hotspotForm(formProps)

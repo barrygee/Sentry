@@ -62,6 +62,14 @@ export interface HotspotFormProps {
    * position.
    */
   beforeActions?: Child[]
+  /**
+   * Where to mount the header toggle row.
+   *
+   * The panel owns the header, so it supplies the element and the form fills
+   * it once at construction. Read once — a panel does not relocate its own
+   * header mid-life.
+   */
+  headerControlsHost?: HTMLElement
 }
 
 const INTERFACE_AUTOMATIC_OPTION: BaseSelectOption = { value: '', label: 'Choose automatically' }
@@ -73,6 +81,21 @@ const BAND_OPTIONS: BaseSelectOption[] = [
   { value: 'bg', label: '2.4 GHz (longer range)' },
   { value: 'a', label: '5 GHz (faster, shorter range)' },
 ]
+
+/**
+ * The toggles read as the state they are in, not the action they perform.
+ *
+ * They sit in the panel header away from any other label, so "Hide network"
+ * alone leaves an operator working out whether it describes what will happen
+ * or what already has. Naming the resulting condition when on removes that.
+ */
+function hiddenToggleLabel(hidden: boolean): string {
+  return hidden ? 'Network is hidden' : 'Hide network'
+}
+
+function enabledToggleLabel(enabled: boolean): string {
+  return enabled ? 'Hotspot enabled' : 'Enable hotspot'
+}
 
 function interfaceOptionLabel(entry: WirelessInterface): string {
   return entry.carries_default_route
@@ -137,7 +160,7 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     return ssidTouched ? validateSsidClientSide(ssid) : null
   }
   function ssidHint(): string {
-    return `${ssidByteLength(ssid)} of ${SSID_MAX_BYTES} bytes used. Clients must type this exactly when the network is hidden.`
+    return `${ssidByteLength(ssid)} of ${SSID_MAX_BYTES} characters used.`
   }
   function channelError(): string | null {
     return validateChannelClientSide(Number(channel), band)
@@ -207,13 +230,10 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       hidden = value
       render()
     },
-    label: 'Hide this network',
+    label: hiddenToggleLabel(hidden),
     accessibleName: 'Hide this network from scans',
     disabled: props.busy,
   })
-  const hiddenHint = el('p', { class: '-mt-3 m-0 text-[11px] leading-[1.6] text-signal-muted' }, [
-    'Hidden networks do not appear in a device’s WiFi list, so clients must add them by name. This keeps casual scanners away — it is not a security measure on its own. The password is.',
-  ])
 
   const securitySelect = baseSelect({
     label: 'Security',
@@ -224,7 +244,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     },
     options: SECURITY_OPTIONS,
     disabled: props.busy,
-    hint: 'WPA3 is unreliable on some Raspberry Pi radios.',
   })
   const interfaceSelect = baseSelect({
     label: 'Wireless interface',
@@ -235,7 +254,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     },
     options: interfaceOptions(props.interfaces),
     disabled: props.busy,
-    hint: 'Automatic avoids any radio already carrying a connection.',
   })
   const bandSelect = baseSelect({
     label: 'Band',
@@ -260,7 +278,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     options: channelOptionsForBand(band),
     error: channelError(),
     disabled: props.busy,
-    hint: 'Automatic is right unless you are avoiding a specific channel.',
   })
   const selectGrid = el('div', { class: 'grid gap-5 sm:grid-cols-2' }, [
     securitySelect.element,
@@ -299,13 +316,32 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       hotspotEnabled = value
       render()
     },
-    label: 'Run the hotspot',
+    label: enabledToggleLabel(hotspotEnabled),
     accessibleName: 'Run the hotspot now',
     disabled: props.busy,
   })
 
+  const identityGrid = el('div', { class: 'grid gap-5 sm:grid-cols-2' }, [
+    ssidField.element,
+    passphraseField.element,
+  ])
+
   const actionsComponent = props.actions({ canSubmit: computeCanSubmit(), busy: props.busy })
   const beforeActionsSlot = el('div', { class: 'contents' }, props.beforeActions ?? [])
+
+  // Both toggles live in the panel header, not the form body. They are the two
+  // controls an operator reaches for most and the only ones worth reading at a
+  // glance; buried between fields they were easy to miss, and "Run the hotspot"
+  // sat below a scroll on a long panel. Being outside the `<form>` element
+  // costs nothing — `submit()` reads local state, never the DOM.
+  const headerControls = el(
+    'div',
+    { class: 'flex flex-wrap items-center justify-end gap-x-6 gap-y-2' },
+    [hiddenToggle.element, enabledToggle.element],
+  )
+  if (props.headerControlsHost) {
+    props.headerControlsHost.appendChild(headerControls)
+  }
 
   const form = el(
     'form',
@@ -320,14 +356,10 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       },
     },
     [
-      ssidField.element,
-      passphraseField.element,
-      hiddenToggle.element,
-      hiddenHint,
+      identityGrid,
       selectGrid,
       gatewayField.element,
       uplinkWarning.element,
-      enabledToggle.element,
       beforeActionsSlot,
       actionsComponent.element,
     ],
@@ -412,7 +444,7 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
         hidden = value
         render()
       },
-      label: 'Hide this network',
+      label: hiddenToggleLabel(hidden),
       accessibleName: 'Hide this network from scans',
       disabled: busy,
     })
@@ -426,7 +458,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       },
       options: SECURITY_OPTIONS,
       disabled: busy,
-      hint: 'WPA3 is unreliable on some Raspberry Pi radios.',
     })
     interfaceSelect.update({
       label: 'Wireless interface',
@@ -437,7 +468,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       },
       options: interfaceOptions(interfaces),
       disabled: busy,
-      hint: 'Automatic avoids any radio already carrying a connection.',
     })
     bandSelect.update({
       label: 'Band',
@@ -460,7 +490,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       options: channelOptionsForBand(band),
       error: channelError(),
       disabled: busy,
-      hint: 'Automatic is right unless you are avoiding a specific channel.',
     })
 
     gatewayField.update({
@@ -500,7 +529,7 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
         hotspotEnabled = value
         render()
       },
-      label: 'Run the hotspot',
+      label: enabledToggleLabel(hotspotEnabled),
       accessibleName: 'Run the hotspot now',
       disabled: busy,
     })
@@ -529,6 +558,10 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     },
 
     destroy(): void {
+      // The header row lives in the panel's element, not this component's, so
+      // it does not go away with the form's own subtree — it has to be removed
+      // by hand or a rebuilt form leaves a dead set of toggles behind it.
+      headerControls.remove()
       ssidField.destroy()
       passphraseField.destroy()
       hiddenToggle.destroy()
