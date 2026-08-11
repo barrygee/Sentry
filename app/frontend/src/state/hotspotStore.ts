@@ -38,6 +38,17 @@ export interface HotspotStoreState {
   /** The last operator-facing failure message, or null. Never contains a secret. */
   errorMessage: string | null
   errorCode: string | null
+  /**
+   * The failed command's own output, when the server sent one.
+   *
+   * Taken from the *error response*, not from `state.last_error`. On a failure
+   * the store keeps the pre-request state, whose `last_error` is whatever it
+   * was before — usually `null` — so reading it there showed nothing at the one
+   * moment it mattered, and told the operator to go and read the Pi's logs for
+   * detail the response had already carried. Already redacted of the passphrase
+   * by the adapter.
+   */
+  errorCommandOutput: string | null
 }
 
 /**
@@ -80,12 +91,22 @@ export function humanizeHotspotError(code: string, fallback: string): string {
   }
 }
 
-function describeError(error: unknown, fallback: string): { code: string; message: string } {
+function describeError(
+  error: unknown,
+  fallback: string,
+): { code: string; message: string; commandOutput: string | null } {
   if (error instanceof ApiError) {
     const code = error.detail?.code ?? 'hotspot_request_failed'
-    return { code, message: humanizeHotspotError(code, error.message || fallback) }
+    // `_as_http_exception` spreads the service error's context into the detail,
+    // and `stderr_tail` rides along in it.
+    const stderrTail = error.detail?.['stderr_tail']
+    return {
+      code,
+      message: humanizeHotspotError(code, error.message || fallback),
+      commandOutput: typeof stderrTail === 'string' && stderrTail !== '' ? stderrTail : null,
+    }
   }
-  return { code: 'hotspot_request_failed', message: fallback }
+  return { code: 'hotspot_request_failed', message: fallback, commandOutput: null }
 }
 
 /** The hotspot's client-side model — request/response state about the host's WiFi network. */
@@ -96,6 +117,7 @@ export const hotspotStore: Store<HotspotStoreState> = createStore<HotspotStoreSt
   phase: 'loading',
   errorMessage: null,
   errorCode: null,
+  errorCommandOutput: null,
 })
 
 /** Whether a hotspot change is currently on trial and will revert if unconfirmed. */
@@ -132,7 +154,7 @@ export function canMutate(state: Readonly<HotspotStoreState>): boolean {
  * and have very likely forgotten.
  */
 export function resetTransientState(): void {
-  hotspotStore.setState({ errorMessage: null, errorCode: null })
+  hotspotStore.setState({ errorMessage: null, errorCode: null, errorCommandOutput: null })
 }
 
 /** Apply a fresh state payload, deriving the phase from what the server reports. */
@@ -149,6 +171,7 @@ export function recordError(error: unknown, fallback: string): void {
   hotspotStore.setState({
     errorCode: described.code,
     errorMessage: described.message,
+    errorCommandOutput: described.commandOutput,
     phase: 'failed',
   })
 }
@@ -162,7 +185,7 @@ export async function refresh(): Promise<void> {
     ])
     hotspotStore.setState({ interfaces: [...interfacesResponse.interfaces] })
     applyState(nextState)
-    hotspotStore.setState({ errorMessage: null, errorCode: null })
+    hotspotStore.setState({ errorMessage: null, errorCode: null, errorCommandOutput: null })
   } catch (error) {
     recordError(error, 'Could not read the hotspot settings.')
   }
@@ -210,7 +233,12 @@ export async function refreshClients(): Promise<void> {
  * the server contract defines.
  */
 export async function save(config: HotspotConfigRequest): Promise<boolean> {
-  hotspotStore.setState({ phase: 'submitting', errorMessage: null, errorCode: null })
+  hotspotStore.setState({
+    phase: 'submitting',
+    errorMessage: null,
+    errorCode: null,
+    errorCommandOutput: null,
+  })
   try {
     applyState(await apiClient.putHotspot(config))
     liveAnnouncer().announcePolite(
@@ -230,7 +258,12 @@ async function runActivation(
   successAnnouncement: string,
   failureFallback: string,
 ): Promise<boolean> {
-  hotspotStore.setState({ phase: 'submitting', errorMessage: null, errorCode: null })
+  hotspotStore.setState({
+    phase: 'submitting',
+    errorMessage: null,
+    errorCode: null,
+    errorCommandOutput: null,
+  })
   try {
     applyState(await call())
     liveAnnouncer().announcePolite(successAnnouncement)

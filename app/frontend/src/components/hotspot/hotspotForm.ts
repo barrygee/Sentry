@@ -1,4 +1,5 @@
 import { el } from '../../core/dom.js'
+import type { Child } from '../../core/dom.js'
 import type { Component, ComponentFactory } from '../../core/component.js'
 import { setVisible } from '../../core/dom.js'
 import type { HotspotConfigRequest, HotspotState, WirelessInterface } from '../../api/client.js'
@@ -15,6 +16,7 @@ import {
   validatePassphraseClientSide,
   validateSsidClientSide,
 } from '../../utils/hotspotValidation.js'
+import { syncChildren } from '../base/childrenSync.js'
 import { hotspotPassphraseField } from './hotspotPassphraseField.js'
 import { hotspotUplinkWarning } from './hotspotUplinkWarning.js'
 
@@ -51,6 +53,15 @@ export interface HotspotFormProps {
   onSubmit: (config: HotspotConfigRequest) => void
   /** Slot equivalent: builds the form's footer actions, kept current via `canSubmit`/`busy`. */
   actions: ComponentFactory<HotspotFormActionsProps>
+  /**
+   * Slot rendered immediately above the action row.
+   *
+   * For the confirmation countdown, which needs to sit with the button that
+   * caused it rather than at the top of the panel. Owned by the panel — the
+   * form neither builds nor updates what goes in here, it only reserves the
+   * position.
+   */
+  beforeActions?: Child[]
 }
 
 const INTERFACE_AUTOMATIC_OPTION: BaseSelectOption = { value: '', label: 'Choose automatically' }
@@ -294,6 +305,7 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
   })
 
   const actionsComponent = props.actions({ canSubmit: computeCanSubmit(), busy: props.busy })
+  const beforeActionsSlot = el('div', { class: 'contents' }, props.beforeActions ?? [])
 
   const form = el(
     'form',
@@ -316,6 +328,7 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       gatewayField.element,
       uplinkWarning.element,
       enabledToggle.element,
+      beforeActionsSlot,
       actionsComponent.element,
     ],
   )
@@ -493,6 +506,7 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     })
 
     actionsComponent.update({ canSubmit: computeCanSubmit(), busy })
+    syncChildren(beforeActionsSlot, currentProps.beforeActions ?? [])
   }
 
   render()
