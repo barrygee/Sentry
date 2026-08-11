@@ -521,8 +521,26 @@ class NmcliWifiApController:
         await self._run(["connection", "up", self._connection_name])
 
     async def deactivate(self) -> None:
-        """Bring Sentry's profile down, leaving it configured."""
-        await self._run(["connection", "down", self._connection_name])
+        """Bring Sentry's profile down, leaving it configured. Idempotent.
+
+        `nmcli connection down` treats an already-down profile as an error
+        ("'sentry-hotspot' is not an active connection"), but this method's
+        postcondition — the profile is not active — is already satisfied in
+        that case, so reporting failure is wrong. Saving settings with the
+        hotspot switched off does exactly this, and the whole save reported a
+        500 *after* having already written the profile, which is the worst of
+        both: the change landed and the operator was told it had not.
+
+        The already-down case is confirmed by re-reading state rather than by
+        matching nmcli's message. The wording is not API, and a real failure to
+        tear down an active hotspot must still surface — that one leaves a
+        network on the air.
+        """
+        try:
+            await self._run(["connection", "down", self._connection_name])
+        except WifiApCommandError:
+            if (await self.read_state()).active:
+                raise
 
     async def set_autoconnect(self, autoconnect: bool) -> None:
         """Set whether the profile comes up on boot."""
