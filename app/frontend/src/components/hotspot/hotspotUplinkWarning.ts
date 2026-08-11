@@ -15,7 +15,7 @@ import { syncChildren } from '../base/childrenSync.js'
  * sets it.
  *
  * Deliberately a plain checkbox gate rather than a "proceed anyway" button:
- * copies the guarded pattern `SerialFlashDialog` uses for the EEPROM write,
+ * copies the guarded pattern `SerialFlashSection` uses for the EEPROM write,
  * the app's other irreversible-feeling action, so the same shape means the
  * same thing in both places.
  */
@@ -61,7 +61,7 @@ export function hotspotUplinkWarning(
     `I understand this will disconnect ${props.interfaceName}`,
   ])
 
-  // Nesting alone associates the label — matching `SerialFlashDialog`'s
+  // Nesting alone associates the label — matching `SerialFlashSection`'s
   // acknowledgement checkbox. Adding a `for`/`id` pair on top of the nesting
   // would leave the control with no accessible name at all.
   const label = el('label', { class: 'flex min-h-[44px] cursor-pointer items-center gap-3' }, [

@@ -13,7 +13,7 @@ import { baseButton } from './baseButton.js'
  * The confirmation is announced through a `role="status"` region that is
  * present from mount rather than created on click: a live region inserted into
  * the DOM already containing its text is frequently not announced at all, the
- * same trap `SerialFlashDialog` documents. Only the text changes.
+ * same trap `SerialFlashSection` documents. Only the text changes.
  *
  * Failure is surfaced, not swallowed. `navigator.clipboard` rejects on an
  * insecure origin — which is precisely where Sentry lives, plain HTTP on a LAN

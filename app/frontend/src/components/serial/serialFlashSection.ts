@@ -3,16 +3,15 @@ import type { Component } from '../../core/component.js'
 import { watchStore } from '../../core/observable.js'
 import { ApiError, type DeviceStatus } from '../../api/client.js'
 import { baseButton } from '../base/baseButton.js'
-import { baseDialog } from '../base/baseDialog.js'
 import { baseField } from '../base/baseField.js'
 import { nextElementId } from '../base/idGenerator.js'
 import { noticeBox } from '../base/noticeBox.js'
 import { sectionHeading } from '../base/sectionHeading.js'
 import {
-  closeSerialFlashDialog,
+  closeSerialFlashSection,
   flashSerial,
   sdrsStore,
-  serialFlashDialogDevice,
+  serialFlashSectionDevice,
   type SdrsState,
 } from '../../state/sdrsStore.js'
 import { isDeviceIdle } from '../../utils/deviceState.js'
@@ -46,7 +45,7 @@ function humanizeFlashError(error: unknown): string {
 }
 
 /**
- * Builds the `SerialFlashDialog`. Rendered once near the app root and driven
+ * Builds the `SerialFlashSection`. Rendered once near the app root and driven
  * entirely by `sdrsStore.serialFlashDeviceId` — the invoking control (a
  * topology node, a device card, `SerialConflictBanner`) can be several
  * components away from wherever this dialog is mounted.
@@ -59,7 +58,7 @@ function humanizeFlashError(error: unknown): string {
  * idle, and progress after the `202 Accepted` is driven entirely by the SSE
  * `notice` stream — there is no polling and no synchronous result.
  */
-export function serialFlashDialog(): Component<void> {
+export function serialFlashSection(): Component<void> {
   const headingId = nextElementId('serial-flash-dialog-heading')
   const consequenceId = `${headingId}-consequence`
 
@@ -200,13 +199,20 @@ export function serialFlashDialog(): Component<void> {
     failedActionsRow,
   ])
 
-  const dialog = baseDialog({
-    open: false,
-    labelledBy: headingId,
-    disableDismiss: false,
-    onClose: () => requestClose(),
-    children: [dialogBody],
-  })
+  // A section in the devices view, not a modal. Flashing a serial is guarded
+  // by an explicit acknowledgement and a device that must be idle — the guard
+  // is the checkbox and the button state, never the overlay — so trapping
+  // focus and blacking out the page bought nothing here, while making it
+  // impossible to look at the very cards the operator is choosing between.
+  // Cancel still leaves; it just closes a panel rather than dismissing a modal.
+  const panelRoot = el(
+    'section',
+    {
+      class: 'flex flex-col bg-ground-panel p-card',
+      attrs: { 'aria-labelledby': headingId },
+    },
+    [dialogBody],
+  )
 
   function resetTransientState(): void {
     phase = 'form'
@@ -218,7 +224,7 @@ export function serialFlashDialog(): Component<void> {
   }
 
   function requestClose(): void {
-    closeSerialFlashDialog()
+    closeSerialFlashSection()
   }
 
   function retry(): void {
@@ -238,7 +244,7 @@ export function serialFlashDialog(): Component<void> {
   }
 
   async function submit(): Promise<void> {
-    const device = serialFlashDialogDevice(sdrsStore.state)
+    const device = serialFlashSectionDevice(sdrsStore.state)
     if (!device || !canSubmit(device)) {
       return
     }
@@ -266,7 +272,7 @@ export function serialFlashDialog(): Component<void> {
   // this device raised after the request was accepted is that operation's
   // outcome.
   function renderFromState(state: SdrsState): void {
-    const device = serialFlashDialogDevice(state)
+    const device = serialFlashSectionDevice(state)
 
     // Reset all transient state whenever the dialog is retargeted at a new
     // device (including being closed, which sets `device` back to null).
@@ -360,19 +366,13 @@ export function serialFlashDialog(): Component<void> {
     setVisible(succeededActionsRow, phase === 'succeeded')
     setVisible(failedActionsRow, phase === 'failed')
 
-    dialog.update({
-      open: isOpen,
-      labelledBy: headingId,
-      disableDismiss: isBusy,
-      onClose: () => requestClose(),
-      children: [dialogBody],
-    })
+    setVisible(panelRoot, isOpen)
   }
 
   const unsubscribe = watchStore(sdrsStore, renderFromState)
 
   return {
-    element: dialog.element,
+    element: panelRoot,
 
     update(): void {
       // Store-driven; nothing to do for a prop this component does not take.
@@ -380,7 +380,6 @@ export function serialFlashDialog(): Component<void> {
 
     destroy(): void {
       unsubscribe()
-      dialog.destroy()
     },
   }
 }

@@ -4,6 +4,7 @@ import { panelStack } from '../components/base/panelStack.js'
 import { sdrDeviceCard, type SdrDeviceCardProps } from '../components/device/sdrDeviceCard.js'
 import { noticeList } from '../components/sdrs/noticeList.js'
 import { absentDeviceGroup } from '../components/sdrs/absentDeviceGroup.js'
+import { serialFlashSection } from '../components/serial/serialFlashSection.js'
 import {
   serialConflictBanner,
   type SerialConflictBannerProps,
@@ -14,9 +15,9 @@ import { liveAnnouncer } from '../core/liveAnnouncer.js'
 import { watchStore } from '../core/observable.js'
 import {
   absentConfiguredDevices,
-  closeSerialFlashDialog,
+  closeSerialFlashSection,
   devices,
-  openSerialFlashDialog,
+  openSerialFlashSection,
   presentDevices,
   sdrsStore,
   serialConflictGroups,
@@ -84,18 +85,21 @@ export function mountSdrsView(root: ParentNode): () => void {
   )
   const absentGroup = absentDeviceGroup({
     devices: [],
-    onRequestSerialFlash: openSerialFlashDialog,
+    onRequestSerialFlash: openSerialFlashSection,
   })
 
+  // The serial-flash panel sits above the device list, so an operator can
+  // still see the cards it is asking them to choose between — which is the
+  // whole reason it is no longer a modal.
+  const serialFlashPanel = serialFlashSection()
+
   deviceContainer.append(
+    serialFlashPanel.element,
     noDevicesEmptyState.element,
     allAbsentEmptyState.element,
     presentStack.element,
     absentGroup.element,
   )
-
-  // `baseDialog` mounts itself on `document.body`, so this element is never
-  // appended — only kept so `update` and `destroy` can reach it.
 
   // Announce plug/unplug and state transitions (architecture §9.4) by diffing
   // each snapshot against the previous one's `(present, state)` pair.
@@ -153,7 +157,7 @@ export function mountSdrsView(root: ParentNode): () => void {
           // re-run the same effect against current state to hide the banner.
           sdrsStore.setState({})
         },
-        onRequestSerialFlash: openSerialFlashDialog,
+        onRequestSerialFlash: openSerialFlashSection,
       })),
     )
 
@@ -163,9 +167,9 @@ export function mountSdrsView(root: ParentNode): () => void {
     setVisible(absentGroup.element, absent.length > 0)
 
     presentCards.update(
-      present.map((device) => ({ device, onRequestSerialFlash: openSerialFlashDialog })),
+      present.map((device) => ({ device, onRequestSerialFlash: openSerialFlashSection })),
     )
-    absentGroup.update({ devices: absent, onRequestSerialFlash: openSerialFlashDialog })
+    absentGroup.update({ devices: absent, onRequestSerialFlash: openSerialFlashSection })
   })
 
   // Port constraints are a convenience fetch: the SSE `snapshot` still
@@ -189,6 +193,6 @@ export function mountSdrsView(root: ParentNode): () => void {
     noDevicesEmptyState.destroy()
     allAbsentEmptyState.destroy()
     notices.destroy()
-    closeSerialFlashDialog()
+    closeSerialFlashSection()
   }
 }
