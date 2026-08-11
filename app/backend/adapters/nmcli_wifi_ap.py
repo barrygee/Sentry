@@ -480,8 +480,17 @@ class NmcliWifiApController:
             _yes_no(profile.hidden),
             "802-11-wireless.band",
             profile.band,
+            # Channel 0 is Sentry's "automatic", but it is not a value nmcli
+            # will take: it validates the text and refuses with "'0' is not a
+            # valid channel", failing the whole `connection modify` — so with
+            # Automatic selected (the default) no hotspot could ever be saved.
+            # An empty string is nmcli's own way of resetting a property to
+            # its default, which for this one *is* auto-select. Cleared rather
+            # than omitted: omitting leaves whatever channel was there before,
+            # so switching from Channel 6 back to Automatic would silently
+            # keep pinning 6.
             "802-11-wireless.channel",
-            str(profile.channel),
+            "" if profile.channel == 0 else str(profile.channel),
             "802-11-wireless-security.key-mgmt",
             _KEY_MANAGEMENT_BY_SECURITY[profile.security],
             "802-11-wireless-security.proto",
