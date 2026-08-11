@@ -145,10 +145,10 @@ export function configPanel(): Component<void> {
 
   // What is left of the import flow once its button moved up beside Export: the
   // staged-file confirmation and the report of what an import did.
-  const importSection = el('div', { class: 'flex flex-col gap-3' }, [
-    pendingImportBlock,
-    importReportSlot,
-  ])
+  // `contents`: with nothing staged and no report to show, a plain wrapper is
+  // still a flex item with no height, and still earns the panel's `gap-10` —
+  // which is the dead space at the bottom of the Configuration card.
+  const importSection = el('div', { class: 'contents' }, [pendingImportBlock, importReportSlot])
 
   const panelRoot = el(
     'section',

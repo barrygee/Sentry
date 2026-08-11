@@ -1320,6 +1320,11 @@ export interface components {
             /** Message */
             message: string;
             /**
+             * Stderr Tail
+             * @description Tail of the failing command's output, scrubbed of the hotspot passphrase. The only thing that says why NetworkManager refused
+             */
+            stderr_tail?: string | null;
+            /**
              * Ts
              * @description Unix ms
              */

@@ -240,10 +240,28 @@ export function hotspotPanel(): Component<void> {
       const showErrorNotice = storeState.phase === 'failed' && storeState.errorMessage !== null
       setVisible(errorNotice.element, showErrorNotice)
       if (showErrorNotice) {
+        // The command's own output, when the server sent one. It is the only
+        // thing that says *why* NetworkManager refused, and it is already
+        // scrubbed of the hotspot passphrase — printed verbatim rather than
+        // summarised, because a paraphrase of an nmcli error is a guess.
+        const commandOutput = state.last_error?.stderr_tail ?? null
         errorNotice.update({
           tone: 'danger',
           role: 'status',
-          children: [storeState.errorMessage ?? ''],
+          children:
+            commandOutput === null
+              ? [storeState.errorMessage ?? '']
+              : [
+                  el('p', { class: 'm-0' }, [storeState.errorMessage ?? '']),
+                  el(
+                    'pre',
+                    {
+                      class:
+                        'm-0 mt-2 overflow-x-auto whitespace-pre-wrap break-words font-tabular text-[11px] leading-[1.6] opacity-90',
+                    },
+                    [commandOutput],
+                  ),
+                ],
         })
       }
 

@@ -1,12 +1,7 @@
 import { el, setText, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
 import { watchStore } from '../../core/observable.js'
-import {
-  consoleAuthStore,
-  setPassword,
-  signOut,
-  type ConsoleAuthState,
-} from '../../state/consoleAuth.js'
+import { consoleAuthStore, setPassword, type ConsoleAuthState } from '../../state/consoleAuth.js'
 import { baseButton } from '../base/baseButton.js'
 import { baseField } from '../base/baseField.js'
 import { nextElementId } from '../base/idGenerator.js'
@@ -75,14 +70,6 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
     variant: 'on-bright',
     children: ['Set password'],
   })
-  const signOutRow = el('div', { class: 'flex' }, [])
-  const signOutButton = baseButton({
-    variant: 'ghost',
-    onClick: () => void signOut(),
-    children: ['Sign out'],
-  })
-  signOutRow.appendChild(signOutButton.element)
-
   const form = el(
     'form',
     {
@@ -129,7 +116,6 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
       // hidden inside. `contents` promoted the button to a flex item of the
       // column, which stretched it to full width; hiding the wrapper keeps the
       // button its own size and still contributes no gap when it is away.
-      signOutRow,
     ],
   )
 
@@ -156,7 +142,6 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
     setVisible(currentField.element, state.passwordSet)
     // Signing out of a console with no password would strand the operator on a
     // sign-in screen with nothing to sign in to.
-    setVisible(signOutRow, state.passwordSet)
 
     newField.update({
       label: 'New password',
@@ -218,7 +203,6 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
       currentField.destroy()
       newField.destroy()
       saveButton.destroy()
-      signOutButton.destroy()
       errorNotice.destroy()
       successNotice.destroy()
       heading.destroy()
