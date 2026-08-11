@@ -526,7 +526,19 @@ class HotspotService:
         return text.replace(self._live_passphrase, "***")
 
     def _record_failure(self, error: HotspotError) -> HotspotError:
-        """Remember a failure for the next snapshot, and return it for raising."""
+        """Remember a failure for the next snapshot, log its detail, and return it.
+
+        The `stderr_tail` is the only thing that says *why* nmcli refused, and it
+        was being discarded here: the summary kept for the UI has no field for
+        it, so a failed hotspot change left "the network command failed" and
+        nothing anywhere — not the response, not the log — to act on. It is
+        already scrubbed of the in-flight passphrase by the caller.
+        """
+        stderr_tail = error.context.get("stderr_tail")
+        if stderr_tail:
+            _logger.warning("hotspot %s: %s", error.code, stderr_tail)
+        else:
+            _logger.warning("hotspot %s: %s (no command output)", error.code, error.message)
         self._last_error = (error.code, error.message, self._clock.now_ms())
         return error
 

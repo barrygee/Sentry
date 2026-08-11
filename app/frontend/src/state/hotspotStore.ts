@@ -72,9 +72,9 @@ export function humanizeHotspotError(code: string, fallback: string): string {
     case 'no_pending_confirmation':
       return 'There is no hotspot change waiting to be confirmed — it may have already rolled back.'
     case 'hotspot_command_timeout':
-      return 'The network command did not finish in time. The radio or NetworkManager may be stuck.'
+      return 'The network command did not finish in time — the radio or NetworkManager may be stuck. Its output is in the Sentry log: run `docker compose logs sentry` on the Pi.'
     case 'hotspot_command_failed':
-      return 'The network command failed. See the details below.'
+      return 'The network command failed. Its output is in the Sentry log: run `docker compose logs sentry` on the Pi.'
     default:
       return fallback
   }
