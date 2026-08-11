@@ -275,7 +275,19 @@
           </svg>
         </button>
 
-        <main class="min-w-0 flex-1 overflow-y-auto">
+        <!-- `relative` is load-bearing, not decoration. Every `sr-only` element
+             is `position: absolute`, and an absolutely positioned box is clipped
+             by an ancestor's `overflow` only when that ancestor is its
+             containing block — which a `static` one never is. Left static, the
+             visually-hidden checkbox inside each toggle escaped this scroll port
+             and sat at its unclipped document position, growing
+             `documentElement.scrollHeight` past the viewport and handing the
+             window a scrollbar the shell above is built to not have. Focusing
+             such a toggle then scrolled the *window* to reveal it, sliding the
+             one-viewport shell up off screen: header and rail gone, the panel
+             cut off, and a page-height band of empty background below it.
+             Making `main` the containing block keeps them clipped here. -->
+        <main class="relative min-w-0 flex-1 overflow-y-auto">
           <div class="flex min-h-full flex-col">
             <!-- Sentinel's settings body gutters. No section heading above the
                  card: this console has one subject, so a title naming it would
