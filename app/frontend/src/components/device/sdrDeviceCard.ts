@@ -262,9 +262,11 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     label: enabledToggleLabel(props.device),
     accessibleName: `${enabledToggleLabel(props.device)} — ${props.device.name || props.device.device_id}`,
   })
-  const togglesRow = el('div', { class: 'flex flex-wrap items-center gap-x-6 gap-y-2' }, [
-    visibilityToggle.element,
+  // Enabled first: it is the switch that decides whether the dongle runs at
+  // all, and visibility is a question about a device that is already running.
+  const togglesRow = el('div', { class: 'flex flex-wrap items-center gap-x-10 gap-y-3' }, [
     enabledToggle.element,
+    visibilityToggle.element,
   ])
 
   // A click on a toggle inside a `<summary>` also reaches the summary and
@@ -277,7 +279,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   // they were pushed to the far right of the card, a long way from the state
   // they act on; stacked, both start at the same left edge as everything else
   // in the card.
-  const headerRow = el('div', { class: 'flex flex-1 flex-col items-start gap-3' }, [
+  const headerRow = el('div', { class: 'flex flex-1 flex-col items-start gap-4' }, [
     identityRow,
     togglesRow,
   ])
