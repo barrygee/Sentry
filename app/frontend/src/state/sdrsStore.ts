@@ -21,7 +21,7 @@ export interface SdrsState {
   lastSnapshotAt: number | null
   pendingPatchesByDeviceId: Record<string, DevicePatch>
   notices: NoticeItem[]
-  /** The device the `SerialFlashDialog` is currently open for, or `null` when it is closed.
+  /** The device the `SerialFlashSection` is currently open for, or `null` when it is closed.
    * Lives here rather than in a component ref because the dialog is teleported to `<body>` —
    * whichever control invoked it (a topology node, a device card, a conflict banner) needs a
    * single shared place to open it from. */
@@ -108,8 +108,8 @@ export function isDeviceBusy(state: Readonly<SdrsState>, deviceId: string): bool
   return device !== undefined && (device.state === 'starting' || device.state === 'streaming')
 }
 
-/** The device `SerialFlashDialog` should render for, derived from `serialFlashDeviceId`. */
-export function serialFlashDialogDevice(state: Readonly<SdrsState>): DeviceStatus | null {
+/** The device `SerialFlashSection` should render for, derived from `serialFlashDeviceId`. */
+export function serialFlashSectionDevice(state: Readonly<SdrsState>): DeviceStatus | null {
   if (state.serialFlashDeviceId === null) return null
   return state.devicesById[state.serialFlashDeviceId] ?? null
 }
@@ -353,13 +353,13 @@ export function setConstraints(constraints: PortConstraints): void {
   sdrsStore.setState({ constraints })
 }
 
-/** Opens `SerialFlashDialog` for `deviceId` — called from a topology node, device card or conflict banner. */
-export function openSerialFlashDialog(deviceId: string): void {
+/** Opens `SerialFlashSection` for `deviceId` — called from a topology node, device card or conflict banner. */
+export function openSerialFlashSection(deviceId: string): void {
   sdrsStore.setState({ serialFlashDeviceId: deviceId })
 }
 
-/** Closes `SerialFlashDialog`. */
-export function closeSerialFlashDialog(): void {
+/** Closes `SerialFlashSection`. */
+export function closeSerialFlashSection(): void {
   sdrsStore.setState({ serialFlashDeviceId: null })
 }
 

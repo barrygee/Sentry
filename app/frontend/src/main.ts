@@ -1,6 +1,5 @@
 import { signInView } from './components/auth/signInView.js'
 import { unprotectedWarning } from './components/auth/unprotectedWarning.js'
-import { serialFlashDialog } from './components/serial/serialFlashDialog.js'
 import { liveAnnouncer } from './core/liveAnnouncer.js'
 import { watchStore } from './core/observable.js'
 import { ref, setAttribute, setVisible } from './core/dom.js'
@@ -67,14 +66,6 @@ applyRailVisibility()
 // ---------------------------------------------------------------------------
 // Header controls
 // ---------------------------------------------------------------------------
-// Overlays
-// ---------------------------------------------------------------------------
-// Per-device confirmations only. Each mounts itself onto `document.body` when
-// it opens (what `<Teleport to="body">` used to buy), so they are constructed
-// once here and never appended. The hotspot and configuration surfaces used to
-// be here too; they are sections of the Settings destination now.
-serialFlashDialog()
-
 // ---------------------------------------------------------------------------
 // The views, and the stream that feeds them
 // ---------------------------------------------------------------------------
