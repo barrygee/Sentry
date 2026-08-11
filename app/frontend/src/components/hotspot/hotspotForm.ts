@@ -332,11 +332,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     disabled: props.busy,
   })
 
-  const identityGrid = el('div', { class: 'grid gap-5 sm:grid-cols-2' }, [
-    ssidField.element,
-    passphraseField.element,
-  ])
-
   const actionsComponent = props.actions({ canSubmit: computeCanSubmit(), busy: props.busy })
   const beforeActionsSlot = el('div', { class: 'contents' }, props.beforeActions ?? [])
 
@@ -345,14 +340,13 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
   // glance; buried between fields they were easy to miss, and "Run the hotspot"
   // sat below a scroll on a long panel. Being outside the `<form>` element
   // costs nothing — `submit()` reads local state, never the DOM.
-  // One row, below the header text rather than beside the title. Enable comes
-  // first: it is the one an operator came to use, and hiding a network is a
-  // property of a hotspot that is already running.
-  const headerControls = el(
-    'div',
-    { class: 'flex flex-wrap items-center justify-end gap-x-6 gap-y-2' },
-    [enabledToggle.element, hiddenToggle.element],
-  )
+  // Stacked and left-aligned, below the header text. Enable comes first: it is
+  // the one an operator came to use, and hiding a network is a property of a
+  // hotspot that is already running.
+  const headerControls = el('div', { class: 'flex flex-col items-start gap-2' }, [
+    enabledToggle.element,
+    hiddenToggle.element,
+  ])
   if (props.headerControlsHost) {
     props.headerControlsHost.appendChild(headerControls)
   }
@@ -371,9 +365,16 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       },
     },
     props.actionsHost
-      ? [identityGrid, selectGrid, gatewayField.element, uplinkWarning.element]
+      ? [
+          ssidField.element,
+          passphraseField.element,
+          selectGrid,
+          gatewayField.element,
+          uplinkWarning.element,
+        ]
       : [
-          identityGrid,
+          ssidField.element,
+          passphraseField.element,
           selectGrid,
           gatewayField.element,
           uplinkWarning.element,

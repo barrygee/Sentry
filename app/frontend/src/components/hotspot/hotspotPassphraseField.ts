@@ -123,12 +123,22 @@ export function hotspotPassphraseField(
 
   const notSetLabel = el('span', { class: LABEL_CLASSES }, ['Password'])
 
-  // `BaseButton` floors every button at 38-44px for a comfortable tap target,
-  // which here centred the row's text 18px below the SSID input beside it.
-  // Dropped to that input's own 24px line box so the two read as one row. 24px
-  // still meets WCAG 2.2 AA's minimum target size (2.5.8) — this gives up the
+  // Three overrides, each earning its `!`:
+  //
+  // `min-h` — `BaseButton` floors every button at 38-44px for a comfortable tap
+  // target, which centred this row's text below the SSID input beside it. 24px
+  // is still WCAG 2.2 AA's minimum target size (2.5.8); it gives up the
   // AAA-sized target (2.5.5), not an AA conformance.
-  const CHANGE_BUTTON_CLASS = '!min-h-[24px] leading-[24px]'
+  //
+  // `px` — the `quiet` variant already declares `px-0`, and it does not take
+  // effect: `BASE_CLASSES` also sets `px-[18px]`, at equal specificity, and wins
+  // on stylesheet order. That phantom padding was most of the gap between this
+  // button and the text beside it. Fixed here rather than in the variant,
+  // because the variant is shared and correcting it silently reflows every other
+  // quiet button in the app.
+  //
+  // `font-normal` — `quiet` is 700; this reads as a link beside a sentence.
+  const CHANGE_BUTTON_CLASS = '!min-h-[24px] !px-0 !font-normal leading-[24px]'
 
   const changeButton = baseButton({
     variant: 'quiet',
@@ -138,7 +148,7 @@ export function hotspotPassphraseField(
     extraClass: CHANGE_BUTTON_CLASS,
   })
 
-  const notChangingRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
+  const notChangingRow = el('div', { class: 'flex flex-wrap items-center gap-2' }, [
     el(
       'span',
       { class: 'font-tabular text-[12.5px] leading-[24px] tracking-readout text-ink-primary' },
