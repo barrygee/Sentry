@@ -168,7 +168,9 @@ export function hotspotPanel(): Component<void> {
     tone: 'panel',
     defaultOpen: true,
     isBoxTitle: true,
-    bodyClass: 'flex flex-col gap-6',
+    // Before the disclosure, the heading and its description were a `gap-2` pair;
+    // a `<summary>` sits flush against the body, so that gap is restored here.
+    bodyClass: 'flex flex-col gap-6 pt-2',
     children: [headerBlock, busyStatusRegion, errorAlertRegion, loadingParagraph, contentBlock],
   })
 
