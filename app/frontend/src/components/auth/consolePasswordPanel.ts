@@ -104,7 +104,10 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
   const root = el(
     'section',
     {
-      class: 'flex flex-col gap-4 bg-ground-panel p-card',
+      // `gap-6`, matching the hotspot and configuration boxes. This one sat at
+      // `gap-4`, which read as cramped precisely where it mattered — the
+      // "Last changed" line ran into the first field label below it.
+      class: 'flex flex-col gap-6 bg-ground-panel p-card',
       attrs: { 'aria-labelledby': headingId },
     },
     [

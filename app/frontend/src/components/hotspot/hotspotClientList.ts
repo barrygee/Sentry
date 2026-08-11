@@ -4,8 +4,7 @@ import { keyedList } from '../../core/component.js'
 import type { HotspotClient } from '../../api/client.js'
 import { emptyState } from '../base/emptyState.js'
 import { monoValue } from '../base/monoValue.js'
-import { nextElementId } from '../base/idGenerator.js'
-import { sectionHeading } from '../base/sectionHeading.js'
+import { disclosureSection } from '../base/disclosureSection.js'
 import { statusBadge } from '../base/statusBadge.js'
 
 /**
@@ -88,13 +87,9 @@ function hotspotClientRow(client: HotspotClient): Component<HotspotClient> {
 export function hotspotClientList(
   props: HotspotClientListProps,
 ): Component<HotspotClientListProps> {
-  const headingId = nextElementId('hotspot-clients-heading')
-  const heading = sectionHeading({ level: 3, children: ['Recent DHCP leases'] })
-  heading.element.id = headingId
-
   const unreadableParagraph = el(
     'p',
-    { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' },
+    { class: 'm-0 text-[11px] leading-[1.6] text-signal-muted' },
     [
       'This Sentry cannot report leases — it has no readable lease file. That is not the same as nobody being connected.',
     ],
@@ -115,15 +110,20 @@ export function hotspotClientList(
     (client) => client.mac_address,
   )
 
-  const trailingNote = el('p', { class: 'm-0 text-[11px] text-signal-muted' }, [
+  const trailingNote = el('p', { class: 'm-0 text-[11px] leading-[1.6] text-signal-muted' }, [
     'A lease shows that a device was given an address, not that it is still in range.',
   ])
 
-  const root = el(
-    'section',
-    { class: 'flex flex-col gap-3', attrs: { 'aria-labelledby': headingId } },
-    [heading.element, unreadableParagraph, empty.element, list, trailingNote],
-  )
+  // Collapsed by default. On a hotspot that is off — the common case, and the
+  // state the panel spends most of its life in — this section can only say
+  // "no leases yet", and a permanently-open block saying nothing was the
+  // longest thing on the page.
+  const root = disclosureSection({
+    label: ['Recent DHCP leases'],
+    headingLevel: 3,
+    tone: 'section',
+    children: [unreadableParagraph, empty.element, list, trailingNote],
+  })
 
   function render(clients: HotspotClient[] | null): void {
     const sorted = sortedClients(clients)
@@ -137,14 +137,14 @@ export function hotspotClientList(
   render(props.clients)
 
   return {
-    element: root,
+    element: root.element,
 
     update(nextProps): void {
       render(nextProps.clients)
     },
 
     destroy(): void {
-      heading.destroy()
+      root.destroy()
       empty.destroy()
       listController.destroy()
     },

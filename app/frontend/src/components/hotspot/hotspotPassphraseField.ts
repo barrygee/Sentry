@@ -106,7 +106,7 @@ export function hotspotPassphraseField(
 
   const descriptionParagraph = el(
     'p',
-    { attrs: { id: descriptionId }, class: 'text-[11px] text-signal-muted' },
+    { attrs: { id: descriptionId }, class: 'text-[11px] leading-[1.6] text-signal-muted' },
     [
       'Saving replaces the current password. Every joined client will have to reconnect.',
       ' ',
@@ -134,7 +134,7 @@ export function hotspotPassphraseField(
     ]),
     changeButton.element,
   ])
-  const notChangingHint = el('p', { class: 'text-[11px] text-signal-muted' }, [
+  const notChangingHint = el('p', { class: 'text-[11px] leading-[1.6] text-signal-muted' }, [
     'Sentry never shows a saved password back to you. If it has been forgotten, set a new one.',
   ])
   const notChangingBranch = el('div', { class: 'flex flex-col gap-2' }, [

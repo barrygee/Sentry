@@ -1,4 +1,4 @@
-import { el, setText, setVisible } from '../../core/dom.js'
+import { el, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
 import type { HotspotState } from '../../api/client.js'
 import { baseCopyButton } from '../base/baseCopyButton.js'
@@ -69,16 +69,29 @@ export function hotspotStatusPanel(
   props: HotspotStatusPanelProps,
 ): Component<HotspotStatusPanelProps> {
   const badge = statusBadge({ tone: statusTone(props.state), children: [statusLabel(props.state)] })
-  const ssidSpan = el(
-    'span',
-    { class: 'font-tabular text-[14px] font-semibold text-ink-primary' },
-    [],
-  )
   const hiddenBadge = statusBadge({ tone: 'info', children: ['Hidden'] })
-  const topRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
+
+  // Captioned like every other readout in this panel. It was a bare badge on
+  // an unlabelled row, which made the one value an operator looks at first the
+  // only one that did not say what it was. The SSID sat beside it and is gone:
+  // the form's own "Network name (SSID)" field states it a few lines below,
+  // and two copies of the same string invite them to disagree.
+  const statusValue = el('span', { class: 'flex flex-wrap items-center gap-2' }, [
     badge.element,
-    ssidSpan,
     hiddenBadge.element,
+  ])
+  const statusCell = dataCell({
+    label: 'Status',
+    labelTag: 'dt',
+    valueTag: 'dd',
+    children: [statusValue],
+  })
+  // Its own list rather than a seventh cell in the grid below: that grid is
+  // hidden until the hotspot is configured, and the status is exactly what an
+  // unconfigured one still needs to report. Same grid classes, so the caption
+  // lines up with the column beneath it.
+  const statusList = el('dl', { class: 'm-0 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3' }, [
+    statusCell.element,
   ])
 
   // The address a client dials. Given its own block rather than a cell in the
@@ -128,13 +141,11 @@ export function hotspotStatusPanel(
     passwordCell.element,
   ])
 
-  const root = el('div', { class: 'flex flex-col gap-4' }, [topRow, addressBlock, detailsList])
+  const root = el('div', { class: 'flex flex-col gap-4' }, [statusList, addressBlock, detailsList])
 
   function render(state: HotspotState): void {
     setVisible(badge.element, state.control_enabled)
     badge.update({ tone: statusTone(state), children: [statusLabel(state)] })
-    setVisible(ssidSpan, Boolean(state.ssid))
-    setText(ssidSpan, state.ssid ?? '')
     setVisible(hiddenBadge.element, state.configured && state.hidden)
 
     const showAddress = Boolean(state.gateway_address) && state.active
@@ -193,6 +204,7 @@ export function hotspotStatusPanel(
     destroy(): void {
       badge.destroy()
       hiddenBadge.destroy()
+      statusCell.destroy()
       addressMono.destroy()
       addressCopyButton.destroy()
       interfaceCell.destroy()

@@ -2,7 +2,7 @@ import { el } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
 import { keyedList } from '../../core/component.js'
 import type { DeviceStatus } from '../../api/client.js'
-import { chevronIcon } from '../base/chevronIcon.js'
+import { disclosureSection } from '../base/disclosureSection.js'
 import { panelStack } from '../base/panelStack.js'
 import { sdrDeviceCard } from '../device/sdrDeviceCard.js'
 import type { SdrDeviceCardProps } from '../device/sdrDeviceCard.js'
@@ -34,20 +34,13 @@ export interface AbsentDeviceGroupProps {
   onRequestSerialFlash: (deviceId: string) => void
 }
 
-const SUMMARY_CLASSES =
-  'flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-rack py-3 font-sans text-[10px] font-semibold uppercase tracking-control text-signal-muted transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden'
-
 /** Builds an `AbsentDeviceGroup`. `update` mutates the same summary count and card list in place; the disclosure's open/closed state is the browser's own, mirrored from the element rather than driven by props. */
 export function absentDeviceGroup(
   props: AbsentDeviceGroupProps,
 ): Component<AbsentDeviceGroupProps> {
   let currentProps = props
 
-  const chevron = chevronIcon({ open: false })
-  chevron.element.classList.add('ml-auto')
-
   const summaryLabel = document.createTextNode('')
-  const summary = el('summary', { class: SUMMARY_CLASSES }, [summaryLabel, chevron.element])
 
   const description = el('p', { class: 'm-0 text-[12.5px] leading-[1.55] text-signal-muted' }, [
     'Not currently plugged in. Replugging the hardware re-detects it; forgetting one discards its saved name, port and tuning defaults.',
@@ -60,24 +53,15 @@ export function absentDeviceGroup(
     (cardProps) => cardProps.device.device_id,
   )
 
-  const body = el('div', { class: 'flex flex-col gap-4 pb-card' }, [description, stack.element])
-
-  // `<details open>` is a DOM attribute the browser toggles itself, so it is
-  // mirrored here off the element's own `toggle` event rather than driven by
-  // a prop. That keeps the native disclosure behaviour (including keyboard
-  // and find-in-page expansion) authoritative, with the chevron following it.
-  const details = el(
-    'details',
-    {
-      class: 'group mt-2 rounded-rack',
-      on: {
-        toggle: (event) => {
-          chevron.update({ open: (event.target as HTMLDetailsElement).open })
-        },
-      },
-    },
-    [summary, body],
-  )
+  // No `headingLevel`: this labels a grouping of cards, not a section of the
+  // document, and promoting it to a heading would put an entry in the page
+  // outline that reads as a peer of the real ones.
+  const disclosure = disclosureSection({
+    label: [summaryLabel],
+    tone: 'group',
+    children: [description, stack.element],
+  })
+  disclosure.element.classList.add('mt-2')
 
   function render(): void {
     summaryLabel.data = `Absent devices — configuration kept (${currentProps.devices.length})`
@@ -92,7 +76,7 @@ export function absentDeviceGroup(
   render()
 
   return {
-    element: details,
+    element: disclosure.element,
 
     update(nextProps): void {
       currentProps = nextProps
@@ -100,7 +84,7 @@ export function absentDeviceGroup(
     },
 
     destroy(): void {
-      chevron.destroy()
+      disclosure.destroy()
       cardList.destroy()
     },
   }
