@@ -263,6 +263,13 @@ class HotspotErrorSummary(BaseModel):
     code: str
     message: str
     ts: int = Field(description="Unix ms")
+    stderr_tail: str | None = Field(
+        default=None,
+        description=(
+            "Tail of the failing command's output, scrubbed of the hotspot passphrase. "
+            "The only thing that says why NetworkManager refused"
+        ),
+    )
 
 
 class HotspotStateResponse(BaseModel):

@@ -176,8 +176,10 @@ def _to_state_response(
 
     last_error = None
     if snapshot.last_error is not None:
-        code, message, timestamp_ms = snapshot.last_error
-        last_error = HotspotErrorSummary(code=code, message=message, ts=timestamp_ms)
+        code, message, timestamp_ms, stderr_tail = snapshot.last_error
+        last_error = HotspotErrorSummary(
+            code=code, message=message, ts=timestamp_ms, stderr_tail=stderr_tail
+        )
 
     return HotspotStateResponse(
         available=snapshot.available,

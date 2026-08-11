@@ -10,6 +10,7 @@ import {
   markUnauthenticated,
   mustSignIn,
   refreshAuthState,
+  signOut,
 } from './state/consoleAuth.js'
 import { hotspotStore, isAwaitingConfirmation } from './state/hotspotStore.js'
 import { openSdrsStream } from './stream/sdrsStream.js'
@@ -138,6 +139,12 @@ unprotectedWarningContainer.appendChild(
 // it can no longer refresh.
 const appShell = ref(shell, 'app-shell', HTMLElement)
 
+// Sign out lives in the header band, beside the wordmark, rather than inside
+// the password card: it ends a session, which is a property of the whole
+// console, not of the setting that happens to have created one.
+const headerSignOut = ref(shell, 'header-sign-out', HTMLButtonElement)
+headerSignOut.addEventListener('click', () => void signOut())
+
 watchStore(consoleAuthStore, (state) => {
   // Neither, until the server has said which. The store assumes
   // `authenticated: true` so that an *open* console never flashes a login form
@@ -151,6 +158,8 @@ watchStore(consoleAuthStore, (state) => {
   const signingIn = mustSignIn(state)
   setVisible(appShell, decided && !signingIn)
   setVisible(signInRoot, decided && signingIn)
+  // Nothing to sign out of on an open console.
+  setVisible(headerSignOut, state.passwordSet)
 })
 
 void refreshAuthState()

@@ -97,7 +97,10 @@ class HotspotSnapshot:
     uplink_interface_is_hotspot_interface: bool
     pending_confirmation: bool
     confirm_deadline_ms: int | None
-    last_error: tuple[str, str, int] | None
+    last_error: tuple[str, str, int, str | None] | None
+    """`(code, message, unix_ms, stderr_tail)`. The tail is the command output that
+    says *why* NetworkManager refused, already scrubbed of the in-flight
+    passphrase — without it the UI can only report that something failed."""
     """`(code, message, ts)` of the last failure, or None."""
 
 
@@ -133,7 +136,7 @@ class HotspotService:
         self._rollback_task: asyncio.Task[None] | None = None
         self._confirm_deadline_ms: int | None = None
         self._rollback_target: str | None = None
-        self._last_error: tuple[str, str, int] | None = None
+        self._last_error: tuple[str, str, int, str | None] | None = None
         self._live_passphrase: str | None = None
         """The passphrase of the change currently in flight, held only so failure
         output can be scrubbed of it. Cleared the moment the change finishes."""
@@ -535,11 +538,12 @@ class HotspotService:
         already scrubbed of the in-flight passphrase by the caller.
         """
         stderr_tail = error.context.get("stderr_tail")
-        if stderr_tail:
-            _logger.warning("hotspot %s: %s", error.code, stderr_tail)
+        stderr_text = stderr_tail if isinstance(stderr_tail, str) else None
+        if stderr_text:
+            _logger.warning("hotspot %s: %s", error.code, stderr_text)
         else:
             _logger.warning("hotspot %s: %s (no command output)", error.code, error.message)
-        self._last_error = (error.code, error.message, self._clock.now_ms())
+        self._last_error = (error.code, error.message, self._clock.now_ms(), stderr_text)
         return error
 
     async def _snapshot_unlocked(self) -> HotspotSnapshot:
