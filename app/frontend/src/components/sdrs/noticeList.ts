@@ -90,11 +90,16 @@ function noticeListItem(row: NoticeRow): Component<NoticeRow> {
   }
 
   const dismissAction = confirmIconAction(dismissProps(row))
-  dismissAction.element.classList.add('self-start')
 
+  // Centred, not top-aligned. The dismiss control is a 44px tap target that
+  // centres its own glyph, so against `items-start` a one-line notice sat at
+  // the top of the row with the cross floating in the middle beside it —
+  // reading as a misalignment rather than a deliberate anchor. Multi-line
+  // notices still grow downward; only the short ones, which are most of them,
+  // change.
   const rowElement = el(
     'div',
-    { class: 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4' },
+    { class: 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4' },
     [messageParagraph, dismissAction.element],
   )
 
