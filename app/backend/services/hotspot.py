@@ -256,6 +256,18 @@ class HotspotService:
         async with self._exclusive():
             await self._require_available()
             state = await self._require_configured()
+            if not state.passphrase_set:
+                # Every supported security type is a keyed one, so a profile
+                # with no stored passphrase can only fail — nmcli is asked for
+                # a WPA network with no PSK and refuses somewhere deep in the
+                # activation. Saving already refuses this; enabling has to as
+                # well, or the same broken state reaches the operator as an
+                # opaque command failure instead of the thing to go and fix.
+                raise HotspotError(
+                    "passphrase_required",
+                    "Set a password for the hotspot before enabling it.",
+                    reason="no_stored_passphrase",
+                )
             chosen_interface = await self._choose_interface(state.interface, confirm_uplink_loss)
             await self._activate_provisionally(chosen_interface)
             self._publish_notice("info", "hotspot_enabled", f"Hotspot is up on {chosen_interface}.")
