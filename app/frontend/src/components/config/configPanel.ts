@@ -150,6 +150,7 @@ export function configPanel(): Component<void> {
     headingId,
     tone: 'panel',
     defaultOpen: true,
+    isBoxTitle: true,
     bodyClass: 'flex flex-col gap-6',
     children: [
       headerBlock,
@@ -225,7 +226,7 @@ export function configPanel(): Component<void> {
       variant: 'ghost',
       disabled: isBusy,
       onClick: () => pickFile(),
-      children: ['Import config'],
+      children: ['Import'],
     })
 
     const hasPendingImport = state.pendingImport !== null

@@ -167,6 +167,7 @@ export function hotspotPanel(): Component<void> {
     headingId,
     tone: 'panel',
     defaultOpen: true,
+    isBoxTitle: true,
     bodyClass: 'flex flex-col gap-6',
     children: [headerBlock, busyStatusRegion, errorAlertRegion, loadingParagraph, contentBlock],
   })

@@ -24,8 +24,20 @@ import { syncChildren } from './childrenSync.js'
  * `ml-auto` so the label stays left-aligned however long it is.
  */
 export interface DisclosureSectionProps {
-  /** The summary row's label. */
+  /** The summary row's label. Ignored when `summaryContent` is given. */
   label: Child[]
+  /**
+   * Full custom content for the summary row, replacing `label`.
+   *
+   * For a summary that is more than a caption — the SDR card puts its whole
+   * identity-and-toggles header here. The chevron is still appended after it.
+   *
+   * **Interactive controls in here need their clicks stopped**, or activating
+   * one also toggles the disclosure: a click inside a `<summary>` reaches the
+   * summary and triggers its default. `stopPropagation` on the control's own
+   * wrapper is enough.
+   */
+  summaryContent?: Child[]
   /** The body revealed when open. */
   children: Child[]
   /**
@@ -58,6 +70,11 @@ export interface DisclosureSectionProps {
   headingId?: string
   /** Extra classes for the body wrapper, for panels whose content wants its own gap. */
   bodyClass?: string
+  /**
+   * `true` when this disclosure is a box's own title, so the box's `p-card`
+   * already supplies the surrounding space and the summary must add none.
+   */
+  isBoxTitle?: boolean
 }
 
 const TONE_CLASSES = {
@@ -72,7 +89,17 @@ const TONE_CLASSES = {
 // real flex item here. The inherited `absentDeviceGroup` code set that margin
 // and never got the alignment it was asking for.
 const SUMMARY_CLASSES =
-  'flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 rounded-rack py-3 font-sans font-semibold uppercase transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden'
+  'flex cursor-pointer list-none items-center justify-between gap-2 rounded-rack font-sans font-semibold uppercase transition-colors hover:text-ink-primary [&::-webkit-details-marker]:hidden'
+
+// A standalone disclosure carries its own comfortable target. One that *is* a
+// box's title sits inside the box's `p-card`, and adding to that padded the top
+// of every box more than its bottom — 42px against 30px. Dropped to the 24px
+// WCAG 2.2 AA minimum target size (2.5.8) with no padding of its own, so the
+// box's own padding is the only thing setting the gap.
+const SUMMARY_SPACING = {
+  standalone: 'min-h-[44px] py-3',
+  boxTitle: 'min-h-[24px] py-0',
+} as const
 
 const HEADING_TAGS = { 2: 'h2', 3: 'h3' } as const
 
@@ -84,8 +111,9 @@ export function disclosureSection(
 
   // The label lives in its own element either way, so `update` can swap its
   // children without disturbing the chevron beside it.
-  const labelHost =
-    props.headingLevel === undefined
+  const labelHost = props.summaryContent
+    ? el('div', { class: 'contents' }, props.summaryContent)
+    : props.headingLevel === undefined
       ? el('span', {}, props.label)
       : // Tailwind's preflight already resets a heading's size and weight to
         // `inherit`, so the summary's own type treatment carries through and
@@ -98,7 +126,13 @@ export function disclosureSection(
 
   const summary = el(
     'summary',
-    { class: classes(SUMMARY_CLASSES, TONE_CLASSES[props.tone ?? 'group']) },
+    {
+      class: classes(
+        SUMMARY_CLASSES,
+        SUMMARY_SPACING[props.isBoxTitle ? 'boxTitle' : 'standalone'],
+        TONE_CLASSES[props.tone ?? 'group'],
+      ),
+    },
     [labelHost, chevron.element],
   )
 
@@ -128,7 +162,7 @@ export function disclosureSection(
     update(nextProps): void {
       // `syncChildren`, never `replaceChildren`: the body holds live controls,
       // and detaching them on every update blurs whatever currently has focus.
-      syncChildren(labelHost, nextProps.label)
+      syncChildren(labelHost, nextProps.summaryContent ?? nextProps.label)
       syncChildren(body, nextProps.children)
     },
 

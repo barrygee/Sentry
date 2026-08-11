@@ -223,4 +223,29 @@ describe('sdrDeviceCard inline edits', () => {
 
     expect(fieldByLabel('Name').value).toBe('Renamed elsewhere')
   })
+
+  it('collapses from its header, keeping status and the switches visible', () => {
+    const details = card.element.querySelector('details')
+    const summary = details?.querySelector('summary')
+
+    expect(details).not.toBeNull()
+    expect(details?.open).toBe(true)
+    // Everything that must survive collapsing lives in the summary.
+    expect(summary?.querySelector('input[type="checkbox"]')).not.toBeNull()
+  })
+
+  it('does not collapse when a switch inside the header is clicked', () => {
+    // A click inside a `<summary>` reaches the summary and fires its default,
+    // so without the guard, turning an SDR off would fold the card shut
+    // underneath the finger that did it.
+    const details = card.element.querySelector('details')
+    const toggle = details
+      ?.querySelector('summary')
+      ?.querySelector('input[type="checkbox"]') as HTMLInputElement | null
+
+    expect(toggle).not.toBeNull()
+    toggle!.click()
+
+    expect(details?.open).toBe(true)
+  })
 })
