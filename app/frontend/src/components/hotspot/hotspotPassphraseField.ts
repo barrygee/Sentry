@@ -3,7 +3,10 @@ import type { Component } from '../../core/component.js'
 import { baseButton } from '../base/baseButton.js'
 import { baseField } from '../base/baseField.js'
 import { nextElementId } from '../base/idGenerator.js'
-import { validatePassphraseClientSide } from '../../utils/hotspotValidation.js'
+import {
+  PASSPHRASE_MAX_LENGTH,
+  validatePassphraseClientSide,
+} from '../../utils/hotspotValidation.js'
 
 /**
  * The hotspot password field, and the "leave it unchanged" affordance that
@@ -43,7 +46,10 @@ export interface HotspotPassphraseFieldProps {
 const LABEL_CLASSES =
   'mb-1.5 block select-none font-sans text-[11px] font-semibold uppercase tracking-label text-ink-primary'
 
-const PASSPHRASE_HINT = 'Clients need this to join. 8 to 63 characters — choose something long.'
+/** Mirrors the SSID field's counter, reading the validator's own bound. */
+function passphraseHint(value: string): string {
+  return `${value.length} of ${PASSPHRASE_MAX_LENGTH} characters used.`
+}
 
 /** Builds a `HotspotPassphraseField`. `update` mutates the same field in place. */
 export function hotspotPassphraseField(
@@ -86,7 +92,7 @@ export function hotspotPassphraseField(
     onChange: (value) => currentProps.onChange(value),
     type: 'password',
     error: fieldError(),
-    hint: fieldError() ? null : PASSPHRASE_HINT,
+    hint: fieldError() ? null : passphraseHint(currentProps.value),
     disabled: props.disabled ?? false,
     autocomplete: 'new-password',
     describedBy: props.passphraseSet ? descriptionId : null,
@@ -107,11 +113,7 @@ export function hotspotPassphraseField(
   const descriptionParagraph = el(
     'p',
     { attrs: { id: descriptionId }, class: 'text-[11px] leading-[1.6] text-signal-muted' },
-    [
-      'Saving replaces the current password. Every joined client will have to reconnect.',
-      ' ',
-      keepCurrentButton.element,
-    ],
+    [keepCurrentButton.element],
   )
 
   const changingBranch = el('div', { class: 'flex flex-col gap-2' }, [
@@ -121,23 +123,33 @@ export function hotspotPassphraseField(
 
   const notSetLabel = el('span', { class: LABEL_CLASSES }, ['Password'])
 
+  // `BaseButton` floors every button at 38-44px for a comfortable tap target,
+  // which here centred the row's text 18px below the SSID input beside it.
+  // Dropped to that input's own 24px line box so the two read as one row. 24px
+  // still meets WCAG 2.2 AA's minimum target size (2.5.8) — this gives up the
+  // AAA-sized target (2.5.5), not an AA conformance.
+  const CHANGE_BUTTON_CLASS = '!min-h-[24px] leading-[24px]'
+
   const changeButton = baseButton({
-    variant: 'ghost',
+    variant: 'quiet',
     disabled: props.disabled ?? false,
     onClick: () => beginChanging(),
     children: ['Change password'],
+    extraClass: CHANGE_BUTTON_CLASS,
   })
 
   const notChangingRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
-    el('span', { class: 'font-tabular text-[12.5px] tracking-readout text-ink-primary' }, [
-      'A password is set',
-    ]),
+    el(
+      'span',
+      { class: 'font-tabular text-[12.5px] leading-[24px] tracking-readout text-ink-primary' },
+      ['A password is set'],
+    ),
     changeButton.element,
   ])
-  const notChangingBranch = el('div', { class: 'flex flex-col gap-2' }, [
-    notSetLabel,
-    notChangingRow,
-  ])
+  // No `gap` here: `notSetLabel` already carries `mb-1.5`, and a gap on top of
+  // it stacked 6px + 8px against `BaseField`'s 6px alone, dropping this column
+  // 8px below the SSID field beside it.
+  const notChangingBranch = el('div', { class: 'flex flex-col' }, [notSetLabel, notChangingRow])
 
   const root = el('div', { class: 'flex flex-col gap-2' }, [changingBranch, notChangingBranch])
 
@@ -169,7 +181,7 @@ export function hotspotPassphraseField(
       onChange: (value) => currentProps.onChange(value),
       type: revealed ? 'text' : 'password',
       error: fieldError(),
-      hint: fieldError() ? null : PASSPHRASE_HINT,
+      hint: fieldError() ? null : passphraseHint(currentProps.value),
       disabled: currentProps.disabled ?? false,
       autocomplete: 'new-password',
       describedBy: currentProps.passphraseSet ? descriptionId : null,
@@ -200,7 +212,8 @@ export function hotspotPassphraseField(
       children: ['Keep current password'],
     })
     changeButton.update({
-      variant: 'ghost',
+      variant: 'quiet',
+      extraClass: CHANGE_BUTTON_CLASS,
       disabled: currentProps.disabled ?? false,
       onClick: () => beginChanging(),
       children: ['Change password'],
