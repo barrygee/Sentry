@@ -63,10 +63,11 @@ const VARIANT_CLASSES = {
     'bg-transparent px-0 font-bold tracking-heading text-ink-primary hover:text-signal-danger disabled:text-signal-muted disabled:hover:text-signal-muted',
   inverse:
     'font-semibold tracking-heading bg-white/20 text-white hover:bg-white/30 disabled:bg-white/10 disabled:text-white/60',
-  // For a button sitting on a BRIGHT fill (the yellow `warn` notice), where
-  // `inverse`'s white-on-translucent-white would all but disappear: a solid
-  // dark slab instead, 11.3:1 against the yellow so its edges are unmistakably
-  // a control, carrying white text at 14:1.
+  // The solid dark slab. Named for its first use — a button on the yellow
+  // `warn` notice, where `inverse`'s white-on-translucent-white all but
+  // disappears — but it is now also the commit action on the settings boxes,
+  // where the accent fill read as a status colour rather than a control.
+  // 11.3:1 on the yellow and 14:1 for its white text, so it carries either.
   'on-bright':
     'font-semibold tracking-heading bg-ink-primary text-white hover:bg-ink-primary/[0.88] disabled:bg-ink-primary/40 disabled:text-white/70',
 } as const satisfies Record<BaseButtonVariant, string>

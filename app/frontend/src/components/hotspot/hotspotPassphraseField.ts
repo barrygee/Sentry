@@ -134,13 +134,9 @@ export function hotspotPassphraseField(
     ]),
     changeButton.element,
   ])
-  const notChangingHint = el('p', { class: 'text-[11px] leading-[1.6] text-signal-muted' }, [
-    'Sentry never shows a saved password back to you. If it has been forgotten, set a new one.',
-  ])
   const notChangingBranch = el('div', { class: 'flex flex-col gap-2' }, [
     notSetLabel,
     notChangingRow,
-    notChangingHint,
   ])
 
   const root = el('div', { class: 'flex flex-col gap-2' }, [changingBranch, notChangingBranch])

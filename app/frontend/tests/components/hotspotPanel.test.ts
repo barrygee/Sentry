@@ -180,4 +180,38 @@ describe('hotspotPanel', () => {
       keepButton!.compareDocumentPosition(saveButton!) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
   })
+
+  it('states the condition each toggle puts the network in, not the action', async () => {
+    // The toggles sit in the panel header with no field label beside them, so
+    // "Hide network" alone leaves it ambiguous whether it describes what will
+    // happen or what already has. On, they name the resulting state.
+    await showState(healthyState({ configured: true, hidden: false, active: false }))
+    const offLabels = [...panel.element.querySelectorAll('label')].map((label) =>
+      (label.textContent ?? '').trim(),
+    )
+
+    await showState(healthyState({ configured: true, hidden: true, active: true }))
+    const onLabels = [...panel.element.querySelectorAll('label')].map((label) =>
+      (label.textContent ?? '').trim(),
+    )
+
+    expect(offLabels).toContain('Hide network')
+    expect(offLabels).toContain('Enable hotspot')
+    expect(onLabels).toContain('Network is hidden')
+    expect(onLabels).toContain('Hotspot enabled')
+  })
+
+  it('puts both toggles in the header, outside the form', async () => {
+    // They are the two controls worth reading at a glance; buried among the
+    // fields they were easy to miss, and one sat below a scroll.
+    await showState(healthyState({ configured: true }))
+
+    const form = panel.element.querySelector('form')
+    const hideToggle = [...panel.element.querySelectorAll('label')].find((label) =>
+      /Hide network|Network is hidden/.test(label.textContent ?? ''),
+    )
+
+    expect(hideToggle, 'the hide toggle must render').toBeDefined()
+    expect(form?.contains(hideToggle!)).toBe(false)
+  })
 })

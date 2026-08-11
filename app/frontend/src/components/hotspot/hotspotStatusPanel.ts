@@ -4,8 +4,6 @@ import type { HotspotState } from '../../api/client.js'
 import { baseCopyButton } from '../base/baseCopyButton.js'
 import { dataCell } from '../base/dataCell.js'
 import { monoValue } from '../base/monoValue.js'
-import { statusBadge } from '../base/statusBadge.js'
-import type { StatusBadgeTone } from '../base/statusBadge.js'
 
 /**
  * What the hotspot is doing right now, and — the part that actually matters
@@ -20,37 +18,11 @@ export interface HotspotStatusPanelProps {
   state: HotspotState
 }
 
-/**
- * What the hotspot is doing, in the operator's terms.
- *
- * "Unavailable" used to cover the first two cases below, which are not the same
- * thing at all and want different responses. Worse, the commoner of them is the
- * shipped default: a fresh Pi has hotspot control switched off, so the first
- * thing an operator ever saw here was a red word suggesting something had
- * broken. Nothing had.
- */
-function statusLabel(state: HotspotState): string {
-  // No badge while control is switched off. It used to say so here, which made
-  // sense when turning it on meant a shell command elsewhere — but the switch
-  // now sits directly below (ADR-0013), already labelled and already showing
-  // its own state. A badge repeating it is a second, staler voice for the same
-  // fact.
-  if (!state.control_enabled) return ''
-  // Control is on, but NetworkManager cannot be reached. This one *is* wrong.
-  if (!state.available) return 'WiFi control unavailable'
-  if (!state.configured) return 'Not set up'
-  if (state.active) return state.pending_confirmation ? 'On trial' : 'Running'
-  return 'Stopped'
-}
-
-function statusTone(state: HotspotState): StatusBadgeTone {
-  // Neutral, not danger: an operator who has not opted in has nothing to fix.
-  if (!state.control_enabled) return 'neutral'
-  if (!state.available) return 'danger'
-  if (!state.configured) return 'neutral'
-  if (state.active) return state.pending_confirmation ? 'warn' : 'ok'
-  return 'neutral'
-}
+// The status badge and its `statusLabel`/`statusTone` helpers lived here. They
+// are gone with the readout: the header's own toggle now says whether the
+// hotspot is on, as a control rather than a second, staler voice for the same
+// fact. `blockedReason` in `hotspotPanel` still covers the states that need
+// explaining (control off, no password, NetworkManager unreachable).
 
 function bandLabel(state: HotspotState): string {
   return state.band === 'a' ? '5 GHz' : '2.4 GHz'
@@ -68,32 +40,6 @@ function channelLabel(state: HotspotState): string {
 export function hotspotStatusPanel(
   props: HotspotStatusPanelProps,
 ): Component<HotspotStatusPanelProps> {
-  const badge = statusBadge({ tone: statusTone(props.state), children: [statusLabel(props.state)] })
-  const hiddenBadge = statusBadge({ tone: 'info', children: ['Hidden'] })
-
-  // Captioned like every other readout in this panel. It was a bare badge on
-  // an unlabelled row, which made the one value an operator looks at first the
-  // only one that did not say what it was. The SSID sat beside it and is gone:
-  // the form's own "Network name (SSID)" field states it a few lines below,
-  // and two copies of the same string invite them to disagree.
-  const statusValue = el('span', { class: 'flex flex-wrap items-center gap-2' }, [
-    badge.element,
-    hiddenBadge.element,
-  ])
-  const statusCell = dataCell({
-    label: 'Status',
-    labelTag: 'dt',
-    valueTag: 'dd',
-    children: [statusValue],
-  })
-  // Its own list rather than a seventh cell in the grid below: that grid is
-  // hidden until the hotspot is configured, and the status is exactly what an
-  // unconfigured one still needs to report. Same grid classes, so the caption
-  // lines up with the column beneath it.
-  const statusList = el('dl', { class: 'm-0 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3' }, [
-    statusCell.element,
-  ])
-
   // The address a client dials. Given its own block rather than a cell in the
   // grid below, because it is the value someone is copying by hand onto
   // another machine, not a detail they are skimming.
@@ -141,13 +87,9 @@ export function hotspotStatusPanel(
     passwordCell.element,
   ])
 
-  const root = el('div', { class: 'flex flex-col gap-4' }, [statusList, addressBlock, detailsList])
+  const root = el('div', { class: 'flex flex-col gap-4' }, [addressBlock, detailsList])
 
   function render(state: HotspotState): void {
-    setVisible(badge.element, state.control_enabled)
-    badge.update({ tone: statusTone(state), children: [statusLabel(state)] })
-    setVisible(hiddenBadge.element, state.configured && state.hidden)
-
     const showAddress = Boolean(state.gateway_address) && state.active
     setVisible(addressBlock, showAddress)
     if (state.gateway_address) {
@@ -202,9 +144,6 @@ export function hotspotStatusPanel(
     },
 
     destroy(): void {
-      badge.destroy()
-      hiddenBadge.destroy()
-      statusCell.destroy()
       addressMono.destroy()
       addressCopyButton.destroy()
       interfaceCell.destroy()
