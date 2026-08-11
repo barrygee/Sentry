@@ -140,7 +140,6 @@ export function hotspotPanel(): Component<void> {
 
   const contentBlock = el('div', { class: 'flex flex-col gap-6' }, [
     statusPanelSlot,
-    countdownSlot,
     setupHelpSlot,
     blockedNotice.element,
     advertisedHostNotice.element,
@@ -244,7 +243,14 @@ export function hotspotPanel(): Component<void> {
         // thing that says *why* NetworkManager refused, and it is already
         // scrubbed of the hotspot passphrase — printed verbatim rather than
         // summarised, because a paraphrase of an nmcli error is a guess.
-        const commandOutput = state.last_error?.stderr_tail ?? null
+        //
+        // Read from the store's `errorCommandOutput` (taken off the failing
+        // response) and not from `state.last_error`: on a failed request the
+        // store still holds the *pre-request* state, whose `last_error` is
+        // whatever it was before. That was almost always `null`, so this
+        // rendered nothing at exactly the moment it was needed and left the
+        // message telling the operator to go and read the Pi's logs instead.
+        const commandOutput = storeState.errorCommandOutput
         errorNotice.update({
           tone: 'danger',
           role: 'status',
@@ -274,6 +280,10 @@ export function hotspotPanel(): Component<void> {
           busy: isBusy,
           onSubmit: (config) => void save(config),
           actions: buildHotspotFormActions,
+          // The countdown belongs beside the button that caused it. At the top
+          // of the panel it sat a full screen away from the control an operator
+          // had just used, and its two actions read as unrelated to the form.
+          beforeActions: [countdownSlot],
         }
         if (!form) {
           form = hotspotForm(formProps)

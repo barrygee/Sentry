@@ -124,4 +124,60 @@ describe('hotspotPanel', () => {
     const alert = panel.element.querySelector('[role="alert"]')
     expect(alert?.textContent).toContain('already in use')
   })
+
+  it('prints the failed command output the response carried', async () => {
+    // The panel reads this from the store, not from `state.last_error` — on a
+    // failure the state is the pre-request one, whose `last_error` is null.
+    hotspotStore.setState({
+      state: healthyState({ configured: true }),
+      phase: 'failed',
+      errorMessage: 'The network command failed.',
+      errorCommandOutput: "Error: 'sentry-hotspot' is not an active connection.",
+    })
+    await Promise.resolve()
+
+    const preformatted = panel.element.querySelector('pre')
+    expect(preformatted?.textContent).toContain('is not an active connection')
+  })
+
+  it('prints no empty code block when the failure carried no output', async () => {
+    hotspotStore.setState({
+      state: healthyState({ configured: true }),
+      phase: 'failed',
+      errorMessage: 'Set a password for the hotspot before enabling it.',
+      errorCommandOutput: null,
+    })
+    await Promise.resolve()
+
+    expect(panel.element.querySelector('pre')).toBeNull()
+  })
+
+  it('puts the confirmation countdown directly above the save button', async () => {
+    // Not at the top of the panel: it belongs beside the control that caused
+    // it, and its two actions read as unrelated to the form from a screen away.
+    await showState(
+      healthyState({
+        configured: true,
+        active: true,
+        pending_confirmation: true,
+        confirm_deadline_ms: Date.now() + 120_000,
+      }),
+    )
+
+    const form = panel.element.querySelector('form')
+    const keepButton = [...(form?.querySelectorAll('button') ?? [])].find((button) =>
+      /Keep this hotspot/i.test(button.textContent ?? ''),
+    )
+    const saveButton = [...(form?.querySelectorAll('button') ?? [])].find((button) =>
+      /Save hotspot settings/i.test(button.textContent ?? ''),
+    )
+
+    expect(keepButton, 'the countdown must render inside the form').toBeDefined()
+    expect(saveButton).toBeDefined()
+    // `compareDocumentPosition` is the ordering check that survives styling:
+    // FOLLOWING means save comes after keep in document order.
+    expect(
+      keepButton!.compareDocumentPosition(saveButton!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
 })
