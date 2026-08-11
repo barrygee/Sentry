@@ -7,6 +7,7 @@ import { baseField } from '../base/baseField.js'
 import { baseSelect } from '../base/baseSelect.js'
 import type { BaseSelectOption } from '../base/baseSelect.js'
 import { baseToggle } from '../base/baseToggle.js'
+import { nextElementId } from '../base/idGenerator.js'
 import {
   channelOptionsForBand,
   SSID_MAX_BYTES,
@@ -70,6 +71,16 @@ export interface HotspotFormProps {
    * header mid-life.
    */
   headerControlsHost?: HTMLElement
+  /**
+   * Where to mount the action row (and the countdown slot above it).
+   *
+   * The panel places this *after* the DHCP lease list, which sits outside the
+   * form — so the row cannot simply be the form's last child. Mounted here
+   * instead, with the submit button given a `form` attribute pointing back at
+   * the form's id, which is what keeps Enter-to-submit and the button working
+   * from outside the element.
+   */
+  actionsHost?: HTMLElement
 }
 
 const INTERFACE_AUTOMATIC_OPTION: BaseSelectOption = { value: '', label: 'Choose automatically' }
@@ -334,19 +345,23 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
   // glance; buried between fields they were easy to miss, and "Run the hotspot"
   // sat below a scroll on a long panel. Being outside the `<form>` element
   // costs nothing — `submit()` reads local state, never the DOM.
-  const headerControls = el(
-    'div',
-    { class: 'flex flex-wrap items-center justify-end gap-x-6 gap-y-2' },
-    [hiddenToggle.element, enabledToggle.element],
-  )
+  // Stacked, not side by side, and enable first: it is the one an operator came
+  // to use, and hiding a network is a property of a hotspot that is already
+  // running. `items-end` right-aligns each row, so the two switches line up on
+  // their right edge however different the label lengths are.
+  const headerControls = el('div', { class: 'flex flex-col items-end gap-2' }, [
+    enabledToggle.element,
+    hiddenToggle.element,
+  ])
   if (props.headerControlsHost) {
     props.headerControlsHost.appendChild(headerControls)
   }
 
+  const formId = nextElementId('hotspot-form')
   const form = el(
     'form',
     {
-      attrs: { novalidate: true },
+      attrs: { novalidate: true, id: formId },
       class: 'flex flex-col gap-5',
       on: {
         submit: (event) => {
@@ -355,15 +370,29 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
         },
       },
     },
-    [
-      identityGrid,
-      selectGrid,
-      gatewayField.element,
-      uplinkWarning.element,
-      beforeActionsSlot,
-      actionsComponent.element,
-    ],
+    props.actionsHost
+      ? [identityGrid, selectGrid, gatewayField.element, uplinkWarning.element]
+      : [
+          identityGrid,
+          selectGrid,
+          gatewayField.element,
+          uplinkWarning.element,
+          beforeActionsSlot,
+          actionsComponent.element,
+        ],
   )
+
+  if (props.actionsHost) {
+    props.actionsHost.append(beforeActionsSlot, actionsComponent.element)
+    // A submit button outside its form only works when it names one. Applied
+    // to every submit control in the row rather than the first, so adding a
+    // second action later cannot silently become inert.
+    for (const submitControl of actionsComponent.element.querySelectorAll(
+      'button[type="submit"]',
+    )) {
+      submitControl.setAttribute('form', formId)
+    }
+  }
 
   function reseedFromState(nextState: HotspotState): void {
     ssid = nextState.ssid ?? ''
@@ -562,6 +591,9 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       // it does not go away with the form's own subtree — it has to be removed
       // by hand or a rebuilt form leaves a dead set of toggles behind it.
       headerControls.remove()
+      // Same reasoning: these live in the panel's element, not this one's.
+      beforeActionsSlot.remove()
+      actionsComponent.element.remove()
       ssidField.destroy()
       passphraseField.destroy()
       hiddenToggle.destroy()
