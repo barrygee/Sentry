@@ -25,7 +25,7 @@ import pytest
 
 from app.backend.adapters.nmcli_wifi_ap import NmcliWifiApController
 from app.backend.interfaces.process import ProcessSpawner
-from app.backend.interfaces.types import HotspotProfile
+from app.backend.interfaces.types import HotspotBand, HotspotProfile
 
 CONNECTION_NAME = "sentry-hotspot"
 PASSPHRASE = "field-kit-2026"
@@ -33,12 +33,12 @@ CHANNEL_PROPERTY = "802-11-wireless.channel"
 PSK_PROPERTY = "802-11-wireless-security.psk"
 
 
-def profile(*, channel: int = 0, band: str = "bg") -> HotspotProfile:
+def profile(*, channel: int = 0, band: HotspotBand = "bg") -> HotspotProfile:
     return HotspotProfile(
         ssid="Sentry",
         hidden=False,
         security="wpa2",
-        band=cast("HotspotBand", band),  # noqa: F821 - Literal alias, runtime-irrelevant
+        band=band,
         channel=channel,
         gateway_cidr="10.42.0.1/24",
         interface="wlan0",
@@ -87,7 +87,7 @@ class TestChannel:
         assert CHANNEL_PROPERTY in argv
 
     @pytest.mark.parametrize("band", ["bg", "a"])
-    def test_automatic_clears_the_channel_on_either_band(self, band: str) -> None:
+    def test_automatic_clears_the_channel_on_either_band(self, band: HotspotBand) -> None:
         """Band and channel are set together; neither band may reintroduce the `0`."""
         argv = controller()._modify_argv(profile(channel=0, band=band), None)  # noqa: SLF001
 

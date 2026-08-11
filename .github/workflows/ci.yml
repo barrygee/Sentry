@@ -64,7 +64,12 @@ jobs:
         run: uv run ruff format --check app/backend tests tools
 
       - name: Type check
-        run: uv run mypy app/backend
+        # `tests` and `tools` are in scope alongside `app/backend`. They were
+        # not, and drifted to 73 errors nobody saw — untyped fakes that strict
+        # mode would have caught the day they were written. A test double whose
+        # shape is unchecked is exactly the double that silently stops matching
+        # the thing it stands in for.
+        run: uv run mypy app/backend tests tools
 
       - name: Tests
         run: uv run pytest -q

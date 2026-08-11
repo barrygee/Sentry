@@ -8,10 +8,11 @@ Run with:  uv run pytest tests/auth
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.backend.config import get_settings
@@ -43,7 +44,7 @@ ALWAYS_OPEN_ROUTES = [
 
 
 @pytest.fixture
-def app_factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def app_factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[], FastAPI]]:
     """Build an app on a throwaway database, with settings cache cleared either side."""
     monkeypatch.setenv("SENTRY_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'routes.db'}")
     get_settings.cache_clear()
@@ -52,7 +53,7 @@ def app_factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def client(app_factory) -> Iterator[TestClient]:
+def client(app_factory: Callable[[], FastAPI]) -> Iterator[TestClient]:
     """A signed-out client against a fresh, open console."""
     with TestClient(app_factory(), raise_server_exceptions=False) as test_client:
         yield test_client
@@ -79,7 +80,9 @@ class TestOpenConsole:
 
 
 class TestSettingTheFirstPassword:
-    def test_locks_the_console_for_everyone_else(self, client: TestClient, app_factory) -> None:
+    def test_locks_the_console_for_everyone_else(
+        self, client: TestClient, app_factory: Callable[[], FastAPI]
+    ) -> None:
         client.post("/api/auth/password", json={"new_password": PASSWORD})
 
         with TestClient(app_factory(), raise_server_exceptions=False) as other_browser:
@@ -181,7 +184,9 @@ class TestChangingThePassword:
         assert response.status_code == 403
         assert response.json()["detail"]["code"] == "current_password_incorrect"
 
-    def test_signs_other_browsers_out(self, signed_in: TestClient, app_factory) -> None:
+    def test_signs_other_browsers_out(
+        self, signed_in: TestClient, app_factory: Callable[[], FastAPI]
+    ) -> None:
         with TestClient(app_factory(), raise_server_exceptions=False) as other_browser:
             other_browser.post("/api/auth/login", json={"password": PASSWORD})
             assert other_browser.get("/api/status").status_code == 200

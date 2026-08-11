@@ -32,7 +32,7 @@ class FakeWriter:
     def close(self) -> None:
         self.closed = True
 
-    def get_extra_info(self, _name: str):
+    def get_extra_info(self, _name: str) -> None:
         return None
 
     async def wait_closed(self) -> None:
@@ -46,12 +46,12 @@ def _session() -> relay.ControlSession:
 # ── Command encoding / apply_set ──────────────────────────────────────────────
 
 
-def test_build_command_encodes_big_endian():
+def test_build_command_encodes_big_endian() -> None:
     assert relay._build_command(0x01, 100_000_000) == bytes([1]) + (100_000_000).to_bytes(4, "big")
 
 
-def test_apply_set_writes_frames_and_updates_state():
-    async def run():
+def test_apply_set_writes_frames_and_updates_state() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         writer = FakeWriter()
         state.upstream_writer = writer
@@ -66,8 +66,8 @@ def test_apply_set_writes_frames_and_updates_state():
     asyncio.run(run())
 
 
-def test_apply_set_gain_auto_frames():
-    async def run():
+def test_apply_set_gain_auto_frames() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         writer = FakeWriter()
         state.upstream_writer = writer
@@ -79,8 +79,8 @@ def test_apply_set_gain_auto_frames():
     asyncio.run(run())
 
 
-def test_apply_set_gain_manual_frames():
-    async def run():
+def test_apply_set_gain_manual_frames() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         writer = FakeWriter()
         state.upstream_writer = writer
@@ -95,8 +95,8 @@ def test_apply_set_gain_manual_frames():
     asyncio.run(run())
 
 
-def test_apply_set_without_upstream_updates_state_only():
-    async def run():
+def test_apply_set_without_upstream_updates_state_only() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         state.upstream_writer = None
         await relay.apply_set(state, {"center_hz": 99_000_000})
@@ -108,7 +108,7 @@ def test_apply_set_without_upstream_updates_state_only():
 # ── Legacy forwarded-command tracking ─────────────────────────────────────────
 
 
-def test_track_forwarded_command_updates_freq_and_rate():
+def test_track_forwarded_command_updates_freq_and_rate() -> None:
     state = relay.RelayState()
     relay.track_forwarded_command(state, relay._build_command(relay.CMD_SET_FREQUENCY, 91_000_000))
     assert state.center_hz == 91_000_000
@@ -116,7 +116,7 @@ def test_track_forwarded_command_updates_freq_and_rate():
     assert state.sample_rate == 1_800_000
 
 
-def test_track_forwarded_command_ignores_other_commands():
+def test_track_forwarded_command_ignores_other_commands() -> None:
     state = relay.RelayState()
     before = state.center_hz
     relay.track_forwarded_command(state, relay._build_command(relay.CMD_SET_GAIN, 100))
@@ -126,7 +126,7 @@ def test_track_forwarded_command_ignores_other_commands():
 # ── State messages / broadcast ────────────────────────────────────────────────
 
 
-def test_state_message_owner_and_locked_flags():
+def test_state_message_owner_and_locked_flags() -> None:
     state = relay.RelayState()
     owner, follower = _session(), _session()
     state.control_sessions.update({owner, follower})
@@ -139,7 +139,7 @@ def test_state_message_owner_and_locked_flags():
     assert state.state_message(follower)["locked"] is False
 
 
-def test_broadcast_state_enqueues_tailored_message_per_session():
+def test_broadcast_state_enqueues_tailored_message_per_session() -> None:
     state = relay.RelayState()
     owner, follower = _session(), _session()
     state.control_sessions.update({owner, follower})
@@ -149,7 +149,7 @@ def test_broadcast_state_enqueues_tailored_message_per_session():
     assert follower.queue.get_nowait()["owner"] is False
 
 
-def test_control_session_enqueue_drops_oldest_when_full():
+def test_control_session_enqueue_drops_oldest_when_full() -> None:
     session = relay.ControlSession(FakeWriter())
     for index in range(relay.CONTROL_QUEUE_MAX_MESSAGES + 5):
         session.enqueue({"n": index})
@@ -162,8 +162,8 @@ def test_control_session_enqueue_drops_oldest_when_full():
 # ── _handle_control_op ────────────────────────────────────────────────────────
 
 
-def test_claim_grants_when_free():
-    async def run():
+def test_claim_grants_when_free() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         session = _session()
         state.control_sessions.add(session)
@@ -175,8 +175,8 @@ def test_claim_grants_when_free():
     asyncio.run(run())
 
 
-def test_claim_denied_when_already_owned():
-    async def run():
+def test_claim_denied_when_already_owned() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         owner, other = _session(), _session()
         state.control_sessions.update({owner, other})
@@ -189,8 +189,8 @@ def test_claim_denied_when_already_owned():
     asyncio.run(run())
 
 
-def test_set_from_owner_applies_and_broadcasts():
-    async def run():
+def test_set_from_owner_applies_and_broadcasts() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         writer = FakeWriter()
         state.upstream_writer = writer
@@ -205,8 +205,8 @@ def test_set_from_owner_applies_and_broadcasts():
     asyncio.run(run())
 
 
-def test_set_from_non_owner_ignored():
-    async def run():
+def test_set_from_non_owner_ignored() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         writer = FakeWriter()
         state.upstream_writer = writer
@@ -221,8 +221,8 @@ def test_set_from_non_owner_ignored():
     asyncio.run(run())
 
 
-def test_release_frees_token_and_get_returns_state():
-    async def run():
+def test_release_frees_token_and_get_returns_state() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         owner = _session()
         state.control_sessions.add(owner)
@@ -251,8 +251,8 @@ def _reader(data: bytes) -> asyncio.StreamReader:
     return reader
 
 
-def test_forward_commands_gated_while_owned():
-    async def run():
+def test_forward_commands_gated_while_owned() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         state.current_owner = _session()  # a control client owns the tuner
         upstream = FakeWriter()
@@ -263,8 +263,8 @@ def test_forward_commands_gated_while_owned():
     asyncio.run(run())
 
 
-def test_forward_commands_forwards_and_tracks_when_free():
-    async def run():
+def test_forward_commands_forwards_and_tracks_when_free() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         upstream = FakeWriter()
         state.upstream_writer = upstream
@@ -276,8 +276,8 @@ def test_forward_commands_forwards_and_tracks_when_free():
     asyncio.run(run())
 
 
-def test_forward_commands_drops_when_upstream_down():
-    async def run():
+def test_forward_commands_drops_when_upstream_down() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         state.upstream_writer = None  # no dongle
         await relay.forward_commands(state, _reader(relay._build_command(0x01, 7)), "peer")
@@ -289,8 +289,8 @@ def test_forward_commands_drops_when_upstream_down():
 # ── handle_control_client (integration over real sockets) ─────────────────────
 
 
-def test_control_client_claim_then_disconnect_releases():
-    async def run():
+def test_control_client_claim_then_disconnect_releases() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         server = await asyncio.start_server(
             lambda reader, writer: relay.handle_control_client(state, reader, writer), "127.0.0.1", 0
@@ -319,8 +319,8 @@ def test_control_client_claim_then_disconnect_releases():
     asyncio.run(run())
 
 
-def test_owner_release_notifies_other_followers():
-    async def run():
+def test_owner_release_notifies_other_followers() -> None:
+    async def run() -> None:
         state = relay.RelayState()
         server = await asyncio.start_server(
             lambda reader, writer: relay.handle_control_client(state, reader, writer), "127.0.0.1", 0
