@@ -345,14 +345,14 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
   // glance; buried between fields they were easy to miss, and "Run the hotspot"
   // sat below a scroll on a long panel. Being outside the `<form>` element
   // costs nothing — `submit()` reads local state, never the DOM.
-  // Stacked, not side by side, and enable first: it is the one an operator came
-  // to use, and hiding a network is a property of a hotspot that is already
-  // running. `items-end` right-aligns each row, so the two switches line up on
-  // their right edge however different the label lengths are.
-  const headerControls = el('div', { class: 'flex flex-col items-end gap-2' }, [
-    enabledToggle.element,
-    hiddenToggle.element,
-  ])
+  // One row, below the header text rather than beside the title. Enable comes
+  // first: it is the one an operator came to use, and hiding a network is a
+  // property of a hotspot that is already running.
+  const headerControls = el(
+    'div',
+    { class: 'flex flex-wrap items-center justify-end gap-x-6 gap-y-2' },
+    [enabledToggle.element, hiddenToggle.element],
+  )
   if (props.headerControlsHost) {
     props.headerControlsHost.appendChild(headerControls)
   }

@@ -43,15 +43,27 @@ export interface DisclosureSectionProps {
    * `section` — the 11px field-label vocabulary shared with `BaseField`, so a
    * section inside a settings box reads as a peer of the fields around it
    * rather than as a differently-sized heading.
+   * `panel` — `SectionHeading`'s `item` size, for a whole settings box whose
+   * own title becomes the disclosure. Kept identical to that component's
+   * classes so a collapsible box and a fixed one are indistinguishable when
+   * open.
    */
-  tone?: 'group' | 'section'
+  tone?: 'group' | 'section' | 'panel'
   /** Open on first render. Read once — the browser owns the state after that. */
   defaultOpen?: boolean
+  /**
+   * `id` for the heading element, so a surrounding `aria-labelledby` can point
+   * at it. Only meaningful alongside `headingLevel`.
+   */
+  headingId?: string
+  /** Extra classes for the body wrapper, for panels whose content wants its own gap. */
+  bodyClass?: string
 }
 
 const TONE_CLASSES = {
   group: 'text-[10px] tracking-control text-signal-muted',
   section: 'text-[11px] tracking-label text-ink-primary',
+  panel: 'text-[13px] tracking-[0.1em] text-ink-primary',
 } as const
 
 // `justify-between` is what actually pins the chevron right, and it has to be:
@@ -78,7 +90,11 @@ export function disclosureSection(
       : // Tailwind's preflight already resets a heading's size and weight to
         // `inherit`, so the summary's own type treatment carries through and
         // the heading contributes semantics only.
-        el(HEADING_TAGS[props.headingLevel], { class: 'm-0' }, props.label)
+        el(
+          HEADING_TAGS[props.headingLevel],
+          { class: 'm-0', ...(props.headingId ? { attrs: { id: props.headingId } } : {}) },
+          props.label,
+        )
 
   const summary = el(
     'summary',
@@ -86,7 +102,11 @@ export function disclosureSection(
     [labelHost, chevron.element],
   )
 
-  const body = el('div', { class: 'flex flex-col gap-4 pb-card' }, props.children)
+  const body = el(
+    'div',
+    { class: props.bodyClass ?? 'flex flex-col gap-4 pb-card' },
+    props.children,
+  )
 
   const details = el(
     'details',

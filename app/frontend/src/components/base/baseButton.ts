@@ -48,6 +48,15 @@ export interface BaseButtonProps {
   onClick?: (event: MouseEvent) => void
   /** The button's content — text, or richer markup (an icon plus a label). */
   children: Child[]
+  /**
+   * Extra classes appended after the variant's.
+   *
+   * A prop rather than something a caller adds to `element.classList`, because
+   * `update()` reassigns `className` wholesale — anything poked on from outside
+   * survives exactly until the first re-render, which is the sort of bug that
+   * looks like a styling flake. Passed through here it is reapplied every time.
+   */
+  extraClass?: string
 }
 
 const VARIANT_CLASSES = {
@@ -99,7 +108,7 @@ export function baseButton(props: BaseButtonProps): Component<BaseButtonProps> {
     {
       attrs: { type: props.type ?? 'button', 'aria-label': props.ariaLabel ?? undefined },
       props: { disabled: props.disabled ?? false },
-      class: classes(BASE_CLASSES, VARIANT_CLASSES[props.variant ?? 'ghost']),
+      class: classes(BASE_CLASSES, VARIANT_CLASSES[props.variant ?? 'ghost'], props.extraClass),
       on: {
         click: (event) => currentProps.onClick?.(event),
       },
@@ -119,7 +128,11 @@ export function baseButton(props: BaseButtonProps): Component<BaseButtonProps> {
       } else {
         button.removeAttribute('aria-label')
       }
-      button.className = classes(BASE_CLASSES, VARIANT_CLASSES[nextProps.variant ?? 'ghost'])
+      button.className = classes(
+        BASE_CLASSES,
+        VARIANT_CLASSES[nextProps.variant ?? 'ghost'],
+        nextProps.extraClass,
+      )
       syncChildren(button, nextProps.children)
     },
 

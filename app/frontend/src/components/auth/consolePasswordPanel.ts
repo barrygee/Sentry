@@ -6,7 +6,7 @@ import { baseButton } from '../base/baseButton.js'
 import { baseField } from '../base/baseField.js'
 import { nextElementId } from '../base/idGenerator.js'
 import { noticeBox } from '../base/noticeBox.js'
-import { sectionHeading } from '../base/sectionHeading.js'
+import { disclosureSection } from '../base/disclosureSection.js'
 
 /**
  * The Settings section for the console password (ADR-0010).
@@ -24,13 +24,6 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
 
   let draftCurrent = ''
   let draftNew = ''
-
-  const heading = sectionHeading({
-    level: 2,
-    size: 'item',
-    children: ['Sentry controller password'],
-  })
-  heading.element.id = headingId
 
   const introParagraph = el(
     'p',
@@ -101,17 +94,18 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
     ],
   )
 
-  const root = el(
-    'section',
-    {
-      // `gap-6`, matching the hotspot and configuration boxes. This one sat at
-      // `gap-4`, which read as cramped precisely where it mattered — the
-      // "Last changed" line ran into the first field label below it.
-      class: 'flex flex-col gap-6 bg-ground-panel p-card',
-      attrs: { 'aria-labelledby': headingId },
-    },
-    [
-      el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph, statusLine]),
+  const disclosure = disclosureSection({
+    label: ['Sentry controller password'],
+    headingLevel: 2,
+    headingId,
+    tone: 'panel',
+    defaultOpen: true,
+    // `gap-6`, matching the hotspot and configuration boxes. This one sat at
+    // `gap-4`, which read as cramped precisely where it mattered — the
+    // "Last changed" line ran into the first field label below it.
+    bodyClass: 'flex flex-col gap-6',
+    children: [
+      el('div', { class: 'flex flex-col gap-2' }, [introParagraph, statusLine]),
       errorNotice.element,
       successNotice.element,
       form,
@@ -120,6 +114,15 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
       // column, which stretched it to full width; hiding the wrapper keeps the
       // button its own size and still contributes no gap when it is away.
     ],
+  })
+
+  const root = el(
+    'section',
+    {
+      class: 'flex flex-col bg-ground-panel p-card',
+      attrs: { 'aria-labelledby': headingId },
+    },
+    [disclosure.element],
   )
 
   let showSuccess = false
@@ -208,7 +211,7 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
       saveButton.destroy()
       errorNotice.destroy()
       successNotice.destroy()
-      heading.destroy()
+      disclosure.destroy()
     },
   }
 }

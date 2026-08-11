@@ -6,7 +6,7 @@ import { baseButton } from '../base/baseButton.js'
 import { baseToggle } from '../base/baseToggle.js'
 import { nextElementId } from '../base/idGenerator.js'
 import { noticeBox } from '../base/noticeBox.js'
-import { sectionHeading } from '../base/sectionHeading.js'
+import { disclosureSection } from '../base/disclosureSection.js'
 
 import { configEditorSection } from './configEditorSection.js'
 import {
@@ -37,12 +37,6 @@ import { configImportReport } from './configImportReport.js'
 export function configPanel(): Component<void> {
   const headingId = nextElementId('config-dialog-heading')
 
-  const heading = sectionHeading({
-    level: 2,
-    size: 'item',
-    children: ['Configuration'],
-  })
-  heading.element.id = headingId
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
     'Export this Sentry’s configuration, then import it into another Sentry. It carries each device’s name, port, antenna, notes and visibility. Passwords are not exported.',
   ])
@@ -50,7 +44,7 @@ export function configPanel(): Component<void> {
   // card's own `p-card` is what separates a heading from the box above it. An
   // extra `pt-6` here — added when these sections shared one surface — left
   // Configuration sitting lower inside its box than the other two.
-  const headerBlock = el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph])
+  const headerBlock = el('div', { class: 'flex flex-col gap-2' }, [introParagraph])
 
   const busyStatusRegion = el('p', { attrs: { role: 'status' }, class: 'sr-only' }, [])
   const errorAlertRegion = el('p', { attrs: { role: 'alert' }, class: 'sr-only' }, [])
@@ -150,13 +144,14 @@ export function configPanel(): Component<void> {
   // which is the dead space at the bottom of the Configuration card.
   const importSection = el('div', { class: 'contents' }, [pendingImportBlock, importReportSlot])
 
-  const panelRoot = el(
-    'section',
-    {
-      class: 'flex flex-col gap-6 bg-ground-panel p-card',
-      attrs: { 'aria-labelledby': headingId },
-    },
-    [
+  const disclosure = disclosureSection({
+    label: ['Configuration'],
+    headingLevel: 2,
+    headingId,
+    tone: 'panel',
+    defaultOpen: true,
+    bodyClass: 'flex flex-col gap-6',
+    children: [
       headerBlock,
       busyStatusRegion,
       errorAlertRegion,
@@ -167,6 +162,15 @@ export function configPanel(): Component<void> {
       // run of controls rather than two things you choose between.
       el('div', { class: 'flex flex-col gap-10' }, [editorSection.element, importSection]),
     ],
+  })
+
+  const panelRoot = el(
+    'section',
+    {
+      class: 'flex flex-col bg-ground-panel p-card',
+      attrs: { 'aria-labelledby': headingId },
+    },
+    [disclosure.element],
   )
 
   let importReport: Component<{ result: ConfigImportResult }> | null = null
@@ -291,6 +295,7 @@ export function configPanel(): Component<void> {
 
     destroy(): void {
       unsubscribe()
+      disclosure.destroy()
       editorSection.destroy()
       importReport?.destroy()
     },

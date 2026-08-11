@@ -27,6 +27,14 @@ export const CHANNELS_5GHZ: readonly number[] = [
 // Matching control characters is the entire purpose of this pattern: an SSID
 // containing one is rejected rather than being quietly passed to the radio.
 const CONTROL_CHARACTERS = /[\x00-\x1f\x7f-\x9f]/
+/**
+ * WPA-Personal's own bounds. Exported so the field's character counter reads
+ * from the same numbers the validator enforces — a counter that says "of 63"
+ * while the pattern allows something else is worse than no counter.
+ */
+export const PASSPHRASE_MIN_LENGTH = 8
+export const PASSPHRASE_MAX_LENGTH = 63
+
 const PASSPHRASE_PATTERN = /^[\x20-\x7e]{8,63}$/
 const RAW_PSK_PATTERN = /^[0-9a-fA-F]{64}$/
 

@@ -5,7 +5,7 @@ import type { HotspotState } from '../../api/client.js'
 import { baseButton } from '../base/baseButton.js'
 import { nextElementId } from '../base/idGenerator.js'
 import { noticeBox } from '../base/noticeBox.js'
-import { sectionHeading } from '../base/sectionHeading.js'
+import { disclosureSection } from '../base/disclosureSection.js'
 import {
   confirm as confirmHotspot,
   disable as disableHotspot,
@@ -104,34 +104,19 @@ function buildHotspotFormActions(
 export function hotspotPanel(): Component<void> {
   const headingId = nextElementId('hotspot-panel-heading')
 
-  const heading = sectionHeading({
-    level: 2,
-    size: 'item',
-    children: ['WiFi hotspot'],
-  })
-  heading.element.id = headingId
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
     'Run a WiFi network from this Sentry so clients can reach the SDRs with no LAN.',
   ])
 
-  // The form mounts its two toggles here. `shrink-0` keeps them on the title's
-  // line: without it the intro paragraph makes the title block greedy enough to
-  // push them onto a row of their own even on a wide screen.
-  const headerControlsHost = el('div', { class: 'flex shrink-0 items-center' })
+  // The form mounts its toggle row here — a line of its own beneath the title
+  // and its description, rather than competing with the heading for the same
+  // line. Full width so the row's own `justify-end` can hold them right.
+  const headerControlsHost = el('div')
 
-  // `min-w-0 flex-1` is the other half of that — the title block is the one
-  // that gives, so the toggles keep their width and stay hard right.
-  const titleBlock = el('div', { class: 'flex min-w-0 flex-1 flex-col gap-2' }, [
-    heading.element,
+  const headerBlock = el('div', { class: 'flex flex-col gap-4' }, [
     introParagraph,
+    headerControlsHost,
   ])
-  // Still wraps below the title on a genuinely narrow screen rather than
-  // crushing a heading and two toggles onto one line.
-  const headerBlock = el(
-    'div',
-    { class: 'flex flex-wrap items-start justify-between gap-x-6 gap-y-3' },
-    [titleBlock, headerControlsHost],
-  )
 
   // Both live regions stay mounted for the dialog's whole lifetime and only
   // change text. Mounting a live region that already contains its message
@@ -173,15 +158,28 @@ export function hotspotPanel(): Component<void> {
     actionsHost,
   ])
 
+  // The box collapses from its own title. `defaultOpen` because a settings box
+  // that starts shut hides the thing the operator navigated here for — the
+  // arrow is for putting a finished box away, not for making them open it.
+  const disclosure = disclosureSection({
+    label: ['WiFi hotspot'],
+    headingLevel: 2,
+    headingId,
+    tone: 'panel',
+    defaultOpen: true,
+    bodyClass: 'flex flex-col gap-6',
+    children: [headerBlock, busyStatusRegion, errorAlertRegion, loadingParagraph, contentBlock],
+  })
+
   // No Close control, and no height cap: as a section this scrolls with the
   // page rather than inside its own box, and there is nothing to dismiss.
   const panelRoot = el(
     'section',
     {
-      class: 'flex flex-col gap-6 bg-ground-panel p-card',
+      class: 'flex flex-col bg-ground-panel p-card',
       attrs: { 'aria-labelledby': headingId },
     },
-    [headerBlock, busyStatusRegion, errorAlertRegion, loadingParagraph, contentBlock],
+    [disclosure.element],
   )
 
   let statusPanel: Component<HotspotStatusPanelProps> | null = null
@@ -345,6 +343,7 @@ export function hotspotPanel(): Component<void> {
 
     destroy(): void {
       unsubscribe()
+      disclosure.destroy()
       statusPanel?.destroy()
       confirmCountdown?.destroy()
       setupHelp?.destroy()
