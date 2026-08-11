@@ -26,10 +26,6 @@ export interface SdrsState {
    * whichever control invoked it (a topology node, a device card, a conflict banner) needs a
    * single shared place to open it from. */
   serialFlashDeviceId: string | null
-  /** The device `ForgetDeviceDialog` is currently open for, or `null` when it is closed. Lives
-   * here for the same reason as `serialFlashDeviceId` — the invoking control (a card inside
-   * `AbsentDeviceGroup`) and the teleported dialog need a single shared source of truth. */
-  forgetDeviceId: string | null
 }
 
 /** One entry in `serialConflictGroups`: a present device sharing a duplicate factory serial. */
@@ -56,7 +52,6 @@ export const sdrsStore: Store<SdrsState> = createStore<SdrsState>({
   pendingPatchesByDeviceId: {},
   notices: [],
   serialFlashDeviceId: null,
-  forgetDeviceId: null,
 })
 
 /** All known devices, in topology order. */
@@ -117,12 +112,6 @@ export function isDeviceBusy(state: Readonly<SdrsState>, deviceId: string): bool
 export function serialFlashDialogDevice(state: Readonly<SdrsState>): DeviceStatus | null {
   if (state.serialFlashDeviceId === null) return null
   return state.devicesById[state.serialFlashDeviceId] ?? null
-}
-
-/** The device `ForgetDeviceDialog` should render for, derived from `forgetDeviceId`. */
-export function forgetDialogDevice(state: Readonly<SdrsState>): DeviceStatus | null {
-  if (state.forgetDeviceId === null) return null
-  return state.devicesById[state.forgetDeviceId] ?? null
 }
 
 /**
@@ -344,7 +333,6 @@ export async function deleteDevice(deviceId: string): Promise<void> {
   try {
     await apiClient.deleteDevice(deviceId)
     applyDeviceRemoved(deviceId)
-    closeForgetDialog()
     liveAnnouncer().announcePolite(`Forgot ${label}.`)
   } catch (error) {
     const code =
@@ -373,16 +361,6 @@ export function openSerialFlashDialog(deviceId: string): void {
 /** Closes `SerialFlashDialog`. */
 export function closeSerialFlashDialog(): void {
   sdrsStore.setState({ serialFlashDeviceId: null })
-}
-
-/** Opens `ForgetDeviceDialog` for `deviceId` — called only from an absent, configured device's card. */
-export function openForgetDialog(deviceId: string): void {
-  sdrsStore.setState({ forgetDeviceId: deviceId })
-}
-
-/** Closes `ForgetDeviceDialog`. */
-export function closeForgetDialog(): void {
-  sdrsStore.setState({ forgetDeviceId: null })
 }
 
 function compareByTopology(deviceA: DeviceStatus, deviceB: DeviceStatus): number {

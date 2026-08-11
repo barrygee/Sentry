@@ -1,7 +1,6 @@
 import { apiClient } from '../api/client.js'
 import { emptyState } from '../components/base/emptyState.js'
 import { panelStack } from '../components/base/panelStack.js'
-import { forgetDeviceDialog } from '../components/device/forgetDeviceDialog.js'
 import { sdrDeviceCard, type SdrDeviceCardProps } from '../components/device/sdrDeviceCard.js'
 import { noticeList } from '../components/sdrs/noticeList.js'
 import { absentDeviceGroup } from '../components/sdrs/absentDeviceGroup.js'
@@ -15,10 +14,8 @@ import { liveAnnouncer } from '../core/liveAnnouncer.js'
 import { watchStore } from '../core/observable.js'
 import {
   absentConfiguredDevices,
-  closeForgetDialog,
   closeSerialFlashDialog,
   devices,
-  forgetDialogDevice,
   openSerialFlashDialog,
   presentDevices,
   sdrsStore,
@@ -99,7 +96,6 @@ export function mountSdrsView(root: ParentNode): () => void {
 
   // `baseDialog` mounts itself on `document.body`, so this element is never
   // appended — only kept so `update` and `destroy` can reach it.
-  const forgetDialog = forgetDeviceDialog({ device: null, onClose: closeForgetDialog })
 
   // Announce plug/unplug and state transitions (architecture §9.4) by diffing
   // each snapshot against the previous one's `(present, state)` pair.
@@ -170,7 +166,6 @@ export function mountSdrsView(root: ParentNode): () => void {
       present.map((device) => ({ device, onRequestSerialFlash: openSerialFlashDialog })),
     )
     absentGroup.update({ devices: absent, onRequestSerialFlash: openSerialFlashDialog })
-    forgetDialog.update({ device: forgetDialogDevice(state), onClose: closeForgetDialog })
   })
 
   // Port constraints are a convenience fetch: the SSE `snapshot` still
@@ -193,7 +188,6 @@ export function mountSdrsView(root: ParentNode): () => void {
     presentStack.destroy()
     noDevicesEmptyState.destroy()
     allAbsentEmptyState.destroy()
-    forgetDialog.destroy()
     notices.destroy()
     closeSerialFlashDialog()
   }

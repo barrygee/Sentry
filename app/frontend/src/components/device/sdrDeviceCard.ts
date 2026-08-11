@@ -1,9 +1,11 @@
 import { el, setText, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
 import type { DeviceStatus } from '../../api/client.js'
-import { patchDevice, sdrsStore } from '../../state/sdrsStore.js'
+import { deleteDevice, patchDevice, sdrsStore } from '../../state/sdrsStore.js'
 import { baseButton } from '../base/baseButton.js'
 import { baseToggle } from '../base/baseToggle.js'
+import { confirmIconAction } from '../base/confirmIconAction.js'
+import type { ConfirmIconActionProps } from '../base/confirmIconAction.js'
 import { dataCell } from '../base/dataCell.js'
 import { monoValue } from '../base/monoValue.js'
 import { deviceAntennaField } from '../forms/deviceAntennaField.js'
@@ -245,9 +247,36 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     state: props.device.state,
     reason: props.device.state_reason ?? null,
   })
+  // Forgetting a device is only ever offered for one that is *absent* and
+  // configured — the server refuses it outright (`409 device_present`) while
+  // the hardware is plugged in, so showing the control on a present card would
+  // be offering an action that cannot succeed.
+  //
+  // Inline arm-then-confirm rather than a modal: this is a small, local,
+  // reversible-by-replugging action against one row, and a whole dialog for it
+  // was enough ceremony that the entry point was never wired up at all.
+  function forgetProps(): ConfirmIconActionProps {
+    const label = currentDevice().name || currentDevice().device_id
+    return {
+      accessibleName: `Forget ${label}`,
+      confirmAccessibleName: `Confirm forgetting ${label}`,
+      cancelAccessibleName: `Cancel forgetting ${label}`,
+      armedAnnouncement: `Confirm forgetting ${label}, or cancel. This discards its saved name, port and tuning defaults.`,
+      cancelledAnnouncement: `Forgetting ${label} cancelled.`,
+      // Reads the current device, not the one captured at construction: the
+      // click lands long after this is built.
+      onConfirm: () => {
+        void deleteDevice(currentDevice().device_id)
+      },
+    }
+  }
+
+  const forgetAction = confirmIconAction(forgetProps())
+
   const identityRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
     headingElement,
     statusBadge.element,
+    forgetAction.element,
   ])
 
   // Both switches sit together on the right: one controls whether the
@@ -507,6 +536,8 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     statusBadge.update({ state: device.state, reason: device.state_reason ?? null })
 
     setVisible(togglesRow, device.record_id !== null)
+    setVisible(forgetAction.element, !device.present && device.record_id !== null)
+    forgetAction.update(forgetProps())
     visibilityToggle.update({ device, onCommit: commitVisibility })
     enabledToggle.update({
       value: device.enabled,
@@ -638,6 +669,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       enabledToggle.destroy()
       needsIdNotice.destroy()
       absentNotice.destroy()
+      forgetAction.destroy()
       nameField.destroy()
       portField.destroy()
       modelDataCell.destroy()
