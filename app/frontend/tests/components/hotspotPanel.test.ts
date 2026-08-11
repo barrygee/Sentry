@@ -164,15 +164,17 @@ describe('hotspotPanel', () => {
       }),
     )
 
-    const form = panel.element.querySelector('form')
-    const keepButton = [...(form?.querySelectorAll('button') ?? [])].find((button) =>
+    // Searched across the whole panel, not just the form: the action row now
+    // sits after the lease list, which is outside the form element. The
+    // ordering is the contract here — where the pair is mounted is not.
+    const keepButton = [...panel.element.querySelectorAll('button')].find((button) =>
       /Keep this hotspot/i.test(button.textContent ?? ''),
     )
-    const saveButton = [...(form?.querySelectorAll('button') ?? [])].find((button) =>
+    const saveButton = [...panel.element.querySelectorAll('button')].find((button) =>
       /Save hotspot settings/i.test(button.textContent ?? ''),
     )
 
-    expect(keepButton, 'the countdown must render inside the form').toBeDefined()
+    expect(keepButton, 'the countdown must render').toBeDefined()
     expect(saveButton).toBeDefined()
     // `compareDocumentPosition` is the ordering check that survives styling:
     // FOLLOWING means save comes after keep in document order.
@@ -213,5 +215,37 @@ describe('hotspotPanel', () => {
 
     expect(hideToggle, 'the hide toggle must render').toBeDefined()
     expect(form?.contains(hideToggle!)).toBe(false)
+  })
+
+  it('places the save action after the DHCP lease list', async () => {
+    await showState(healthyState({ configured: true }))
+
+    const saveButton = [...panel.element.querySelectorAll('button')].find((button) =>
+      /Save hotspot settings/i.test(button.textContent ?? ''),
+    )
+    const leasesSummary = [...panel.element.querySelectorAll('summary')].find((summary) =>
+      /Recent DHCP leases/i.test(summary.textContent ?? ''),
+    )
+
+    expect(saveButton).toBeDefined()
+    expect(leasesSummary).toBeDefined()
+    expect(
+      leasesSummary!.compareDocumentPosition(saveButton!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('keeps the save button wired to the form it sits outside of', async () => {
+    // A submit button outside its form is inert unless it names one. Without
+    // this the button would render perfectly and simply do nothing.
+    await showState(healthyState({ configured: true }))
+
+    const form = panel.element.querySelector('form')
+    const saveButton = [...panel.element.querySelectorAll('button')].find((button) =>
+      /Save hotspot settings/i.test(button.textContent ?? ''),
+    )
+
+    expect(form?.id).toBeTruthy()
+    expect(form?.contains(saveButton!)).toBe(false)
+    expect(saveButton?.getAttribute('form')).toBe(form?.id)
   })
 })

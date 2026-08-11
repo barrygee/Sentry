@@ -157,6 +157,10 @@ export function hotspotPanel(): Component<void> {
   const errorNotice = noticeBox({ tone: 'danger', role: 'status', children: [] })
   const formSlot = el('div')
   const clientListSlot = el('div')
+  // The form mounts its countdown slot and action row here — below the lease
+  // list, which is not part of the form. Empty until the form exists, and the
+  // form removes its contents again on destroy.
+  const actionsHost = el('div')
 
   const contentBlock = el('div', { class: 'flex flex-col gap-6' }, [
     statusPanelSlot,
@@ -166,6 +170,7 @@ export function hotspotPanel(): Component<void> {
     errorNotice.element,
     formSlot,
     clientListSlot,
+    actionsHost,
   ])
 
   // No Close control, and no height cap: as a section this scrolls with the
@@ -305,6 +310,7 @@ export function hotspotPanel(): Component<void> {
           // had just used, and its two actions read as unrelated to the form.
           beforeActions: [countdownSlot],
           headerControlsHost,
+          actionsHost,
         }
         if (!form) {
           form = hotspotForm(formProps)
