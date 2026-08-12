@@ -146,7 +146,13 @@ export function hotspotPanel(): Component<void> {
   // The form mounts its countdown slot and action row here — below the lease
   // list, which is not part of the form. Empty until the form exists, and the
   // form removes its contents again on destroy.
-  const actionsHost = el('div')
+  // `gap-6`, matching the panel's own column: the countdown notice and the
+  // action row are two blocks, and with no layout of its own this div let the
+  // yellow box sit flush against the Save button.
+  //
+  // The countdown arrives inside a `contents` wrapper, so when it is hidden the
+  // gap goes with it rather than leaving a space above the button.
+  const actionsHost = el('div', { class: 'flex flex-col gap-6' })
 
   const contentBlock = el('div', { class: 'flex flex-col gap-6' }, [
     statusPanelSlot,
