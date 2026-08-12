@@ -65,39 +65,47 @@ const VARIANT_CLASSES = {
   primary:
     'bg-signal-accent px-[30px] py-3 font-bold tracking-control text-ink-on-accent hover:bg-signal-accent-hover disabled:bg-ink-primary/[0.06] disabled:text-signal-muted',
   ghost:
-    'font-semibold tracking-heading bg-ink-primary/[0.06] text-ink-primary hover:bg-ink-primary/[0.12] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
+    'px-[18px] font-semibold tracking-heading bg-ink-primary/[0.06] text-ink-primary hover:bg-ink-primary/[0.12] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   danger:
-    'font-semibold tracking-heading bg-signal-danger/[0.10] text-signal-danger hover:bg-signal-danger/[0.18] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
+    'px-[18px] font-semibold tracking-heading bg-signal-danger/[0.10] text-signal-danger hover:bg-signal-danger/[0.18] disabled:bg-ink-primary/[0.04] disabled:text-signal-muted',
   quiet:
     'bg-transparent px-0 font-bold tracking-heading text-ink-primary hover:text-signal-danger disabled:text-signal-muted disabled:hover:text-signal-muted',
   inverse:
-    'font-semibold tracking-heading bg-white/20 text-white hover:bg-white/30 disabled:bg-white/10 disabled:text-white/60',
+    'px-[18px] font-semibold tracking-heading bg-white/20 text-white hover:bg-white/30 disabled:bg-white/10 disabled:text-white/60',
   // The solid dark slab. Named for its first use — a button on the yellow
   // `warn` notice, where `inverse`'s white-on-translucent-white all but
   // disappears — but it is now also the commit action on the settings boxes,
   // where the accent fill read as a status colour rather than a control.
   // 11.3:1 on the yellow and 14:1 for its white text, so it carries either.
   'on-bright':
-    'font-semibold tracking-heading bg-ink-primary text-white hover:bg-ink-primary/[0.88] disabled:bg-ink-primary/40 disabled:text-white/70',
+    'px-[18px] font-semibold tracking-heading bg-ink-primary text-white hover:bg-ink-primary/[0.88] disabled:bg-ink-primary/40 disabled:text-white/70',
 } as const satisfies Record<BaseButtonVariant, string>
 
 /**
- * Everything every button shares — deliberately **not** including font weight or
- * letter spacing.
+ * Everything every button shares — deliberately **not** including font weight,
+ * letter spacing, or horizontal padding.
  *
- * Those used to live here as `font-semibold tracking-heading`, and every variant
- * that wanted something else set its own alongside. Both then applied, at equal
- * specificity, and the winner was whichever Tailwind happened to emit later in
- * the stylesheet — which was the base. So `primary`'s `font-bold
- * tracking-control` and `quiet`'s `font-bold` were silently discarded, and the
- * commit action rendered at 600/0.16em where Sentinel's is 700/0.18em.
+ * Those used to live here as `font-semibold tracking-heading px-[18px]`, and
+ * every variant that wanted something else set its own alongside. Both then
+ * applied, at equal specificity, and the winner was whichever Tailwind happened
+ * to emit later in the stylesheet — which was the base. So `primary`'s
+ * `font-bold tracking-control` and `quiet`'s `font-bold` were silently
+ * discarded, and the commit action rendered at 600/0.16em where Sentinel's is
+ * 700/0.18em.
  *
- * Nothing in the source said so. Each variant read as though it worked. Keeping
- * weight and tracking out of the shared string means a variant's declaration is
- * the only one, so it cannot lose.
+ * `px` was the same bug, found later and left in place at the time because the
+ * variant is shared and correcting it reflows every quiet button at once:
+ * `.px-0` is emitted before `.px-\[18px\]`, so every `quiet` button carried
+ * 18px of padding it explicitly declared away. The three affected rows — the
+ * passphrase reveal toggle, "Keep current password", and the device dialogs —
+ * were checked together when it was fixed.
+ *
+ * Nothing in the source said so in either case. Each variant read as though it
+ * worked. Keeping all three properties out of the shared string means a
+ * variant's declaration is the only one, so it cannot lose.
  */
 const BASE_CLASSES =
-  'inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-rack border-none px-[18px] font-sans text-[11px] uppercase transition-colors disabled:cursor-not-allowed sm:min-h-[38px]'
+  'inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-rack border-none font-sans text-[11px] uppercase transition-colors disabled:cursor-not-allowed sm:min-h-[38px]'
 
 /** Builds a `BaseButton`. `update` mutates the same `<button>` in place. */
 export function baseButton(props: BaseButtonProps): Component<BaseButtonProps> {
