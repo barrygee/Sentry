@@ -278,7 +278,11 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   // card's trailing edge however short the status text is.
   const chevronSlot = el('div', { class: 'ml-auto flex items-center' })
 
-  const identityRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
+  // `w-full` is what makes the chevron's `ml-auto` mean anything: the header
+  // column is `items-start`, so without it this row shrinks to its content and
+  // there is no free space for the chevron to be pushed into — it sat against
+  // the status badge instead of the card's edge.
+  const identityRow = el('div', { class: 'flex w-full flex-wrap items-center gap-3' }, [
     headingElement,
     statusBadge.element,
     forgetAction.element,
