@@ -1,4 +1,4 @@
-import { el, setText, setVisible } from '../../core/dom.js'
+import { classes, el, setText, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
 import type { DeviceStatus } from '../../api/client.js'
 import { deleteDevice, patchDevice, sdrsStore } from '../../state/sdrsStore.js'
@@ -294,17 +294,23 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   // Collapsed only. Expanded, the "Host IP" and "Output port" fields below
   // carry the two halves of this address in full, and the summary line hands
   // the reader back the one thing the collapsed card cannot show them.
+  // `BaseToggle`'s own caption classes verbatim — including `text-ink-primary`
+  // — so the pair sits on the switch row as a peer of "SDR enabled" and
+  // "Private" rather than as a differently-weighted annotation beside them.
+  const TOGGLE_CAPTION_CLASS =
+    'font-sans text-[10px] font-semibold uppercase tracking-control text-ink-primary'
+
   const addressValue = monoValue({ value: '' })
+  const addressCaption = el('span', { class: TOGGLE_CAPTION_CLASS }, ['Host:port'])
   const addressElement = el(
     'span',
-    // `BaseToggle`'s own caption classes verbatim — including `text-ink-primary`
-    // — so it sits on the switch row as a peer of "SDR enabled" and "Private"
-    // rather than as a differently-weighted annotation beside them.
+    // `gap-3` and `items-center` are `BaseToggle`'s own, so the caption sits off
+    // its value at the same distance each switch label sits off its switch —
+    // three labelled things on one row, spaced alike.
     {
-      class:
-        'font-sans text-[10px] font-semibold uppercase tracking-control text-ink-primary group-open:hidden',
+      class: classes('inline-flex items-center gap-3 group-open:hidden', TOGGLE_CAPTION_CLASS),
     },
-    [addressValue.element],
+    [addressCaption, addressValue.element],
   )
 
   const identityRow = el('div', { class: 'flex w-full flex-wrap items-center gap-3' }, [
