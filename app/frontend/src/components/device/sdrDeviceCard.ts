@@ -291,16 +291,19 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   // in the payload and rendered nowhere, which left the one value an operator
   // has to type into Sentinel as the one value the console never showed them.
   //
-  // Shown expanded as well as collapsed. The Output port field below states the
-  // port alone; this is the whole address, and the pair are the same fact at
-  // two levels of detail rather than two facts that can disagree.
+  // Collapsed only. Expanded, the "Host IP" and "Output port" fields below
+  // carry the two halves of this address in full, and the summary line hands
+  // the reader back the one thing the collapsed card cannot show them.
   const addressValue = monoValue({ value: '' })
   const addressElement = el(
     'span',
-    // `BaseToggle`'s own caption classes, so it sits on the switch row as a
-    // peer of "SDR enabled" and "Private" rather than as a differently-sized
-    // annotation. Muted, because it reports rather than controls.
-    { class: 'font-sans text-[10px] font-semibold uppercase tracking-control text-signal-muted' },
+    // `BaseToggle`'s own caption classes verbatim — including `text-ink-primary`
+    // — so it sits on the switch row as a peer of "SDR enabled" and "Private"
+    // rather than as a differently-weighted annotation beside them.
+    {
+      class:
+        'font-sans text-[10px] font-semibold uppercase tracking-control text-ink-primary group-open:hidden',
+    },
     [addressValue.element],
   )
 
@@ -379,6 +382,26 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     ownReservedPorts: ownReservedPortsFor(props.device),
   })
 
+  // The host half of the address the collapsed summary shows, so nothing is
+  // lost on expanding the card: "Host IP" and "Output port" sit side by side
+  // and spell out `host:port` between them.
+  //
+  // Read-only, and identical on every card — `output.host` is whatever host
+  // the page was loaded over, resolved per request by the backend, not a
+  // per-device setting. It is here because it is the value an operator has to
+  // type into Sentinel, not because it can be edited.
+  //
+  // Placed after the relay readout rather than before "Output port", where it
+  // would read more naturally: the columns are load-bearing here (see the grid
+  // comment above), and inserting a track ahead of the port would slide
+  // "Output port" off "Serial number" and "Relay listens on" off "Center
+  // frequency".
+  const hostMono = monoValue({ value: '' })
+  const hostCell = dataCell({
+    label: 'Host IP',
+    children: [hostMono.element],
+  })
+
   const configureBothFieldsMessage = el(
     'p',
     { class: 'col-span-full m-0 text-[12.5px] leading-[1.55] text-signal-muted' },
@@ -441,9 +464,15 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     'div',
     {
       class:
-        'grid grid-cols-[repeat(2,max-content)] items-start gap-x-8 gap-y-5 sm:grid-cols-[repeat(3,max-content)] lg:grid-cols-[repeat(5,max-content)]',
+        'grid grid-cols-[repeat(2,max-content)] items-start gap-x-8 gap-y-8 sm:grid-cols-[repeat(3,max-content)] lg:grid-cols-[repeat(5,max-content)]',
     },
-    [nameField.element, portField.element, configureBothFieldsMessage, identityList],
+    [
+      nameField.element,
+      portField.element,
+      hostCell.element,
+      configureBothFieldsMessage,
+      identityList,
+    ],
   )
 
   // Antenna and notes each get their own line below the aligned grid,
@@ -512,10 +541,15 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     persistKey: `device.${props.device.device_id}`,
     isBoxTitle: true,
     chevronSlot,
-    // Before the disclosure, the card was a `flex flex-col gap-6`, so its header
-    // sat 24px above the first row; a `<summary>` sits flush against the body,
-    // so that gap is restored here.
-    bodyClass: 'flex flex-col gap-6 pt-6',
+    // One 32px rhythm for every row boundary in the open panel: the header to
+    // the first field row (`pt-8`), the blocks below it (`gap-8`), and the grid
+    // rows inside `fieldsGrid` (`gap-y-8`).
+    //
+    // It was three different values — 24px here, 20px between the grid rows —
+    // which put the tightest gap between the two densest rows, where a value
+    // sits directly above the next row's caption and needs the most room to
+    // separate from it.
+    bodyClass: 'flex flex-col gap-8 pt-8',
     children: [
       needsIdNotice.element,
       absentNotice.element,
@@ -577,6 +611,14 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     setVisible(addressElement, address !== null)
     if (address !== null) {
       addressValue.update({ value: address })
+    }
+
+    // Same source as the collapsed summary's address, so the two halves cannot
+    // drift apart: both read `device.output`, or neither renders.
+    const host = device.output?.host ?? null
+    setVisible(hostCell.element, host !== null)
+    if (host !== null) {
+      hostMono.update({ value: host })
     }
 
     setVisible(forgetAction.element, !device.present && device.record_id !== null)
@@ -716,6 +758,8 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
       forgetAction.destroy()
       nameField.destroy()
       portField.destroy()
+      hostCell.destroy()
+      hostMono.destroy()
       modelDataCell.destroy()
       serialDataCell.destroy()
       serialMono.destroy()

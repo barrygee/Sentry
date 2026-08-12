@@ -254,9 +254,15 @@ describe('sdrDeviceCard inline edits', () => {
     expect(details?.open).toBe(true)
   })
 
-  it('shows the dialable address on the switch row, in both states', () => {
-    // The one value an operator has to type into Sentinel on another machine,
-    // so it stays visible whether the card is open or shut.
+  it('shows the dialable address on the switch row, collapsed only', () => {
+    // The one value an operator has to type into Sentinel on another machine.
+    // Expanded, "Host IP" and "Output port" carry the same two halves in full,
+    // so the summary line hands it over rather than repeating it.
+    //
+    // The collapsed/expanded split is `group-open:hidden`, which is Tailwind —
+    // jsdom applies no stylesheet, so toggling `details.open` here would not
+    // change what `querySelector` sees. The class is therefore the assertion,
+    // not the rendered visibility; that part is checked in a browser.
     const details = card.element.querySelector('details')
     const summary = details?.querySelector('summary')
     const addressOf = () =>
@@ -264,9 +270,24 @@ describe('sdrDeviceCard inline edits', () => {
         /^\d+\.\d+\.\d+\.\d+:\d+$/.test((span.textContent ?? '').trim()),
       )
 
-    expect(addressOf()?.textContent?.trim()).toBe('192.168.1.45:1234')
+    const address = addressOf()
+    expect(address?.textContent?.trim()).toBe('192.168.1.45:1234')
+    expect(address?.className).toContain('group-open:hidden')
+    // Matches `BaseToggle`'s caption ink, so it reads as a peer of the switch
+    // labels beside it rather than a dimmer annotation.
+    expect(address?.className).toContain('text-ink-primary')
+    expect(address?.className).not.toContain('text-signal-muted')
+  })
 
-    details!.open = true
-    expect(addressOf()?.textContent?.trim()).toBe('192.168.1.45:1234')
+  it('states the host on its own field once expanded', () => {
+    // The half of the address the collapsed line gives up on opening. Read-only
+    // — it is whatever host the page was loaded over, not a device setting.
+    const labels = [...card.element.querySelectorAll('span, dt')]
+    const hostLabel = labels.find((node) => (node.textContent ?? '').trim() === 'Host IP')
+    expect(hostLabel).toBeDefined()
+
+    const hostCell = hostLabel?.parentElement
+    expect(hostCell?.textContent).toContain('192.168.1.45')
+    expect(hostCell?.textContent).not.toContain('1234')
   })
 })
