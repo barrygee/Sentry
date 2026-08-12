@@ -10,6 +10,7 @@ import {
   confirm as confirmHotspot,
   disable as disableHotspot,
   hotspotStore,
+  refresh,
   save,
   type HotspotStoreState,
 } from '../../state/hotspotStore.js'
@@ -227,6 +228,10 @@ export function hotspotPanel(): Component<void> {
           busy: isBusy,
           onConfirm: () => void confirmHotspot(),
           onDiscard: () => void disableHotspot(true),
+          // The server rolls back on its own and tells nobody. Re-read the
+          // state when the window closes, so the panel stops reporting a
+          // hotspot that is no longer running.
+          onDeadlinePassed: () => void refresh(),
         }
         if (!confirmCountdown) {
           confirmCountdown = hotspotConfirmCountdown(countdownProps)
