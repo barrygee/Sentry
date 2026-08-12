@@ -137,8 +137,12 @@ export function hotspotPassphraseField(
   // because the variant is shared and correcting it silently reflows every other
   // quiet button in the app.
   //
-  // `font-normal` — `quiet` is 700; this reads as a link beside a sentence.
-  const CHANGE_BUTTON_CLASS = '!min-h-[24px] !px-0 !font-normal leading-[24px]'
+  // `font-normal`, plus the size, case and tracking of the sentence it sits in
+  // — `quiet` is 700, 11px and uppercase, which read as a separate control
+  // rather than the tail of "A password is set". The row is one line of prose
+  // with a link in it, so the link should look like the prose.
+  const CHANGE_BUTTON_CLASS =
+    '!min-h-[24px] !px-0 !font-normal !normal-case !tracking-readout !text-[12.5px] font-tabular leading-[24px] underline underline-offset-2'
 
   const changeButton = baseButton({
     variant: 'quiet',
@@ -148,11 +152,14 @@ export function hotspotPassphraseField(
     extraClass: CHANGE_BUTTON_CLASS,
   })
 
+  // One sentence: "A password is set - Change password". The separator is part
+  // of the prose rather than a gap, so the two read as a statement and its
+  // action rather than as two adjacent controls.
   const notChangingRow = el('div', { class: 'flex flex-wrap items-center gap-2' }, [
     el(
       'span',
       { class: 'font-tabular text-[12.5px] leading-[24px] tracking-readout text-ink-primary' },
-      ['A password is set'],
+      ['A password is set -'],
     ),
     changeButton.element,
   ])

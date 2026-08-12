@@ -118,7 +118,7 @@ function noticeListItem(row: NoticeRow): Component<NoticeRow> {
     setText(messageElement, nextRow.notice.message)
     setText(
       repeatCountElement,
-      nextRow.notice.repeatCount > 1 ? `×${nextRow.notice.repeatCount}` : '',
+      nextRow.notice.repeatCount > 1 ? `(${nextRow.notice.repeatCount})` : '',
     )
     dismissAction.update(dismissProps(nextRow))
   }

@@ -95,7 +95,7 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
   )
 
   const disclosure = disclosureSection({
-    label: ['Sentry controller password'],
+    label: ['Password'],
     headingLevel: 2,
     headingId,
     tone: 'panel',
