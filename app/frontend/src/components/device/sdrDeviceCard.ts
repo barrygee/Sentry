@@ -282,7 +282,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   // column is `items-start`, so without it this row shrinks to its content and
   // there is no free space for the chevron to be pushed into — it sat against
   // the status badge instead of the card's edge.
-  // The address a client dials, shown only while the card is collapsed.
+  // The address a client dials, on the switch row in both states.
   //
   // `output.host` is resolved per request by the backend — from the `Host`
   // header the page was loaded over, on both the REST and SSE paths — so this
@@ -291,19 +291,22 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   // in the payload and rendered nowhere, which left the one value an operator
   // has to type into Sentinel as the one value the console never showed them.
   //
-  // Collapsed only: expanded, the port has its own field, and two statements of
-  // the same fact a few rows apart is how they end up disagreeing.
+  // Shown expanded as well as collapsed. The Output port field below states the
+  // port alone; this is the whole address, and the pair are the same fact at
+  // two levels of detail rather than two facts that can disagree.
   const addressValue = monoValue({ value: '' })
   const addressElement = el(
     'span',
-    { class: 'text-[12.5px] text-signal-muted group-open:hidden' },
+    // `BaseToggle`'s own caption classes, so it sits on the switch row as a
+    // peer of "SDR enabled" and "Private" rather than as a differently-sized
+    // annotation. Muted, because it reports rather than controls.
+    { class: 'font-sans text-[10px] font-semibold uppercase tracking-control text-signal-muted' },
     [addressValue.element],
   )
 
   const identityRow = el('div', { class: 'flex w-full flex-wrap items-center gap-3' }, [
     headingElement,
     statusBadge.element,
-    addressElement,
     forgetAction.element,
     chevronSlot,
   ])
@@ -325,6 +328,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   const togglesRow = el('div', { class: 'flex flex-wrap items-center gap-x-10 gap-y-3' }, [
     enabledToggle.element,
     visibilityToggle.element,
+    addressElement,
   ])
 
   // A click on a toggle inside a `<summary>` also reaches the summary and
