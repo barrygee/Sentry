@@ -63,6 +63,16 @@ async function proxyToApi(request, response) {
     }
     response.end()
   } catch (error) {
+    // A request that fails *after* the head is on the wire cannot be answered
+    // with a 502 — most often an SSE stream dropping when the backend restarts
+    // or the network blips. Writing the status anyway threw
+    // ERR_HTTP_HEADERS_SENT from an async context with no handler, which took
+    // the whole dev server down rather than the one request. Close the response
+    // and leave the server up.
+    if (response.headersSent) {
+      response.end()
+      return
+    }
     response.writeHead(502, { 'content-type': 'application/json' })
     response.end(JSON.stringify({ detail: { code: 'proxy_failed', message: String(error) } }))
   }
