@@ -52,7 +52,7 @@ export function hotspotUplinkWarning(
 
   const checkbox = el('input', {
     attrs: { type: 'checkbox', disabled: props.disabled ?? false },
-    class: 'h-4 w-4 shrink-0 accent-signal-danger',
+    class: 'checkbox-plain',
     props: { checked: props.value },
     on: { change: () => currentProps.onChange(checkbox.checked) },
   }) as HTMLInputElement
