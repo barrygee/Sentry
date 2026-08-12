@@ -265,18 +265,29 @@ describe('sdrDeviceCard inline edits', () => {
     // not the rendered visibility; that part is checked in a browser.
     const details = card.element.querySelector('details')
     const summary = details?.querySelector('summary')
-    const addressOf = () =>
+    const valueOf = () =>
       [...(summary?.querySelectorAll('span') ?? [])].find((span) =>
         /^\d+\.\d+\.\d+\.\d+:\d+$/.test((span.textContent ?? '').trim()),
       )
 
-    const address = addressOf()
-    expect(address?.textContent?.trim()).toBe('192.168.1.45:1234')
-    expect(address?.className).toContain('group-open:hidden')
-    // Matches `BaseToggle`'s caption ink, so it reads as a peer of the switch
-    // labels beside it rather than a dimmer annotation.
-    expect(address?.className).toContain('text-ink-primary')
-    expect(address?.className).not.toContain('text-signal-muted')
+    const value = valueOf()
+    expect(value?.textContent?.trim()).toBe('192.168.1.45:1234')
+
+    // The caption and the value are one labelled pair; the wrapper carries both
+    // the visibility class and the caption styling.
+    const pair = value?.parentElement
+    expect(pair?.textContent?.trim()).toBe('Host:port192.168.1.45:1234')
+    expect(pair?.className).toContain('group-open:hidden')
+    // Matches `BaseToggle`'s caption ink and its label-to-control gap, so it
+    // reads as a peer of the switch labels beside it, not a dimmer annotation.
+    expect(pair?.className).toContain('text-ink-primary')
+    expect(pair?.className).toContain('gap-3')
+    expect(pair?.className).not.toContain('text-signal-muted')
+
+    const caption = [...(summary?.querySelectorAll('span') ?? [])].find(
+      (span) => (span.textContent ?? '').trim() === 'Host:port',
+    )
+    expect(caption).toBeDefined()
   })
 
   it('states the host on its own field once expanded', () => {

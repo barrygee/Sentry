@@ -148,7 +148,17 @@ export function mountSdrsView(root: ParentNode): () => void {
     const visibleConflicts = serialConflictGroups(state).filter(
       (group) => !dismissedConflictSerials.has(group.serial),
     )
-    conflictContainer.hidden = visibleConflicts.length === 0
+    // Both, as `navigation.ts` does for the views. The `hidden` attribute alone
+    // does not hide this list: it carries `flex`, and `.flex { display: flex }`
+    // beats `[hidden]:where(…) { display: none }` — `:where()` contributes no
+    // specificity, so a class and an attribute selector tie and the later rule
+    // in the stylesheet wins, which is always the utility. Empty and
+    // "hidden", it stayed a zero-height flex item earning the column's 16px
+    // `gap-4`, which is what held the devices heading 16px below the Settings
+    // heading on the same page.
+    const hasConflicts = visibleConflicts.length > 0
+    conflictContainer.hidden = !hasConflicts
+    setVisible(conflictContainer, hasConflicts)
     conflictList.update(
       visibleConflicts.map((group) => ({
         serial: group.serial,
