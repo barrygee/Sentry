@@ -123,26 +123,24 @@ export function hotspotPassphraseField(
 
   const notSetLabel = el('span', { class: LABEL_CLASSES }, ['Password'])
 
-  // Three overrides, each earning its `!`:
+  // Two overrides, each earning its `!`:
   //
   // `min-h` — `BaseButton` floors every button at 38-44px for a comfortable tap
   // target, which centred this row's text below the SSID input beside it. 24px
   // is still WCAG 2.2 AA's minimum target size (2.5.8); it gives up the
   // AAA-sized target (2.5.5), not an AA conformance.
   //
-  // `px` — the `quiet` variant already declares `px-0`, and it does not take
-  // effect: `BASE_CLASSES` also sets `px-[18px]`, at equal specificity, and wins
-  // on stylesheet order. That phantom padding was most of the gap between this
-  // button and the text beside it. Fixed here rather than in the variant,
-  // because the variant is shared and correcting it silently reflows every other
-  // quiet button in the app.
-  //
   // `font-normal`, plus the size, case and tracking of the sentence it sits in
   // — `quiet` is 700, 11px and uppercase, which read as a separate control
   // rather than the tail of "A password is set". The row is one line of prose
   // with a link in it, so the link should look like the prose.
+  //
+  // There was a third, `!px-0`, working around `quiet`'s own `px-0` losing to
+  // `BASE_CLASSES` on stylesheet order. The variant now carries no competing
+  // declaration, so the workaround is gone rather than merely redundant — left
+  // in, it would have gone on quietly overriding a rule that no longer exists.
   const CHANGE_BUTTON_CLASS =
-    '!min-h-[24px] !px-0 !font-normal !normal-case !tracking-readout !text-[12.5px] font-tabular leading-[24px] underline underline-offset-2'
+    '!min-h-[24px] !font-normal !normal-case !tracking-readout !text-[12.5px] font-tabular leading-[24px] underline underline-offset-2'
 
   const changeButton = baseButton({
     variant: 'quiet',
