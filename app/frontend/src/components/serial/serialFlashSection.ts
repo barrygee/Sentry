@@ -110,7 +110,7 @@ export function serialFlashSection(): Component<void> {
   ])
   const acknowledgeCheckbox = el('input', {
     attrs: { type: 'checkbox', 'aria-describedby': consequenceId, disabled: true },
-    class: 'mt-0.5 h-4 w-4 shrink-0 accent-signal-ok',
+    class: 'checkbox-plain mt-0.5',
     props: { checked: false },
     on: {
       change: () => {
