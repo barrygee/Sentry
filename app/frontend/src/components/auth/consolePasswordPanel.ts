@@ -99,7 +99,8 @@ export function consolePasswordPanel(): ConsolePasswordPanel {
     headingLevel: 2,
     headingId,
     tone: 'panel',
-    defaultOpen: true,
+    defaultOpen: false,
+    persistKey: 'console-password-panel',
     isBoxTitle: true,
     // `gap-6`, matching the hotspot and configuration boxes. This one sat at
     // `gap-4`, which read as cramped precisely where it mattered — the

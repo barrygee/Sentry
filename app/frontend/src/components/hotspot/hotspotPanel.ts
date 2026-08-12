@@ -166,7 +166,8 @@ export function hotspotPanel(): Component<void> {
     headingLevel: 2,
     headingId,
     tone: 'panel',
-    defaultOpen: true,
+    defaultOpen: false,
+    persistKey: 'hotspot-panel',
     isBoxTitle: true,
     // Before the disclosure, the heading and its description were a `gap-2` pair;
     // a `<summary>` sits flush against the body, so that gap is restored here.

@@ -356,7 +356,7 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     'form',
     {
       attrs: { novalidate: true, id: formId },
-      class: 'flex flex-col gap-5',
+      class: 'flex flex-col gap-7',
       on: {
         submit: (event) => {
           event.preventDefault()

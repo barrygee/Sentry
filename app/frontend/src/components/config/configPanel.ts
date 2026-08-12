@@ -38,7 +38,7 @@ export function configPanel(): Component<void> {
   const headingId = nextElementId('config-dialog-heading')
 
   const introParagraph = el('p', { class: 'm-0 text-[12px] leading-[1.6] text-signal-muted' }, [
-    'Export this Sentry’s configuration, then import it into another Sentry. It carries each device’s name, port, antenna, notes and visibility. Passwords are not exported.',
+    'Edit, Export or import this Sentry’s configuration, then import it into another Sentry. It carries each device’s name, port, antenna, notes and visibility. Passwords are not exported.',
   ])
   // No top padding of its own: every settings section is a card now, and the
   // card's own `p-card` is what separates a heading from the box above it. An
@@ -149,7 +149,8 @@ export function configPanel(): Component<void> {
     headingLevel: 2,
     headingId,
     tone: 'panel',
-    defaultOpen: true,
+    defaultOpen: false,
+    persistKey: 'config-panel',
     isBoxTitle: true,
     // Before the disclosure, the heading and its description were a `gap-2` pair;
     // a `<summary>` sits flush against the body, so that gap is restored here.
