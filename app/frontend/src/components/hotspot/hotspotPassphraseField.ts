@@ -1,6 +1,6 @@
 import { el, setAttribute, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
-import { baseButton } from '../base/baseButton.js'
+import { INLINE_LINK_BUTTON_CLASS, baseButton } from '../base/baseButton.js'
 import { baseField } from '../base/baseField.js'
 import { nextElementId } from '../base/idGenerator.js'
 import {
@@ -123,36 +123,18 @@ export function hotspotPassphraseField(
 
   const notSetLabel = el('span', { class: LABEL_CLASSES }, ['Password'])
 
-  // Two overrides, each earning its `!`:
-  //
-  // `min-h` — `BaseButton` floors every button at 38-44px for a comfortable tap
-  // target, which centred this row's text below the SSID input beside it. 24px
-  // is still WCAG 2.2 AA's minimum target size (2.5.8); it gives up the
-  // AAA-sized target (2.5.5), not an AA conformance.
-  //
-  // `font-normal`, plus the size, case and tracking of the sentence it sits in
-  // — `quiet` is 700, 11px and uppercase, which read as a separate control
-  // rather than the tail of "A password is set". The row is one line of prose
-  // with a link in it, so the link should look like the prose.
-  //
-  // There was a third, `!px-0`, working around `quiet`'s own `px-0` losing to
-  // `BASE_CLASSES` on stylesheet order. The variant now carries no competing
-  // declaration, so the workaround is gone rather than merely redundant — left
-  // in, it would have gone on quietly overriding a rule that no longer exists.
-  const CHANGE_BUTTON_CLASS =
-    '!min-h-[24px] !font-normal !normal-case !tracking-readout !text-[12.5px] font-tabular leading-[24px] underline underline-offset-2'
-
   const changeButton = baseButton({
     variant: 'quiet',
     disabled: props.disabled ?? false,
     onClick: () => beginChanging(),
     children: ['Change password'],
-    extraClass: CHANGE_BUTTON_CLASS,
+    // Shared with the address's "Copy" — see `INLINE_LINK_BUTTON_CLASS` for why
+    // a `quiet` button needs redressing to sit inside a line of prose.
+    extraClass: INLINE_LINK_BUTTON_CLASS,
   })
 
-  // One line: "•••••• - Change password". The separator is part of the prose
-  // rather than a gap, so the two read as a statement and its action rather
-  // than as two adjacent controls.
+  // One line: "•••••• Change password" — the mask, then the action, separated
+  // by the row's own gap rather than punctuation.
   //
   // The dots stand in for the stored password the way a filled password input
   // would, which says "there is one, and it is not shown" in the form the rest
@@ -166,7 +148,7 @@ export function hotspotPassphraseField(
         class: 'font-tabular text-[12.5px] leading-[24px] tracking-readout text-ink-primary',
         attrs: { role: 'img', 'aria-label': 'A password is set' },
       },
-      ['•••••• -'],
+      ['••••••'],
     ),
     changeButton.element,
   ])
@@ -237,7 +219,7 @@ export function hotspotPassphraseField(
     })
     changeButton.update({
       variant: 'quiet',
-      extraClass: CHANGE_BUTTON_CLASS,
+      extraClass: INLINE_LINK_BUTTON_CLASS,
       disabled: currentProps.disabled ?? false,
       onClick: () => beginChanging(),
       children: ['Change password'],

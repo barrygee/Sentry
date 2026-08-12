@@ -1,6 +1,6 @@
 import { classes, el, setText } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
-import { baseButton } from './baseButton.js'
+import { INLINE_LINK_BUTTON_CLASS, baseButton } from './baseButton.js'
 
 /**
  * Copies a short value to the clipboard and says so.
@@ -42,11 +42,15 @@ export function baseCopyButton(props: BaseCopyButtonProps): Component<BaseCopyBu
     class: classes('text-[11px]', 'text-signal-muted'),
   })
 
+  // A link in the line rather than a filled button. The address it copies is a
+  // readout, and a `ghost` slab beside it read as the louder of the two — the
+  // value is the thing being looked at, the copy is how you take it.
   const button = baseButton({
-    variant: 'ghost',
+    variant: 'quiet',
     ariaLabel: props.accessibleName,
     onClick: () => void copy(),
     children: [props.label ?? 'Copy'],
+    extraClass: INLINE_LINK_BUTTON_CLASS,
   })
 
   const wrapper = el('span', { class: 'inline-flex items-center gap-2' }, [

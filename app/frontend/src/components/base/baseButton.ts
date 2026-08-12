@@ -150,3 +150,22 @@ export function baseButton(props: BaseButtonProps): Component<BaseButtonProps> {
     },
   }
 }
+
+/**
+ * The `quiet` variant dressed as a link inside a line of prose.
+ *
+ * A `quiet` button is still 11px/700/uppercase — correct beside other controls,
+ * wrong as the action half of a sentence, where it reads as a separate control
+ * rather than the tail of the statement it belongs to. This takes the size,
+ * case and tracking of the prose around it and underlines it, so the row reads
+ * as one line with a link in it.
+ *
+ * `min-h` drops to 24px so the row sits on the same baseline as the fields
+ * beside it. That is still WCAG 2.2 AA's minimum target size (2.5.8); it gives
+ * up the AAA-sized target (2.5.5), not an AA conformance.
+ *
+ * Shared rather than repeated: "Change password" and the address's "Copy" are
+ * the same affordance, and two copies of this string drift.
+ */
+export const INLINE_LINK_BUTTON_CLASS =
+  '!min-h-[24px] !font-normal !normal-case !tracking-readout !text-[12.5px] font-tabular leading-[24px] underline underline-offset-2'
