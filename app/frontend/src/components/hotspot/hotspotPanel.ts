@@ -325,7 +325,13 @@ export function hotspotPanel(): Component<void> {
       const showClientList = state.configured
       setVisible(clientListSlot, showClientList)
       if (showClientList) {
-        const clientListProps: HotspotClientListProps = { clients: storeState.clients }
+        // `active`, not `configured`: the list is shown for a configured
+        // hotspot whether or not it is up, but a lease can only be released
+        // while it is — dnsmasq is not there to accept the release otherwise.
+        const clientListProps: HotspotClientListProps = {
+          clients: storeState.clients,
+          hotspotRunning: state.active,
+        }
         if (!clientList) {
           clientList = hotspotClientList(clientListProps)
           clientListSlot.appendChild(clientList.element)
