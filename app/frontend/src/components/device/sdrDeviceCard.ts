@@ -464,7 +464,7 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     'div',
     {
       class:
-        'grid grid-cols-[repeat(2,max-content)] items-start gap-x-8 gap-y-5 sm:grid-cols-[repeat(3,max-content)] lg:grid-cols-[repeat(5,max-content)]',
+        'grid grid-cols-[repeat(2,max-content)] items-start gap-x-8 gap-y-8 sm:grid-cols-[repeat(3,max-content)] lg:grid-cols-[repeat(5,max-content)]',
     },
     [
       nameField.element,
@@ -541,10 +541,15 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
     persistKey: `device.${props.device.device_id}`,
     isBoxTitle: true,
     chevronSlot,
-    // Before the disclosure, the card was a `flex flex-col gap-6`, so its header
-    // sat 24px above the first row; a `<summary>` sits flush against the body,
-    // so that gap is restored here.
-    bodyClass: 'flex flex-col gap-6 pt-6',
+    // One 32px rhythm for every row boundary in the open panel: the header to
+    // the first field row (`pt-8`), the blocks below it (`gap-8`), and the grid
+    // rows inside `fieldsGrid` (`gap-y-8`).
+    //
+    // It was three different values — 24px here, 20px between the grid rows —
+    // which put the tightest gap between the two densest rows, where a value
+    // sits directly above the next row's caption and needs the most room to
+    // separate from it.
+    bodyClass: 'flex flex-col gap-8 pt-8',
     children: [
       needsIdNotice.element,
       absentNotice.element,
