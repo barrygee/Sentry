@@ -273,10 +273,16 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
 
   const forgetAction = confirmIconAction(forgetProps())
 
+  // The disclosure mounts its chevron here, so it sits on the status line
+  // rather than taking a line of its own above it. `ml-auto` holds it at the
+  // card's trailing edge however short the status text is.
+  const chevronSlot = el('div', { class: 'ml-auto flex items-center' })
+
   const identityRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
     headingElement,
     statusBadge.element,
     forgetAction.element,
+    chevronSlot,
   ])
 
   // Both switches sit together on the right: one controls whether the
@@ -475,9 +481,10 @@ export function sdrDeviceCard(props: SdrDeviceCardProps): Component<SdrDeviceCar
   const disclosure = disclosureSection({
     label: [],
     summaryContent: [headerRow],
-    defaultOpen: true,
+    defaultOpen: false,
+    persistKey: `device.${props.device.device_id}`,
     isBoxTitle: true,
-    chevronAbove: true,
+    chevronSlot,
     // Before the disclosure, the card was a `flex flex-col gap-6`, so its header
     // sat 24px above the first row; a `<summary>` sits flush against the body,
     // so that gap is restored here.

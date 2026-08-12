@@ -229,7 +229,9 @@ describe('sdrDeviceCard inline edits', () => {
     const summary = details?.querySelector('summary')
 
     expect(details).not.toBeNull()
-    expect(details?.open).toBe(true)
+    // Closed by default — a rack of cards opens as a scannable list, and the
+    // operator's own choices are remembered from there.
+    expect(details?.open).toBe(false)
     // Everything that must survive collapsing lives in the summary.
     expect(summary?.querySelector('input[type="checkbox"]')).not.toBeNull()
   })
@@ -239,6 +241,9 @@ describe('sdrDeviceCard inline edits', () => {
     // so without the guard, turning an SDR off would fold the card shut
     // underneath the finger that did it.
     const details = card.element.querySelector('details')
+    // Open it first: the guard is about a click on a switch not *changing* the
+    // disclosure, which is only observable from a known starting state.
+    details!.open = true
     const toggle = details
       ?.querySelector('summary')
       ?.querySelector('input[type="checkbox"]') as HTMLInputElement | null

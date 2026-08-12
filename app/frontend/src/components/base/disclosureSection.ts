@@ -61,8 +61,20 @@ export interface DisclosureSectionProps {
    * open.
    */
   tone?: 'group' | 'section' | 'panel'
-  /** Open on first render. Read once — the browser owns the state after that. */
+  /** Open on first render, when nothing has been remembered. Read once. */
   defaultOpen?: boolean
+  /**
+   * Remember this disclosure's open state under this key, across reloads.
+   *
+   * Stored per key in `localStorage`, written on every toggle and read once at
+   * construction — where a remembered value wins over `defaultOpen`. Boxes
+   * start closed, so without this an operator would re-open the same two every
+   * visit; with it, the page comes back the way they left it.
+   *
+   * Keys must be stable and unique. A device card keys on its `device_id`, so
+   * a collapsed card stays collapsed across a replug.
+   */
+  persistKey?: string
   /**
    * `id` for the heading element, so a surrounding `aria-labelledby` can point
    * at it. Only meaningful alongside `headingLevel`.
@@ -76,14 +88,14 @@ export interface DisclosureSectionProps {
    */
   isBoxTitle?: boolean
   /**
-   * Put the chevron on its own line above the summary content, right-aligned,
-   * instead of inline at the end of it.
+   * An element inside `summaryContent` to mount the chevron into, instead of
+   * appending it to the summary.
    *
-   * For a summary whose content is a full row of controls: inline, the chevron
-   * lands immediately beside the last switch and reads as a third control in
-   * that group rather than as the card's own affordance.
+   * Lets a caller put the chevron on a specific line of a multi-line summary —
+   * the device card aligns it with its status badge, so the two read as one
+   * row rather than the chevron occupying a line of its own.
    */
-  chevronAbove?: boolean
+  chevronSlot?: HTMLElement
 }
 
 const TONE_CLASSES = {
@@ -116,11 +128,43 @@ const SUMMARY_SPACING = {
 
 const HEADING_TAGS = { 2: 'h2', 3: 'h3' } as const
 
+const STORAGE_PREFIX = 'sentry.disclosure.'
+
+/**
+ * Read a remembered open state, or `null` when nothing is stored.
+ *
+ * Every access is guarded: `localStorage` throws on access in a page with
+ * cookies blocked, and a disclosure that cannot remember its state must still
+ * open and close.
+ */
+function readRemembered(persistKey: string | undefined): boolean | null {
+  if (persistKey === undefined) return null
+  try {
+    const stored = window.localStorage.getItem(STORAGE_PREFIX + persistKey)
+    return stored === null ? null : stored === 'open'
+  } catch {
+    return null
+  }
+}
+
+function remember(persistKey: string | undefined, open: boolean): void {
+  if (persistKey === undefined) return
+  try {
+    window.localStorage.setItem(STORAGE_PREFIX + persistKey, open ? 'open' : 'closed')
+  } catch {
+    // Storage unavailable or full. The disclosure still works; it just forgets.
+  }
+}
+
 /** Builds a `DisclosureSection`. `update` replaces the label and body in place. */
 export function disclosureSection(
   props: DisclosureSectionProps,
 ): Component<DisclosureSectionProps> {
-  const chevron = chevronIcon({ open: props.defaultOpen ?? false })
+  // A remembered state wins over the default: the default is only what to do
+  // the first time, before the operator has expressed a preference.
+  const startsOpen = readRemembered(props.persistKey) ?? props.defaultOpen ?? false
+
+  const chevron = chevronIcon({ open: startsOpen })
 
   // The label lives in its own element either way, so `update` can swap its
   // children without disturbing the chevron beside it.
@@ -137,30 +181,21 @@ export function disclosureSection(
           props.label,
         )
 
-  const summary = props.chevronAbove
-    ? el(
-        'summary',
-        {
-          class: classes(
-            SUMMARY_CLASSES_BASE,
-            'flex-col items-stretch gap-2',
-            SUMMARY_SPACING[props.isBoxTitle ? 'boxTitle' : 'standalone'],
-            TONE_CLASSES[props.tone ?? 'group'],
-          ),
-        },
-        [el('div', { class: 'flex justify-end' }, [chevron.element]), labelHost],
-      )
-    : el(
-        'summary',
-        {
-          class: classes(
-            SUMMARY_CLASSES,
-            SUMMARY_SPACING[props.isBoxTitle ? 'boxTitle' : 'standalone'],
-            TONE_CLASSES[props.tone ?? 'group'],
-          ),
-        },
-        [labelHost, chevron.element],
-      )
+  if (props.chevronSlot) {
+    props.chevronSlot.appendChild(chevron.element)
+  }
+
+  const summary = el(
+    'summary',
+    {
+      class: classes(
+        props.chevronSlot ? SUMMARY_CLASSES_BASE + ' flex-col items-stretch' : SUMMARY_CLASSES,
+        SUMMARY_SPACING[props.isBoxTitle ? 'boxTitle' : 'standalone'],
+        TONE_CLASSES[props.tone ?? 'group'],
+      ),
+    },
+    props.chevronSlot ? [labelHost] : [labelHost, chevron.element],
+  )
 
   const body = el(
     'div',
@@ -172,10 +207,12 @@ export function disclosureSection(
     'details',
     {
       class: 'group rounded-rack',
-      attrs: props.defaultOpen ? { open: true } : {},
+      attrs: startsOpen ? { open: true } : {},
       on: {
         toggle: (event) => {
-          chevron.update({ open: (event.target as HTMLDetailsElement).open })
+          const open = (event.target as HTMLDetailsElement).open
+          chevron.update({ open })
+          remember(props.persistKey, open)
         },
       },
     },

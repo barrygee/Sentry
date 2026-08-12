@@ -323,7 +323,13 @@
                    screen-reader only: it is the skip link's destination and this
                    section's accessible name, and the boxes below would otherwise
                    be an unlabelled run. -->
-                <section aria-labelledby="devices-heading" class="flex flex-col gap-4">
+                <!-- `gap-6` under the heading, matching the Settings view. This
+                     section holds only the heading and the list, so the value
+                     sets the heading-to-first-card gap and nothing else — the
+                     card-to-card gap stays `gap-4` on the list itself. At
+                     `gap-4` here the two destinations started at visibly
+                     different heights. -->
+                <section aria-labelledby="devices-heading" class="flex flex-col gap-6">
                   <!-- Visible now, and the page's own title rather than a
                        caption on the first box: the boxes below carry their own
                        headings, and this names the destination the rail

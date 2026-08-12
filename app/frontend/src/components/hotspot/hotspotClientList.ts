@@ -151,6 +151,7 @@ export function hotspotClientList(
     label: ['Recent DHCP leases'],
     headingLevel: 3,
     tone: 'section',
+    persistKey: 'hotspot-leases',
     children: [unreadableParagraph, empty.element, list, trailingNote],
   })
 
