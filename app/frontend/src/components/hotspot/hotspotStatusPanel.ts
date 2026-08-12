@@ -49,28 +49,26 @@ export function hotspotStatusPanel(
       class:
         'select-none font-sans text-[11px] font-semibold uppercase tracking-label text-ink-primary',
     },
-    ['Address for clients'],
+    ['Sentry IP'],
   )
   const addressMono = monoValue({ value: '' })
-  const addressMonoWrapper = el('span', { class: 'text-[18px] font-semibold text-ink-primary' }, [
-    addressMono.element,
-  ])
+  // The readout treatment the rest of the panel uses, not a display size of its
+  // own. At 18px/600 it was the largest thing in Settings and read as a banner
+  // headline rather than as the value of the label above it.
+  const addressMonoWrapper = el(
+    'span',
+    { class: 'font-tabular text-[12.5px] leading-[24px] tracking-readout text-ink-primary' },
+    [addressMono.element],
+  )
   const addressCopyButton = baseCopyButton({
     value: '',
-    accessibleName: 'Copy the hotspot address for clients',
+    accessibleName: 'Copy the Sentry IP',
   })
-  const addressRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
+  const addressRow = el('div', { class: 'flex flex-wrap items-center gap-2' }, [
     addressMonoWrapper,
     addressCopyButton.element,
   ])
-  const addressHint = el('p', { class: 'm-0 text-[11px] leading-[1.6] text-signal-muted' }, [
-    'Join this network, then enter this address in Sentinel’s SDR settings with each device’s port.',
-  ])
-  const addressBlock = el('div', { class: 'flex flex-col gap-2' }, [
-    addressLabel,
-    addressRow,
-    addressHint,
-  ])
+  const addressBlock = el('div', { class: 'flex flex-col gap-2' }, [addressLabel, addressRow])
 
   const interfaceCell = dataCell({ label: 'Interface', labelTag: 'dt', valueTag: 'dd', value: '—' })
   const securityCell = dataCell({ label: 'Security', labelTag: 'dt', valueTag: 'dd', value: '' })

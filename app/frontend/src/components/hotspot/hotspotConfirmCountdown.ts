@@ -28,6 +28,15 @@ export interface HotspotConfirmCountdownProps {
   busy?: boolean
   onConfirm: () => void
   onDiscard: () => void
+  /**
+   * Fires once when the deadline passes with no confirmation.
+   *
+   * The rollback happens on the server, silently — nothing is pushed to say it
+   * has. Without this the countdown simply reached zero and the panel went on
+   * showing the hotspot as up, long after it had been reverted, which is the
+   * one state this whole flow exists to make visible.
+   */
+  onDeadlinePassed: () => void
 }
 
 const ANNOUNCE_AT_SECONDS = [60, 30, 10]
@@ -51,6 +60,7 @@ export function hotspotConfirmCountdown(
   let currentProps = props
   let currentDeadlineMs = props.deadlineMs
   let secondsRemaining = remainingSeconds(props.deadlineMs)
+  let deadlineReported = false
   const announcedThresholds = new Set<number>()
 
   const remainingSpan = el('span', { class: 'font-tabular' }, [])
@@ -104,6 +114,13 @@ export function hotspotConfirmCountdown(
         )
       }
     }
+    // Once per window, not once per tick: the state this asks for arrives
+    // asynchronously, and the timer keeps running until the panel replaces
+    // this component.
+    if (secondsRemaining === 0 && !deadlineReported) {
+      deadlineReported = true
+      currentProps.onDeadlinePassed()
+    }
   }
 
   const intervalId = setInterval(tick, 1000)
@@ -118,6 +135,7 @@ export function hotspotConfirmCountdown(
       // A new confirmation window is a new set of checkpoints.
       if (nextProps.deadlineMs !== currentDeadlineMs) {
         currentDeadlineMs = nextProps.deadlineMs
+        deadlineReported = false
         announcedThresholds.clear()
         secondsRemaining = remainingSeconds(currentDeadlineMs)
         renderRemaining()
