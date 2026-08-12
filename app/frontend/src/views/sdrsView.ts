@@ -42,7 +42,9 @@ export function mountSdrsView(root: ParentNode): () => void {
   const conflictContainer = ref(root, 'serial-conflicts', HTMLUListElement)
   const deviceContainer = ref(root, 'device-list', HTMLElement)
 
-  const notices = noticeList()
+  // Per-device only: hotspot and configuration notices belong to Settings,
+  // where the action that raised them was taken.
+  const notices = noticeList('device')
   noticeContainer.appendChild(notices.element)
 
   // Locally dismissed conflict banners, keyed by serial — dismissing hides the

@@ -1,5 +1,6 @@
 import { consolePasswordPanel } from '../components/auth/consolePasswordPanel.js'
 import { configPanel } from '../components/config/configPanel.js'
+import { noticeList } from '../components/sdrs/noticeList.js'
 import { hotspotPanel } from '../components/hotspot/hotspotPanel.js'
 import type { Component } from '../core/component.js'
 import { ref } from '../core/dom.js'
@@ -33,11 +34,18 @@ export function mountSettingsView(root: ParentNode): {
   focusPasswordField: () => void
   destroy: () => void
 } {
+  const noticeContainer = ref(root, 'settings-notice-list', HTMLElement)
   const passwordContainer = ref(root, 'console-password-panel', HTMLElement)
   const hotspotContainer = ref(root, 'hotspot-panel', HTMLElement)
   const configContainer = ref(root, 'config-panel', HTMLElement)
 
   const panels: Component<void>[] = []
+
+  // Instance-scoped: everything without a `device_id`, which is every hotspot
+  // and configuration notice. The device list keeps the per-dongle ones.
+  const notices = noticeList('instance')
+  noticeContainer.appendChild(notices.element)
+  panels.push(notices)
 
   // First: it protects everything below it, and on an open console it is the
   // thing an operator arriving at Settings most needs to see.
