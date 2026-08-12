@@ -90,7 +90,7 @@ FROM python:3.12-slim AS runtime
 RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
     && chmod +x /usr/sbin/policy-rc.d \
     && apt-get update && apt-get install -y --no-install-recommends \
-        libusb-1.0-0 tini procps network-manager \
+        libusb-1.0-0 tini procps network-manager dnsmasq-utils \
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /usr/sbin/policy-rc.d
 

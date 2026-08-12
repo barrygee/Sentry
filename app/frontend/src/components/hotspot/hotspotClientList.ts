@@ -1,7 +1,10 @@
 import { el, setText, setVisible } from '../../core/dom.js'
 import type { Component } from '../../core/component.js'
 import { keyedList } from '../../core/component.js'
+import { releaseLease } from '../../state/hotspotStore.js'
 import type { HotspotClient } from '../../api/client.js'
+import { confirmIconAction } from '../base/confirmIconAction.js'
+import type { ConfirmIconActionProps } from '../base/confirmIconAction.js'
 import { emptyState } from '../base/emptyState.js'
 import { monoValue } from '../base/monoValue.js'
 import { disclosureSection } from '../base/disclosureSection.js'
@@ -40,6 +43,29 @@ function sortedClients(clients: HotspotClient[] | null): HotspotClient[] {
 }
 
 function hotspotClientRow(client: HotspotClient): Component<HotspotClient> {
+  let currentClient = client
+
+  // Arm-then-confirm, like every other destructive control here. Worth the
+  // extra tap: the row carries no undo, and the addresses beside each other
+  // differ by a character or two.
+  function releaseProps(): ConfirmIconActionProps {
+    const label = currentClient.hostname ?? currentClient.ip_address
+    return {
+      accessibleName: `Release the lease for ${label}`,
+      confirmAccessibleName: `Confirm releasing the lease for ${label}`,
+      cancelAccessibleName: `Cancel releasing the lease for ${label}`,
+      armedAnnouncement: `Confirm releasing the lease for ${label}, or cancel. This frees the address; it does not disconnect the device.`,
+      cancelledAnnouncement: `Releasing the lease for ${label} cancelled.`,
+      onConfirm: () => {
+        void releaseLease(currentClient.mac_address)
+      },
+    }
+  }
+
+  const releaseAction = confirmIconAction(releaseProps())
+  // Pushed to the row's trailing edge, so the controls line up down the list
+  // however wide the hostnames are.
+  releaseAction.element.classList.add('ml-auto')
   const ipMono = monoValue({ value: client.ip_address })
   const ipWrapper = el('span', { class: 'text-[13px] font-semibold text-ink-primary' }, [
     ipMono.element,
@@ -59,13 +85,15 @@ function hotspotClientRow(client: HotspotClient): Component<HotspotClient> {
     {
       class: 'flex flex-wrap items-center gap-x-4 gap-y-1 rounded-rack bg-ground-raised px-3 py-2',
     },
-    [ipWrapper, hostnameSpan, macWrapper, badge.element],
+    [ipWrapper, hostnameSpan, macWrapper, badge.element, releaseAction.element],
   )
 
   return {
     element: root,
 
     update(nextClient): void {
+      currentClient = nextClient
+      releaseAction.update(releaseProps())
       ipMono.update({ value: nextClient.ip_address })
       setText(hostnameSpan, nextClient.hostname ?? 'Unnamed device')
       macMono.update({ value: nextClient.mac_address })
@@ -76,6 +104,7 @@ function hotspotClientRow(client: HotspotClient): Component<HotspotClient> {
     },
 
     destroy(): void {
+      releaseAction.destroy()
       ipMono.destroy()
       macMono.destroy()
       badge.destroy()

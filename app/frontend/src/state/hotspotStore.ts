@@ -210,6 +210,25 @@ export async function setControlEnabled(enabled: boolean): Promise<boolean> {
   return true
 }
 
+/**
+ * Ask the hotspot to forget one client's DHCP lease.
+ *
+ * Refreshes the list rather than removing the row locally: the server decides
+ * whether the release actually took, and a row that vanished optimistically
+ * would claim more than the response does.
+ */
+export async function releaseLease(macAddress: string): Promise<boolean> {
+  try {
+    await apiClient.releaseHotspotLease(macAddress)
+  } catch (error) {
+    recordError(error, 'Could not release that lease.')
+    return false
+  }
+  liveAnnouncer().announcePolite('Lease released.')
+  await refreshClients()
+  return true
+}
+
 /** Reloads only the connected-client list, without disturbing the settings form. */
 export async function refreshClients(): Promise<void> {
   try {

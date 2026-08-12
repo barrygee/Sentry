@@ -54,6 +54,10 @@ REDACTED_PLACEHOLDER = "***"
 
 _PSK_PROPERTY = "802-11-wireless-security.psk"
 
+_DHCP_RELEASE_PATH = "/usr/bin/dhcp_release"
+"""From `dnsmasq-utils`, installed in the runtime image. An absolute path for
+the same reason `nmcli`'s is: a bare name would be resolved against `PATH`."""
+
 _KEY_MANAGEMENT_BY_SECURITY: Mapping[HotspotSecurity, str] = {"wpa2": "wpa-psk", "wpa3": "sae"}
 _SECURITY_BY_KEY_MANAGEMENT: Mapping[str, HotspotSecurity] = {"wpa-psk": "wpa2", "sae": "wpa3"}
 
@@ -579,6 +583,51 @@ class NmcliWifiApController:
         """Return the AP's DHCP leases, or None when no lease file can be read."""
         return read_dnsmasq_leases(self._nm_state_root)
 
+    async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:
+        """Ask the AP's dnsmasq to forget one lease, via `dhcp_release`.
+
+        Not a lease-file edit: that file is mounted read-only, and it is
+        dnsmasq's own state rather than a database — dnsmasq holds leases in
+        memory and rewrites the file, so a deleted line reappears at the next
+        write. `dhcp_release` sends a DHCPRELEASE the server acts on.
+
+        Runs `dhcp_release` rather than `nmcli`, so it does not go through
+        `_run`: that helper prefixes `self._nmcli_path` and redacts a
+        passphrase, neither of which applies. The container shares the host's
+        network namespace (`network_mode: host`), which is what lets a release
+        sent here reach the dnsmasq bound to the AP interface.
+        """
+        argv = [_DHCP_RELEASE_PATH, interface, ip_address, mac_address]
+        _logger.debug("running dhcp_release: %s", " ".join(argv))
+        try:
+            process = await self._process_spawner.spawn(
+                argv,
+                {"PATH": os.environ.get("PATH", _FALLBACK_SPAWN_PATH), "LC_ALL": "C"},
+                name="dhcp_release",
+                capture_output=True,
+            )
+        except OSError as error:
+            raise WifiApUnavailableError(f"dhcp_release could not be started: {error}") from error
+
+        try:
+            exit_code = await asyncio.wait_for(process.wait(), timeout=self._timeout_s)
+        except TimeoutError as error:
+            process.kill()
+            raise WifiApTimeoutError(
+                f"dhcp_release did not finish within {self._timeout_s:.0f}s",
+                stderr_tail=None,
+                exit_code=None,
+            ) from error
+
+        _, stderr = await process.communicate()
+        if exit_code != 0:
+            stderr_tail = stderr.decode("utf-8", errors="replace")[-STDERR_TRUNCATE_CHARS:]
+            raise WifiApCommandError(
+                f"dhcp_release exited {exit_code}",
+                stderr_tail=stderr_tail or None,
+                exit_code=exit_code,
+            )
+
     async def _run(self, arguments: Sequence[str], secret: str | None = None) -> str:
         """Run one `nmcli` invocation and return its stdout.
 
@@ -700,6 +749,10 @@ class UnavailableWifiApController:
 
     async def activate_named(self, connection_name: str) -> None:
         """Refuse: there is nothing here to activate."""
+        raise WifiApUnavailableError(self._reason)
+
+    async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:
+        """Refuse: there is no access point here whose leases could be released."""
         raise WifiApUnavailableError(self._reason)
 
     def list_clients(self) -> tuple[HotspotClient, ...] | None:

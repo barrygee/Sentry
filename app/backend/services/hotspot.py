@@ -172,6 +172,58 @@ class HotspotService:
         """List the hotspot's DHCP leases. `None` means unknown, never zero."""
         return self._controller.list_clients()
 
+    async def release_lease(self, mac_address: str) -> None:
+        """Forget one DHCP lease, identified by the client's MAC address.
+
+        The address to release is looked up from the lease list rather than
+        taken from the caller: a request naming both would let one client's MAC
+        be paired with another's IP, and `dhcp_release` would act on that pair
+        without question.
+
+        Refuses when the hotspot is not up. dnsmasq only exists while the
+        shared connection is active, so a release sent to a stopped hotspot has
+        nothing listening and would fail opaquely rather than say why.
+        """
+        async with self._exclusive():
+            await self._require_available()
+            state = await self._controller.read_state()
+            if not state.active or state.interface is None:
+                raise HotspotError(
+                    "hotspot_not_running",
+                    "The hotspot is not running, so it has no leases to release.",
+                )
+
+            clients = self._controller.list_clients()
+            if clients is None:
+                raise HotspotError(
+                    "leases_unreadable",
+                    "This Sentry cannot read its lease file, so it cannot release a lease.",
+                )
+
+            normalised = mac_address.strip().lower()
+            match = next(
+                (client for client in clients if client.mac_address.lower() == normalised), None
+            )
+            if match is None:
+                raise HotspotError(
+                    "lease_not_found",
+                    "That lease is no longer listed — it may have expired or "
+                    "already been released.",
+                )
+
+            # `_guard` is the established translation: it turns a controller
+            # failure into the right `HotspotError`, records it for
+            # `GET /api/hotspot` to explain, and scrubs command output.
+            await self._guard(
+                self._controller.release_lease(state.interface, match.ip_address, match.mac_address)
+            )
+
+            self._publish_notice(
+                "info",
+                "hotspot_lease_released",
+                f"Released the lease for {match.ip_address}.",
+            )
+
     @property
     def default_gateway_cidr(self) -> str:
         """The AP-side address used when a request does not name one."""
