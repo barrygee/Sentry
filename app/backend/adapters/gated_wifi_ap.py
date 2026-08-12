@@ -82,6 +82,10 @@ class GatedWifiApController:
         controller = await self._controller()
         await controller.delete_profile()
 
+    async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:
+        controller = await self._controller()
+        await controller.release_lease(interface, ip_address, mac_address)
+
     async def active_connection_on(self, interface: str) -> str | None:
         controller = await self._controller()
         return await controller.active_connection_on(interface)

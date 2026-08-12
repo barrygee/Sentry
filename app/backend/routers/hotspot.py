@@ -65,6 +65,9 @@ _STATUS_BY_ERROR_CODE: dict[str, int] = {
     "interface_not_found": status.HTTP_409_CONFLICT,
     "interface_ap_unsupported": status.HTTP_409_CONFLICT,
     "hotspot_busy": status.HTTP_409_CONFLICT,
+    "hotspot_not_running": status.HTTP_409_CONFLICT,
+    "lease_not_found": status.HTTP_404_NOT_FOUND,
+    "leases_unreadable": status.HTTP_503_SERVICE_UNAVAILABLE,
     "no_pending_confirmation": status.HTTP_409_CONFLICT,
     "hotspot_command_timeout": status.HTTP_504_GATEWAY_TIMEOUT,
     "hotspot_command_failed": status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -427,6 +430,37 @@ async def disable_hotspot(
         await console_auth.is_password_set(),
         await host_control.hotspot_control_enabled(),
     )
+
+
+@router.delete(
+    "/clients/{mac_address}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Release one DHCP lease",
+)
+async def release_hotspot_lease(
+    mac_address: str,
+    hotspot_service: HotspotService = Depends(get_hotspot_service),
+    settings: Settings = Depends(get_settings_dependency),
+    console_auth: ConsoleAuthService = Depends(get_console_auth_service),
+    host_control: HostControlSettingsService = Depends(get_host_control_settings),
+) -> None:
+    """Ask the AP's DHCP server to forget one lease.
+
+    Keyed by MAC alone: the address to release is looked up from the lease
+    list, so a request cannot pair one client's MAC with another's IP.
+
+    This frees a reservation; it does not disconnect anyone. A client still in
+    range will ask again and may be handed the same address back.
+    """
+    _guard_mutation(
+        await host_control.hotspot_control_enabled(),
+        settings,
+        await console_auth.is_password_set(),
+    )
+    try:
+        await hotspot_service.release_lease(mac_address)
+    except HotspotError as error:
+        raise _as_http_exception(error) from error
 
 
 @router.post(

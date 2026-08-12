@@ -144,6 +144,21 @@ class WifiApController(Protocol):
         """
         ...
 
+    async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:
+        """Tell the AP's DHCP server to forget one lease.
+
+        The lease file under `/var/lib/NetworkManager` is mounted read-only and
+        is dnsmasq's own state, not a database to edit: dnsmasq keeps leases in
+        memory and rewrites that file, so deleting a line from it is undone at
+        the next write. `dhcp_release` is the supported way to ask, and the
+        only one that actually sticks.
+
+        Forgetting a lease does not disconnect anything. A client still
+        associated will simply ask again and may be handed the same address —
+        this frees the reservation, it does not evict the device.
+        """
+        ...
+
     def list_clients(self) -> tuple[HotspotClient, ...] | None:
         """Return the access point's current DHCP leases.
 

@@ -101,6 +101,9 @@ class _RecordingWifiApController:
     async def delete_profile(self) -> None:
         raise AssertionError("enable() must not delete the profile")
 
+    async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:
+        raise AssertionError("enable() must not release a lease")
+
     async def active_connection_on(self, interface: str) -> str | None:
         return None
 

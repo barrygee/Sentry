@@ -179,6 +179,15 @@ export const apiClient = {
   confirmHotspot: () => request<HotspotState>('/hotspot/confirm', { method: 'POST' }),
   deleteHotspot: () => request<void>('/hotspot', { method: 'DELETE' }),
 
+  /**
+   * Ask the AP's DHCP server to forget one lease.
+   *
+   * Keyed by MAC alone — the server looks the address up from its own lease
+   * list, so a caller cannot pair one client's MAC with another's IP.
+   */
+  releaseHotspotLease: (macAddress: string) =>
+    request<void>(`/hotspot/clients/${encodeURIComponent(macAddress)}`, { method: 'DELETE' }),
+
   // Config export/import. The download route is deliberately NOT fetched here —
   // it is a plain navigation so the browser's own save-file behaviour handles
   // `Content-Disposition`, rather than the app building a blob and an object URL.

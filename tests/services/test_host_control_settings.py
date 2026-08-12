@@ -185,6 +185,9 @@ class RecordingWifiApController:
     async def delete_profile(self) -> None:
         self.calls.append("delete_profile")
 
+    async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:
+        self.calls.append("release_lease")
+
     async def active_connection_on(self, interface: str) -> str | None:
         self.calls.append("active_connection_on")
         return None

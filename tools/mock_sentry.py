@@ -1366,6 +1366,22 @@ async def mock_import_config(body: dict[str, object]) -> dict[str, object]:
     }
 
 
+@app.delete("/api/hotspot/clients/{mac_address}", status_code=204)
+def release_hotspot_lease(mac_address: str) -> Response:
+    """Drop one mock lease, so the console's release control can be exercised."""
+    normalised = mac_address.strip().lower()
+    before = len(_hotspot_state.leases)
+    _hotspot_state.leases = [
+        lease for lease in _hotspot_state.leases if lease.mac_address.lower() != normalised
+    ]
+    if len(_hotspot_state.leases) == before:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "lease_not_found", "message": "That lease is no longer listed."},
+        )
+    return Response(status_code=204)
+
+
 if __name__ == "__main__":
     import uvicorn
 
