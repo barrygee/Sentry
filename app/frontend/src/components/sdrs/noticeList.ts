@@ -118,7 +118,7 @@ function noticeListItem(row: NoticeRow): Component<NoticeRow> {
     setText(messageElement, nextRow.notice.message)
     setText(
       repeatCountElement,
-      nextRow.notice.repeatCount > 1 ? `×${nextRow.notice.repeatCount}` : '',
+      nextRow.notice.repeatCount > 1 ? `(${nextRow.notice.repeatCount})` : '',
     )
     dismissAction.update(dismissProps(nextRow))
   }
@@ -169,7 +169,30 @@ function noticeListItem(row: NoticeRow): Component<NoticeRow> {
  * `applyNotice`), so a dongle flapping every few seconds cannot bury the rest
  * of the log.
  */
-export function noticeList(): Component<void> {
+/**
+ * Which notices a list shows.
+ *
+ * `device` — anything attributable to one dongle: crashes, wedges, serial
+ * flashes. These belong beside the cards they describe.
+ * `instance` — everything else. Hotspot and configuration changes carry no
+ * `device_id`, and surfacing "Hotspot saved on wlan0" above the device list
+ * put the confirmation for a Settings action in the other destination
+ * entirely — where it also pushed the devices heading down the page.
+ */
+export type NoticeScope = 'device' | 'instance'
+
+function inScope(deviceId: string | null, scope: NoticeScope | undefined): boolean {
+  if (scope === undefined) return true
+  return scope === 'device' ? deviceId !== null : deviceId === null
+}
+
+/**
+ * @param scope Omit to show every notice. Both real mounts pass one, so that
+ *   the two lists partition the stream rather than each showing a superset —
+ *   but unfiltered is the honest default for a list of notices, and it is what
+ *   keeps a single-list caller (and this component's own tests) meaningful.
+ */
+export function noticeList(scope?: NoticeScope): Component<void> {
   const listElement = el('ul', {
     class: 'm-0 flex list-none flex-col gap-2 p-0',
     attrs: { 'aria-label': 'Notices' },
@@ -183,7 +206,7 @@ export function noticeList(): Component<void> {
 
   const unsubscribe = watchStore(sdrsStore, (state) => {
     const visibleRows = state.notices
-      .filter((notice) => !notice.dismissed)
+      .filter((notice) => !notice.dismissed && inScope(notice.device_id, scope))
       .map((notice) => ({
         notice,
         deviceName: notice.device_id === null ? null : deviceLabel(state, notice.device_id),

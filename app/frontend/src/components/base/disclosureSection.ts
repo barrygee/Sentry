@@ -101,7 +101,7 @@ export interface DisclosureSectionProps {
 const TONE_CLASSES = {
   group: 'text-[10px] tracking-control text-signal-muted',
   section: 'text-[11px] tracking-label text-ink-primary',
-  panel: 'text-[13px] tracking-[0.1em] text-ink-primary',
+  panel: 'text-[12px] tracking-[0.1em] text-ink-primary',
 } as const
 
 // `justify-between` is what actually pins the chevron right, and it has to be:

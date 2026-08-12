@@ -136,7 +136,11 @@ describe('noticeList', () => {
     applyNotice(crashLoopNotice(null))
     await flushStore()
 
-    expect(rowTexts()[0]).not.toContain('×')
+    // Asserted on the count element rather than the row's text: the message
+    // itself contains brackets ("(5 restarts within 120s)"), so a substring
+    // check for the count's own brackets matches the wrong thing.
+    const countElement = container.querySelector('[aria-hidden="true"]')
+    expect(countElement?.textContent).toBe('')
   })
 
   it('shows a count once the notice repeats', async () => {
@@ -147,7 +151,7 @@ describe('noticeList', () => {
 
     // No space in the text: the gap before the count is a left margin, so the
     // count reads as its own element rather than as part of the sentence.
-    expect(rowTexts()).toEqual([`${CRASH_LOOP_MESSAGE}×3`])
+    expect(rowTexts()).toEqual([`${CRASH_LOOP_MESSAGE}(3)`])
   })
 
   it('hides the count glyph from assistive tech, which spells it out instead', async () => {
@@ -156,7 +160,7 @@ describe('noticeList', () => {
     await flushStore()
 
     const countElement = list.element.querySelector('li p span[aria-hidden="true"]')
-    expect(countElement?.textContent).toBe('×2')
+    expect(countElement?.textContent).toBe('(2)')
   })
 
   it('names the device and repeat count on the dismiss control', async () => {
@@ -236,5 +240,47 @@ describe('noticeList', () => {
     await flushStore()
 
     expect(await axe(container)).toHaveNoViolations()
+  })
+
+  describe('scoping', () => {
+    // The two mounted lists must partition the stream: every notice appears in
+    // exactly one of them. A scope that let both through, or neither, would
+    // either duplicate the message or lose it silently.
+    function scopedList(scope: 'device' | 'instance'): Component<void> {
+      const scoped = noticeList(scope)
+      container.appendChild(scoped.element)
+      return scoped
+    }
+
+    it('a device-scoped list shows only notices carrying a device', async () => {
+      const scoped = scopedList('device')
+      applyNotice(crashLoopNotice('usb:1-2.1'))
+      applyNotice(crashLoopNotice(null))
+      await flushStore()
+
+      expect(scoped.element.querySelectorAll('li')).toHaveLength(1)
+
+      scoped.destroy()
+    })
+
+    it('an instance-scoped list shows only notices with no device', async () => {
+      const scoped = scopedList('instance')
+      applyNotice(crashLoopNotice('usb:1-2.1'))
+      applyNotice(crashLoopNotice(null))
+      await flushStore()
+
+      expect(scoped.element.querySelectorAll('li')).toHaveLength(1)
+
+      scoped.destroy()
+    })
+
+    it('an unscoped list shows both, which is what the default means', async () => {
+      applyNotice(crashLoopNotice('usb:1-2.1'))
+      applyNotice(crashLoopNotice(null))
+      await flushStore()
+
+      // `list` from the shared setup is built with no scope.
+      expect(list.element.querySelectorAll('li')).toHaveLength(2)
+    })
   })
 })
