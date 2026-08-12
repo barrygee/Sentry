@@ -253,4 +253,20 @@ describe('sdrDeviceCard inline edits', () => {
 
     expect(details?.open).toBe(true)
   })
+
+  it('shows the dialable address only while collapsed', () => {
+    // Collapsed, it is the one value an operator has to type into Sentinel on
+    // another machine. Expanded, the port has its own field, and two
+    // statements of the same fact a few rows apart is how they disagree.
+    const details = card.element.querySelector('details')
+    const summary = details?.querySelector('summary')
+    const addressOf = () =>
+      [...(summary?.querySelectorAll('span') ?? [])].find((span) =>
+        /^\d+\.\d+\.\d+\.\d+:\d+$/.test((span.textContent ?? '').trim()),
+      )
+
+    const collapsed = addressOf()
+    expect(collapsed?.textContent?.trim()).toBe('192.168.1.45:1234')
+    expect(collapsed?.className).toContain('group-open:hidden')
+  })
 })
