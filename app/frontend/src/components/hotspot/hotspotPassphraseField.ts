@@ -150,14 +150,23 @@ export function hotspotPassphraseField(
     extraClass: CHANGE_BUTTON_CLASS,
   })
 
-  // One sentence: "A password is set - Change password". The separator is part
-  // of the prose rather than a gap, so the two read as a statement and its
-  // action rather than as two adjacent controls.
+  // One line: "•••••• - Change password". The separator is part of the prose
+  // rather than a gap, so the two read as a statement and its action rather
+  // than as two adjacent controls.
+  //
+  // The dots stand in for the stored password the way a filled password input
+  // would, which says "there is one, and it is not shown" in the form the rest
+  // of the field already uses. They are decorative — six of them regardless of
+  // the real length, since leaking that is the one thing a masked readout must
+  // not do — so the accessible name spells the state out in words instead.
   const notChangingRow = el('div', { class: 'flex flex-wrap items-center gap-2' }, [
     el(
       'span',
-      { class: 'font-tabular text-[12.5px] leading-[24px] tracking-readout text-ink-primary' },
-      ['A password is set -'],
+      {
+        class: 'font-tabular text-[12.5px] leading-[24px] tracking-readout text-ink-primary',
+        attrs: { role: 'img', 'aria-label': 'A password is set' },
+      },
+      ['•••••• -'],
     ),
     changeButton.element,
   ])

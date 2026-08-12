@@ -28,6 +28,22 @@ import { statusBadge } from '../base/statusBadge.js'
 export interface HotspotClientListProps {
   /** `null` means unknown. Never render it as "none connected". */
   clients: HotspotClient[] | null
+  /**
+   * Whether the hotspot is currently up.
+   *
+   * Gates the release control, which is only possible while it is: a release is
+   * a DHCPRELEASE to the AP's dnsmasq, and dnsmasq only exists while the shared
+   * connection is active. The lease *file* outlives it, so a stopped hotspot
+   * still lists the devices that joined the last time it ran — offering a
+   * release button beside them produced a 409 `hotspot_not_running` every time.
+   */
+  hotspotRunning: boolean
+}
+
+/** One row's inputs: the lease, and whether it can currently be released. */
+interface HotspotClientRowProps {
+  client: HotspotClient
+  hotspotRunning: boolean
 }
 
 function sortedClients(clients: HotspotClient[] | null): HotspotClient[] {
@@ -42,8 +58,8 @@ function sortedClients(clients: HotspotClient[] | null): HotspotClient[] {
   })
 }
 
-function hotspotClientRow(client: HotspotClient): Component<HotspotClient> {
-  let currentClient = client
+function hotspotClientRow(props: HotspotClientRowProps): Component<HotspotClientRowProps> {
+  let currentClient = props.client
 
   // Arm-then-confirm, like every other destructive control here. Worth the
   // extra tap: the row carries no undo, and the addresses beside each other
@@ -66,18 +82,22 @@ function hotspotClientRow(client: HotspotClient): Component<HotspotClient> {
   // Pushed to the row's trailing edge, so the controls line up down the list
   // however wide the hostnames are.
   releaseAction.element.classList.add('ml-auto')
-  const ipMono = monoValue({ value: client.ip_address })
+  // Hidden rather than disabled while the hotspot is down. A disabled control
+  // still says "this is a thing you could do here"; with no dnsmasq to accept
+  // the release, it is not one until the hotspot is running again.
+  setVisible(releaseAction.element, props.hotspotRunning)
+  const ipMono = monoValue({ value: props.client.ip_address })
   const ipWrapper = el('span', { class: 'text-[13px] font-semibold text-ink-primary' }, [
     ipMono.element,
   ])
   const hostnameSpan = el('span', { class: 'text-[12px] text-ink-primary' }, [
-    client.hostname ?? 'Unnamed device',
+    props.client.hostname ?? 'Unnamed device',
   ])
-  const macMono = monoValue({ value: client.mac_address })
+  const macMono = monoValue({ value: props.client.mac_address })
   const macWrapper = el('span', { class: 'text-[11px] text-signal-muted' }, [macMono.element])
   const badge = statusBadge({
-    tone: client.expired ? 'neutral' : 'ok',
-    children: [client.expired ? 'Lease expired' : 'Lease active'],
+    tone: props.client.expired ? 'neutral' : 'ok',
+    children: [props.client.expired ? 'Lease expired' : 'Lease active'],
   })
 
   const root = el(
@@ -91,9 +111,11 @@ function hotspotClientRow(client: HotspotClient): Component<HotspotClient> {
   return {
     element: root,
 
-    update(nextClient): void {
+    update(nextProps): void {
+      const nextClient = nextProps.client
       currentClient = nextClient
       releaseAction.update(releaseProps())
+      setVisible(releaseAction.element, nextProps.hotspotRunning)
       ipMono.update({ value: nextClient.ip_address })
       setText(hostnameSpan, nextClient.hostname ?? 'Unnamed device')
       macMono.update({ value: nextClient.mac_address })
@@ -133,15 +155,27 @@ export function hotspotClientList(
     class: 'm-0 flex list-none flex-col gap-2 p-0',
     attrs: { 'aria-label': 'Recent DHCP leases' },
   })
-  const listController = keyedList<HotspotClient, string>(
+  const listController = keyedList<HotspotClientRowProps, string>(
     list,
     hotspotClientRow,
-    (client) => client.mac_address,
+    (rowProps) => rowProps.client.mac_address,
   )
 
   const trailingNote = el('p', { class: 'm-0 text-[11px] leading-[1.6] text-signal-muted' }, [
     'A lease shows that a device was given an address, not that it is still in range.',
   ])
+
+  // Says why the release controls are missing, rather than leaving their
+  // absence to be discovered. Only while the hotspot is off *and* leases are
+  // still listed — with an empty list there is nothing whose controls could be
+  // noticed missing.
+  const releaseUnavailableNote = el(
+    'p',
+    { class: 'm-0 text-[11px] leading-[1.6] text-signal-muted' },
+    [
+      'These leases are left over from the last time the hotspot ran. They cannot be released while it is off — start the hotspot to release one, or leave them to expire.',
+    ],
+  )
 
   // Collapsed by default. On a hotspot that is off — the common case, and the
   // state the panel spends most of its life in — this section can only say
@@ -152,25 +186,28 @@ export function hotspotClientList(
     headingLevel: 3,
     tone: 'section',
     persistKey: 'hotspot-leases',
-    children: [unreadableParagraph, empty.element, list, trailingNote],
+    children: [unreadableParagraph, empty.element, list, releaseUnavailableNote, trailingNote],
   })
 
-  function render(clients: HotspotClient[] | null): void {
-    const sorted = sortedClients(clients)
-    setVisible(unreadableParagraph, clients === null)
-    setVisible(empty.element, clients !== null && sorted.length === 0)
+  function render(nextProps: HotspotClientListProps): void {
+    const sorted = sortedClients(nextProps.clients)
+    setVisible(unreadableParagraph, nextProps.clients === null)
+    setVisible(empty.element, nextProps.clients !== null && sorted.length === 0)
     setVisible(list, sorted.length > 0)
-    listController.update(sorted)
-    setVisible(trailingNote, clients !== null && sorted.length > 0)
+    listController.update(
+      sorted.map((client) => ({ client, hotspotRunning: nextProps.hotspotRunning })),
+    )
+    setVisible(releaseUnavailableNote, !nextProps.hotspotRunning && sorted.length > 0)
+    setVisible(trailingNote, nextProps.clients !== null && sorted.length > 0)
   }
 
-  render(props.clients)
+  render(props)
 
   return {
     element: root.element,
 
     update(nextProps): void {
-      render(nextProps.clients)
+      render(nextProps)
     },
 
     destroy(): void {
