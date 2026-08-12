@@ -76,15 +76,21 @@
            1490/2048 em, giving a 23px font size. The 8px gap is its own 11.35
            unit gap at that scale. -->
       <header
-        class="flex h-[68px] shrink-0 items-center gap-2 bg-ground-header pl-[10px] pr-[22px]"
+        class="flex h-[68px] shrink-0 items-center gap-2 bg-ground-header pl-[13px] pr-[22px]"
       >
         <!-- The ⊙ mark, identical to Sentinel's — a white ring with a lime
              centre dot. Proportions are ratios of its 34.90 artboard: ring
              radius 14.41, stroke 4.08, dot radius 5.69, about centre 17.4497.
              Decorative — the wordmark beside it already names the app. -->
-        <!-- `-ml-px` with the header's `pl-[10px]` reproduces Sentinel's own
-             pair — `#nav { padding-left: 10px }` and `#nav-logo { margin-left:
-             -1px }` — rather than a value matched by eye from a screenshot. -->
+        <!-- `-ml-px` is Sentinel's own `#nav-logo { margin-left: -1px }`. The
+             header's padding is not: Sentinel pairs it with `#nav {
+             padding-left: 10px }`, which put the dot's centre at x=22 while the
+             nav rail's icons sit at x=25, so the mark and the icons below it
+             read as two different left edges.
+             25 rather than the rail's geometric 24 because every rail button
+             carries `border-l-2` for its active marker, which centres the icon
+             in the remaining 46px. `pl-[13px]` less the `-ml-px` puts the 26px
+             mark at x=12, and its centre — the dot — at 25. -->
         <svg
           width="26"
           height="26"
