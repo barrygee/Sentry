@@ -9,6 +9,7 @@ import { emptyState } from '../base/emptyState.js'
 import { monoValue } from '../base/monoValue.js'
 import { disclosureSection } from '../base/disclosureSection.js'
 import { statusBadge } from '../base/statusBadge.js'
+import type { StatusBadgeProps } from '../base/statusBadge.js'
 
 /**
  * The hotspot's DHCP leases.
@@ -58,6 +59,27 @@ function sortedClients(clients: HotspotClient[] | null): HotspotClient[] {
   })
 }
 
+/**
+ * What a lease's badge should say, given the hotspot's state.
+ *
+ * `expired` is a clock comparison on the server — `lease_expires_at_ms <
+ * now` — and says nothing about whether the hotspot is up. With the AP down
+ * there is no dnsmasq, no network and nothing holding the address, so an
+ * unexpired lease reading "Lease active" was true about the clock and
+ * misleading about reality. It is described as held-but-not-in-force instead,
+ * and never in the `ok` tone, which is reserved for a lease that is actually
+ * serving something.
+ */
+function leaseBadgeProps(client: HotspotClient, hotspotRunning: boolean): StatusBadgeProps {
+  if (client.expired) {
+    return { tone: 'neutral', children: ['Lease expired'] }
+  }
+  if (!hotspotRunning) {
+    return { tone: 'neutral', children: ['Not in force'] }
+  }
+  return { tone: 'ok', children: ['Lease active'] }
+}
+
 function hotspotClientRow(props: HotspotClientRowProps): Component<HotspotClientRowProps> {
   let currentClient = props.client
 
@@ -95,10 +117,7 @@ function hotspotClientRow(props: HotspotClientRowProps): Component<HotspotClient
   ])
   const macMono = monoValue({ value: props.client.mac_address })
   const macWrapper = el('span', { class: 'text-[11px] text-signal-muted' }, [macMono.element])
-  const badge = statusBadge({
-    tone: props.client.expired ? 'neutral' : 'ok',
-    children: [props.client.expired ? 'Lease expired' : 'Lease active'],
-  })
+  const badge = statusBadge(leaseBadgeProps(props.client, props.hotspotRunning))
 
   const root = el(
     'li',
@@ -119,10 +138,7 @@ function hotspotClientRow(props: HotspotClientRowProps): Component<HotspotClient
       ipMono.update({ value: nextClient.ip_address })
       setText(hostnameSpan, nextClient.hostname ?? 'Unnamed device')
       macMono.update({ value: nextClient.mac_address })
-      badge.update({
-        tone: nextClient.expired ? 'neutral' : 'ok',
-        children: [nextClient.expired ? 'Lease expired' : 'Lease active'],
-      })
+      badge.update(leaseBadgeProps(nextClient, nextProps.hotspotRunning))
     },
 
     destroy(): void {
@@ -161,21 +177,12 @@ export function hotspotClientList(
     (rowProps) => rowProps.client.mac_address,
   )
 
-  const trailingNote = el('p', { class: 'm-0 text-[11px] leading-[1.6] text-signal-muted' }, [
-    'A lease shows that a device was given an address, not that it is still in range.',
-  ])
-
-  // Says why the release controls are missing, rather than leaving their
-  // absence to be discovered. Only while the hotspot is off *and* leases are
-  // still listed — with an empty list there is nothing whose controls could be
-  // noticed missing.
-  const releaseUnavailableNote = el(
-    'p',
-    { class: 'm-0 text-[11px] leading-[1.6] text-signal-muted' },
-    [
-      'These leases are left over from the last time the hotspot ran. They cannot be released while it is off — start the hotspot to release one, or leave them to expire.',
-    ],
-  )
+  // One line, and only one. This was two paragraphs — what a lease is, and why
+  // the release controls are missing — which between them said more about the
+  // list than the list itself did. Whichever fact the current state makes
+  // worth stating wins: with the hotspot off, why nothing can be released;
+  // with it up, that a lease is not a device in range.
+  const leaseNote = el('p', { class: 'm-0 text-[11px] leading-[1.6] text-signal-muted' }, [])
 
   // Collapsed by default. On a hotspot that is off — the common case, and the
   // state the panel spends most of its life in — this section can only say
@@ -186,7 +193,7 @@ export function hotspotClientList(
     headingLevel: 3,
     tone: 'section',
     persistKey: 'hotspot-leases',
-    children: [unreadableParagraph, empty.element, list, releaseUnavailableNote, trailingNote],
+    children: [unreadableParagraph, empty.element, list, leaseNote],
   })
 
   function render(nextProps: HotspotClientListProps): void {
@@ -197,8 +204,13 @@ export function hotspotClientList(
     listController.update(
       sorted.map((client) => ({ client, hotspotRunning: nextProps.hotspotRunning })),
     )
-    setVisible(releaseUnavailableNote, !nextProps.hotspotRunning && sorted.length > 0)
-    setVisible(trailingNote, nextProps.clients !== null && sorted.length > 0)
+    setText(
+      leaseNote,
+      nextProps.hotspotRunning
+        ? 'A lease is an address given out, not a device still in range.'
+        : 'Left over from the last run — start the hotspot to release one.',
+    )
+    setVisible(leaseNote, nextProps.clients !== null && sorted.length > 0)
   }
 
   render(props)
