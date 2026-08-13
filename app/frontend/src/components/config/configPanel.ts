@@ -15,6 +15,7 @@ import {
   configStore,
   pendingDeviceCount,
   pendingHasHotspot,
+  pendingHasLocation,
   stagePickedFile,
   type ConfigStoreState,
 } from '../../state/configStore.js'
@@ -103,6 +104,19 @@ export function configPanel(): Component<void> {
     label: 'Apply hotspot settings',
     accessibleName: 'Apply hotspot settings from the file',
   })
+  const applyLocationToggle = baseToggle({
+    value: true,
+    onChange: (value) => configStore.setState({ applyLocation: value }),
+    label: 'Apply Sentry location',
+    accessibleName: 'Apply the fixed position from the file',
+  })
+  // On by default, unlike the hotspot's: restoring a Pi is the common case. The
+  // warning is for the other one, where the file came from a *different* box.
+  const locationCloneParagraph = el('p', { class: '-mt-1 m-0 text-[11px] text-signal-muted' }, [
+    'The position describes where the exporting Sentry physically sits. Turn this off when ' +
+      'setting up a second Sentry from another one’s file, or both will appear at the same ' +
+      'place on Sentinel’s map.',
+  ])
   const hotspotPasswordParagraph = el('p', { class: '-mt-1 m-0 text-[11px] text-signal-muted' }, [
     'This writes the network’s settings but never starts it — you turn the hotspot on yourself. ' +
       'An exported file never contains the password; a file you wrote by hand may add a `passphrase` ' +
@@ -127,6 +141,8 @@ export function configPanel(): Component<void> {
   const pendingImportBlock = el('div', { class: 'flex flex-col gap-3' }, [
     pendingNotice.element,
     applyDevicesToggle.element,
+    applyLocationToggle.element,
+    locationCloneParagraph,
     applyHotspotToggle.element,
     hotspotPasswordParagraph,
     pendingActionsRow,
@@ -250,6 +266,19 @@ export function configPanel(): Component<void> {
         disabled: isBusy,
       })
 
+      const showLocationToggle = pendingHasLocation(state)
+      setVisible(applyLocationToggle.element, showLocationToggle)
+      setVisible(locationCloneParagraph, showLocationToggle)
+      if (showLocationToggle) {
+        applyLocationToggle.update({
+          value: state.applyLocation,
+          onChange: (value) => configStore.setState({ applyLocation: value }),
+          label: 'Apply Sentry location',
+          accessibleName: 'Apply the fixed position from the file',
+          disabled: isBusy,
+        })
+      }
+
       const showHotspotToggle = pendingHasHotspot(state)
       setVisible(applyHotspotToggle.element, showHotspotToggle)
       setVisible(hotspotPasswordParagraph, showHotspotToggle)
@@ -265,7 +294,11 @@ export function configPanel(): Component<void> {
 
       applyImportButton.update({
         variant: 'primary',
-        disabled: isBusy || (!state.applyDevices && !state.applyHotspot),
+        disabled:
+          isBusy ||
+          (!state.applyDevices &&
+            !state.applyHotspot &&
+            !(state.applyLocation && showLocationToggle)),
         onClick: () => void applyImportAction(),
         children: [isBusy ? 'Importing…' : 'Apply this configuration'],
       })

@@ -40,6 +40,7 @@ export interface ConfigStoreState {
   errorMessage: string | null
   applyDevices: boolean
   applyHotspot: boolean
+  applyLocation: boolean
 }
 
 /** Export/import state for the whole Sentry instance's device and hotspot configuration. */
@@ -55,6 +56,7 @@ export const configStore: Store<ConfigStoreState> = createStore<ConfigStoreState
   // network this Pi serves, and the file never carries a password to start
   // it with anyway.
   applyHotspot: false,
+  applyLocation: true,
 })
 
 /** How many device entries the picked file carries. */
@@ -65,6 +67,23 @@ export function pendingDeviceCount(state: Readonly<ConfigStoreState>): number {
 /** Whether the picked file describes a hotspot at all. */
 export function pendingHasHotspot(state: Readonly<ConfigStoreState>): boolean {
   return (state.pendingImport?.hotspot ?? null) !== null
+}
+
+/**
+ * Whether the staged file carries a position worth offering to apply.
+ *
+ * Every exported file now has a `location` section, so its mere presence says
+ * nothing — an unplaced Sentry writes one with two empty strings. The toggle
+ * therefore keys on the coordinates being *filled in*, or it would appear on
+ * every import promising to apply nothing.
+ */
+export function pendingHasLocation(state: Readonly<ConfigStoreState>): boolean {
+  const location = state.pendingImport?.location ?? null
+  if (location === null) return false
+  const { latitude, longitude } = location
+  const isFilled = (value: number | string | null | undefined): boolean =>
+    value !== null && value !== undefined && value !== '' && !Number.isNaN(Number(value))
+  return isFilled(latitude) && isFilled(longitude)
 }
 
 /**
@@ -217,7 +236,7 @@ export async function applyEditedConfig(contents: string): Promise<boolean> {
 
 /** Sends the staged import to the server, applying whichever sections are enabled. */
 export async function applyPendingImport(): Promise<boolean> {
-  const { pendingImport, applyDevices, applyHotspot } = configStore.state
+  const { pendingImport, applyDevices, applyHotspot, applyLocation } = configStore.state
   if (pendingImport === null) {
     return false
   }
@@ -227,6 +246,7 @@ export async function applyPendingImport(): Promise<boolean> {
       config: pendingImport,
       apply_devices: applyDevices,
       apply_hotspot: applyHotspot,
+      apply_location: applyLocation,
     })
     configStore.setState({ lastResult: result, phase: 'imported' })
     clearPendingImport()

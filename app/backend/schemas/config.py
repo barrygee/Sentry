@@ -4,6 +4,13 @@ The point of this file is standing up a second Pi quickly: export from a working
 Sentry, import into a fresh one, and its dongles come up already named, ported
 and published exactly as the first one's are.
 
+**One section is not like the others.** `location` describes where the exporting
+box physically sits, not how it is configured, so applying it to a *different*
+Pi is usually wrong even though applying every other section is right. It is
+carried anyway — a rebuilt Pi should come back on the map without anyone
+retyping coordinates — and gated behind `apply_location` for the cloning case.
+See `SentryConfig.location`.
+
 **The hotspot passphrase travels one way: in, never out.**
 
 A config file is the single most copied, emailed and committed artefact a project
@@ -36,7 +43,15 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from app.backend.schemas.device import (
     DeviceVisibility,
@@ -44,6 +59,12 @@ from app.backend.schemas.device import (
     IdentityKind,
 )
 from app.backend.schemas.hotspot import HotspotBand, HotspotSecurity, validate_passphrase
+from app.backend.schemas.location import (
+    MAXIMUM_LATITUDE,
+    MAXIMUM_LONGITUDE,
+    MINIMUM_LATITUDE,
+    MINIMUM_LONGITUDE,
+)
 from app.backend.services.console_auth import MINIMUM_PASSWORD_LENGTH
 
 CONFIG_VERSION: Literal[1] = 1
@@ -150,6 +171,71 @@ class HotspotConfigEntry(BaseModel):
         return passphrase
 
 
+class LocationConfigEntry(BaseModel):
+    """The file's fixed-position section, whose unset coordinates are `""` on the wire.
+
+    Internally these stay `float | None`, which is what every other layer already
+    speaks; the empty string exists only in JSON. Two conversions bridge the gap:
+    `_empty_string_is_no_value` on the way in, `_serialise` on the way out.
+
+    The empty string rather than `null` is deliberate, and it is about the file
+    being *hand-editable*. A config file is the artefact an operator opens in a
+    text editor to fill in, and `"latitude": ""` is an obvious blank waiting for
+    a number, where `null` reads as a value someone chose and `"latitude"`
+    missing altogether reads as a key you would have to know to add.
+
+    Both coordinates or neither, and both within range — the same rules
+    `PUT /api/location` applies, enforced here so a hand-edited file fails at
+    parse time with a message about the field rather than deep inside an import.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    latitude: float | None = Field(
+        default=None,
+        ge=MINIMUM_LATITUDE,
+        le=MAXIMUM_LATITUDE,
+        description='Decimal degrees, or "" when no position is set',
+    )
+    longitude: float | None = Field(
+        default=None,
+        ge=MINIMUM_LONGITUDE,
+        le=MAXIMUM_LONGITUDE,
+        description='Decimal degrees, or "" when no position is set',
+    )
+
+    @property
+    def is_set(self) -> bool:
+        """Whether this section carries a plottable position."""
+        return self.latitude is not None and self.longitude is not None
+
+    @field_validator("latitude", "longitude", mode="before")
+    @classmethod
+    def _empty_string_is_no_value(cls, value: object) -> object:
+        """Read `""` (and a whitespace-only field) back as "no position".
+
+        `mode="before"` so it runs ahead of the float coercion that would
+        otherwise reject the very string this model exports. Whitespace is
+        folded in because a hand-edited file is the expected input here, and
+        `"latitude": " "` is the same intent as `""` typed slightly worse.
+        """
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        return value
+
+    @field_serializer("latitude", "longitude")
+    def _serialise(self, value: float | None) -> float | str:
+        """Write an unset coordinate as `""` rather than `null`."""
+        return "" if value is None else value
+
+    @model_validator(mode="after")
+    def _check_pair_is_complete(self) -> LocationConfigEntry:
+        """Refuse half a position — the same rule `SentryLocation` applies."""
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("Latitude and longitude must be set together, or both left empty.")
+        return self
+
+
 class SentryConfig(BaseModel):
     """The whole exportable configuration of one Sentry instance."""
 
@@ -183,6 +269,32 @@ class SentryConfig(BaseModel):
     sentry_version: str = Field(default="", description="The app version that wrote it")
     devices: tuple[DeviceConfigEntry, ...] = ()
     hotspot: HotspotConfigEntry | None = None
+
+    location: LocationConfigEntry | None = Field(
+        default=None,
+        description=(
+            "The exporting Sentry's fixed position. Always written on export, with "
+            "empty strings when none is set. Absent entirely in a pre-location file"
+        ),
+    )
+    """This Sentry's coordinates, so a rebuilt Pi comes back on the map by itself.
+
+    **Read this before importing onto a second Pi.** Unlike everything else in
+    this file, a location is not a property of the *configuration* — it is a
+    property of *where the box physically sits*. Cloning a working Sentry onto
+    a second one and applying this section puts machine two's marker on top of
+    machine one's, on every Sentinel watching, until somebody notices two
+    Sentries at one address. That is why the import is gated on
+    `apply_location`, which an operator restoring a backup leaves alone and an
+    operator provisioning a *new* Pi turns off.
+
+    Optional here, but always present in a file Sentry wrote: `None` means the
+    key was *absent*, which only happens in a file exported before this section
+    existed. An export instead writes the section with `""` in both coordinates
+    when no position is set (see `LocationConfigEntry`), which is what makes the
+    file readable as a template — the keys are visibly there to be filled in
+    rather than something an operator has to know to add.
+    """
 
     console_password: SecretStr | None = Field(
         default=None,
@@ -236,6 +348,21 @@ class ConfigImportRequest(BaseModel):
             "network this Pi serves, and never carries a password to start it with"
         ),
     )
+    apply_location: bool = Field(
+        default=True,
+        description=(
+            "Apply the file's fixed position. On by default — restoring a Pi is the "
+            "common case; turn it off when provisioning a second Pi from the first's file"
+        ),
+    )
+    """On by default, unlike `apply_hotspot`, because the two fail in opposite directions.
+
+    A wrongly-applied hotspot changes which network the Pi serves and can cut
+    the operator off from it; a wrongly-applied location puts a marker in the
+    wrong place on a map, which is visible, harmless and fixed by typing the
+    right numbers in. Defaulting the recoverable one to *on* is what makes
+    restoring a backup a single action rather than a checklist.
+    """
 
 
 class DeviceImportOutcome(BaseModel):
@@ -270,5 +397,9 @@ class ConfigImportResult(BaseModel):
     console_password_applied: bool = False
     console_password_detail: str = Field(
         default="", description="Why the controller password was not set, when it was not"
+    )
+    location_applied: bool = False
+    location_detail: str = Field(
+        default="", description="Why the position was not applied, when it was not"
     )
     generated_at: int = Field(default=0, description="Unix ms")

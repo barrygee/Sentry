@@ -79,6 +79,12 @@
             "title": "Apply Hotspot",
             "type": "boolean"
           },
+          "apply_location": {
+            "default": true,
+            "description": "Apply the file's fixed position. On by default \u2014 restoring a Pi is the common case; turn it off when provisioning a second Pi from the first's file",
+            "title": "Apply Location",
+            "type": "boolean"
+          },
           "config": {
             "$ref": "#/components/schemas/SentryConfig-Input"
           }
@@ -144,6 +150,17 @@
             "default": "",
             "description": "Why the hotspot was not applied, when it was not",
             "title": "Hotspot Detail",
+            "type": "string"
+          },
+          "location_applied": {
+            "default": false,
+            "title": "Location Applied",
+            "type": "boolean"
+          },
+          "location_detail": {
+            "default": "",
+            "description": "Why the position was not applied, when it was not",
+            "title": "Location Detail",
             "type": "string"
           }
         },
@@ -1752,6 +1769,74 @@
         "title": "HotspotStateResponse",
         "type": "object"
       },
+      "LocationConfigEntry-Input": {
+        "additionalProperties": false,
+        "description": "The file's fixed-position section, whose unset coordinates are `\"\"` on the wire.\n\nInternally these stay `float | None`, which is what every other layer already\nspeaks; the empty string exists only in JSON. Two conversions bridge the gap:\n`_empty_string_is_no_value` on the way in, `_serialise` on the way out.\n\nThe empty string rather than `null` is deliberate, and it is about the file\nbeing *hand-editable*. A config file is the artefact an operator opens in a\ntext editor to fill in, and `\"latitude\": \"\"` is an obvious blank waiting for\na number, where `null` reads as a value someone chose and `\"latitude\"`\nmissing altogether reads as a key you would have to know to add.\n\nBoth coordinates or neither, and both within range \u2014 the same rules\n`PUT /api/location` applies, enforced here so a hand-edited file fails at\nparse time with a message about the field rather than deep inside an import.",
+        "properties": {
+          "latitude": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Decimal degrees, or \"\" when no position is set",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "maximum": 180.0,
+                "minimum": -180.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Decimal degrees, or \"\" when no position is set",
+            "title": "Longitude"
+          }
+        },
+        "title": "LocationConfigEntry",
+        "type": "object"
+      },
+      "LocationConfigEntry-Output": {
+        "additionalProperties": false,
+        "description": "The file's fixed-position section, whose unset coordinates are `\"\"` on the wire.\n\nInternally these stay `float | None`, which is what every other layer already\nspeaks; the empty string exists only in JSON. Two conversions bridge the gap:\n`_empty_string_is_no_value` on the way in, `_serialise` on the way out.\n\nThe empty string rather than `null` is deliberate, and it is about the file\nbeing *hand-editable*. A config file is the artefact an operator opens in a\ntext editor to fill in, and `\"latitude\": \"\"` is an obvious blank waiting for\na number, where `null` reads as a value someone chose and `\"latitude\"`\nmissing altogether reads as a key you would have to know to add.\n\nBoth coordinates or neither, and both within range \u2014 the same rules\n`PUT /api/location` applies, enforced here so a hand-edited file fails at\nparse time with a message about the field rather than deep inside an import.",
+        "properties": {
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Decimal degrees, or \"\" when no position is set",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Decimal degrees, or \"\" when no position is set",
+            "title": "Longitude"
+          }
+        },
+        "title": "LocationConfigEntry",
+        "type": "object"
+      },
       "LoginRequest": {
         "additionalProperties": false,
         "description": "`POST /api/auth/login` body.",
@@ -2147,6 +2232,17 @@
               }
             ]
           },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationConfigEntry-Input"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The exporting Sentry's fixed position. Always written on export, with empty strings when none is set. Absent entirely in a pre-location file"
+          },
           "sentry_version": {
             "default": "",
             "description": "The app version that wrote it",
@@ -2196,6 +2292,17 @@
                 "type": "null"
               }
             ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationConfigEntry-Output"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The exporting Sentry's fixed position. Always written on export, with empty strings when none is set. Absent entirely in a pre-location file"
           },
           "sentry_version": {
             "default": "",
@@ -3516,8 +3623,48 @@
           "location"
         ]
       },
+      "post": {
+        "description": "Identical to `PUT` \u2014 same body, same rules, same response.\n\nOffered because a Sentry has exactly one position, so \"create\" and\n\"replace\" are the same act: there is no collection to append to and no\nsecond location a `POST` could mean. Clients that reach for `POST` by\nhabit (or whose HTTP layer makes `PUT` awkward) get the obvious verb\ninstead of a 405 telling them to use another one.\n\nDeliberately **not** create-only. A `POST` that 409'd once a position\nexisted would make the natural verb the one that stops working the moment\nit has been used, and an operator correcting a typo would be told the\nSentry already has a location \u2014 which they knew, and are trying to change.\n\nIdempotent, as `PUT` is: sending the same pair twice leaves the same\nposition, so a retried request after a dropped response is safe.",
+        "operationId": "post_location_api_location_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SentryLocationUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentryLocation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set or clear this Sentry's fixed position (alias for PUT)",
+        "tags": [
+          "location"
+        ]
+      },
       "put": {
-        "description": "Store the given coordinates, or clear the position when both are null.\n\nBounds and the both-or-neither rule are enforced by `SentryLocationUpdate`,\nso anything reaching here is already a position Sentinel can plot (or an\nexplicit erasure).",
+        "description": "Store the given coordinates, or clear the position when both are null.",
         "operationId": "set_location_api_location_put",
         "requestBody": {
           "content": {

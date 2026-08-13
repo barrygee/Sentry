@@ -70,6 +70,88 @@ class TestSettingTheLocation:
         assert client.get("/api/location").json()["latitude"] == 1.5
 
 
+class TestThePostAlias:
+    """`POST` is the same operation as `PUT` — a Sentry has only one position."""
+
+    def test_stores_a_position(self, client: TestClient) -> None:
+        response = client.post("/api/location", json={"latitude": LATITUDE, "longitude": LONGITUDE})
+
+        assert response.status_code == 200
+        assert client.get("/api/location").json()["latitude"] == LATITUDE
+
+    def test_replaces_an_existing_position_rather_than_refusing(self, client: TestClient) -> None:
+        # Deliberately not create-only: an operator correcting a typo must not
+        # be told the Sentry already has a location.
+        client.post("/api/location", json={"latitude": LATITUDE, "longitude": LONGITUDE})
+
+        client.post("/api/location", json={"latitude": 1.5, "longitude": 2.5})
+
+        assert client.get("/api/location").json()["latitude"] == 1.5
+
+    def test_is_idempotent(self, client: TestClient) -> None:
+        # A retry after a dropped response must be safe.
+        body = {"latitude": LATITUDE, "longitude": LONGITUDE}
+        first = client.post("/api/location", json=body).json()
+
+        second = client.post("/api/location", json=body).json()
+
+        assert (first["latitude"], first["longitude"]) == (
+            second["latitude"],
+            second["longitude"],
+        )
+
+    def test_clears_the_position_with_two_nulls(self, client: TestClient) -> None:
+        client.post("/api/location", json={"latitude": LATITUDE, "longitude": LONGITUDE})
+
+        client.post("/api/location", json={"latitude": None, "longitude": None})
+
+        assert client.get("/api/location").json()["latitude"] is None
+
+    def test_agrees_with_put(self, client: TestClient) -> None:
+        # The two share a handler; this fails if they are ever split apart and
+        # one of them drifts.
+        via_put = client.put(
+            "/api/location", json={"latitude": LATITUDE, "longitude": LONGITUDE}
+        ).json()
+        client.post("/api/location", json={"latitude": None, "longitude": None})
+        via_post = client.post(
+            "/api/location", json={"latitude": LATITUDE, "longitude": LONGITUDE}
+        ).json()
+
+        assert via_put["latitude"] == via_post["latitude"]
+        assert via_put["longitude"] == via_post["longitude"]
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            pytest.param({"latitude": LATITUDE}, id="half-a-position"),
+            pytest.param({"latitude": 91, "longitude": 0}, id="off-the-globe"),
+            pytest.param({"latitude": 1, "longitude": 2, "altitude": 3}, id="unknown-field"),
+        ],
+    )
+    def test_applies_the_same_rules_as_put(
+        self, client: TestClient, body: dict[str, object]
+    ) -> None:
+        assert client.post("/api/location", json=body).status_code == 422
+
+    def test_is_session_gated_too(self, client: TestClient) -> None:
+        client.post("/api/auth/password", json={"new_password": PASSWORD})
+        client.post("/api/auth/logout")
+
+        assert (
+            client.post(
+                "/api/location", json={"latitude": LATITUDE, "longitude": LONGITUDE}
+            ).status_code
+            == 401
+        )
+
+    def test_reaches_sentinel_like_any_other_write(self, client: TestClient) -> None:
+        client.post("/api/location", json={"latitude": LATITUDE, "longitude": LONGITUDE})
+
+        assert client.get("/api/status").json()["location"]["latitude"] == LATITUDE
+        assert client.get("/api/v1/sdrs").json()["source"]["location"]["latitude"] == LATITUDE
+
+
 class TestRejectedBodies:
     """Every one of these is a plausible typo that would otherwise mis-plot the Sentry."""
 

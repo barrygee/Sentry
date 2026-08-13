@@ -34,7 +34,8 @@ function summaryTone(result: ConfigImportResult): 'ok' | 'warn' | 'danger' {
 
 function summaryText(result: ConfigImportResult): string {
   const hotspotSuffix = result.hotspot_applied ? ' · hotspot settings written' : ''
-  return `${result.devices_applied} applied · ${result.devices_skipped} skipped · ${result.devices_failed} failed${hotspotSuffix}.`
+  const locationSuffix = result.location_applied ? ' · location set' : ''
+  return `${result.devices_applied} applied · ${result.devices_skipped} skipped · ${result.devices_failed} failed${hotspotSuffix}${locationSuffix}.`
 }
 
 function entryKey(entry: DeviceImportOutcome): string {
@@ -96,9 +97,15 @@ export function configImportReport(
   })
   const listController = keyedList<DeviceImportOutcome, string>(list, importEntryRow, entryKey)
 
+  // Its own line, like the hotspot's: an operator who asked for the position
+  // and did not get it needs the reason, and "0 applied" says nothing about a
+  // section that is not counted in the device tallies.
+  const locationDetailParagraph = el('p', { class: 'm-0 text-[11px] text-signal-muted' }, [])
+
   const root = el('div', { class: 'flex flex-col gap-3' }, [
     summaryNotice.element,
     hotspotDetailParagraph,
+    locationDetailParagraph,
     list,
   ])
 
@@ -112,6 +119,11 @@ export function configImportReport(
     setText(
       hotspotDetailParagraph,
       result.hotspot_detail ? `Hotspot: ${result.hotspot_detail}` : '',
+    )
+    setVisible(locationDetailParagraph, Boolean(result.location_detail))
+    setText(
+      locationDetailParagraph,
+      result.location_detail ? `Location: ${result.location_detail}` : '',
     )
     const entries = result.devices ?? []
     setVisible(list, entries.length > 0)
