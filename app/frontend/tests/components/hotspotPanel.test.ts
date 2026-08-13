@@ -167,8 +167,11 @@ describe('hotspotPanel', () => {
     // Searched across the whole panel, not just the form: the action row now
     // sits after the lease list, which is outside the form element. The
     // ordering is the contract here — where the pair is mounted is not.
-    const keepButton = [...panel.element.querySelectorAll('button')].find((button) =>
-      /Keep this hotspot/i.test(button.textContent ?? ''),
+    // Matched on the accessible name, not the visible text: the label is now
+    // just "Confirm", which is too generic to identify a button by across a
+    // whole panel.
+    const keepButton = [...panel.element.querySelectorAll('button')].find(
+      (button) => button.getAttribute('aria-label') === 'Confirm this hotspot',
     )
     const saveButton = [...panel.element.querySelectorAll('button')].find((button) =>
       /Save hotspot settings/i.test(button.textContent ?? ''),

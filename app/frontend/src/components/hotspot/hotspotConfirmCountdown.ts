@@ -23,6 +23,8 @@ import { noticeBox } from '../base/noticeBox.js'
  * would keep announcing after the dialog that hosted it is gone.
  */
 export interface HotspotConfirmCountdownProps {
+  /** The network's name, so the notice names what is running. */
+  ssid: string | null
   /** Unix ms by which confirmation must arrive. */
   deadlineMs: number
   busy?: boolean
@@ -65,42 +67,52 @@ export function hotspotConfirmCountdown(
 
   const remainingSpan = el('span', { class: 'font-tabular' }, [])
 
+  // The network's own name leads, so the notice says which hotspot is on
+  // trial rather than restating the mechanism. `networkNameSpan` is filled by
+  // `renderNetworkName` because the SSID can change under an update.
+  const networkNameSpan = el('strong', { class: 'font-semibold' }, [])
+
   const messageParagraph = el('p', { class: 'm-0' }, [
-    el('strong', { class: 'font-semibold' }, ['Confirm this hotspot to keep it.']),
-    ' It is running now, but Sentry will undo the change and restore the previous connection in ',
+    networkNameSpan,
+    ' is currently running. Sentry will undo the change and restore the previous connection in ',
     remainingSpan,
-    ' unless you confirm — that is what stops a hotspot nobody can reach from surviving a reboot.',
-  ])
-  const safetyParagraph = el('p', { class: 'm-0 text-[11px]' }, [
-    'If you have just joined the new network and can still see this page, confirming is safe.',
+    ' unless you confirm.',
   ])
 
+  // "Confirm" and "Cancel", not "Keep this hotspot" / "Stop it now": the
+  // sentence above already says what is running and what happens if nobody
+  // acts, so the buttons only have to name the two answers to it.
   const confirmButton = baseButton({
     variant: 'on-bright',
     disabled: props.busy ?? false,
     onClick: () => currentProps.onConfirm(),
-    children: ['Keep this hotspot'],
+    // The visible label is short; the accessible name keeps the object of the
+    // verb, since a screen reader user may meet the button out of context.
+    ariaLabel: 'Confirm this hotspot',
+    children: ['Confirm'],
   })
   const discardButton = baseButton({
     variant: 'on-bright',
     disabled: props.busy ?? false,
     onClick: () => currentProps.onDiscard(),
-    children: ['Stop it now'],
+    ariaLabel: 'Cancel this hotspot and restore the previous connection',
+    children: ['Cancel'],
   })
   const buttonRow = el('div', { class: 'flex flex-wrap gap-2' }, [
     confirmButton.element,
     discardButton.element,
   ])
 
-  const bodyWrapper = el('div', { class: 'flex flex-col gap-3' }, [
-    messageParagraph,
-    safetyParagraph,
-    buttonRow,
-  ])
+  const bodyWrapper = el('div', { class: 'flex flex-col gap-3' }, [messageParagraph, buttonRow])
   const notice = noticeBox({ tone: 'warn', role: 'status', children: [bodyWrapper] })
 
   function renderRemaining(): void {
     setText(remainingSpan, formatRemaining(secondsRemaining))
+  }
+
+  /** Falls back to "The hotspot" so the sentence still reads without an SSID. */
+  function renderNetworkName(): void {
+    setText(networkNameSpan, currentProps.ssid ?? 'The hotspot')
   }
 
   function tick(): void {
@@ -126,12 +138,14 @@ export function hotspotConfirmCountdown(
   const intervalId = setInterval(tick, 1000)
 
   renderRemaining()
+  renderNetworkName()
 
   return {
     element: notice.element,
 
     update(nextProps): void {
       currentProps = nextProps
+      renderNetworkName()
       // A new confirmation window is a new set of checkpoints.
       if (nextProps.deadlineMs !== currentDeadlineMs) {
         currentDeadlineMs = nextProps.deadlineMs
@@ -144,13 +158,15 @@ export function hotspotConfirmCountdown(
         variant: 'on-bright',
         disabled: nextProps.busy ?? false,
         onClick: () => currentProps.onConfirm(),
-        children: ['Keep this hotspot'],
+        ariaLabel: 'Confirm this hotspot',
+        children: ['Confirm'],
       })
       discardButton.update({
         variant: 'on-bright',
         disabled: nextProps.busy ?? false,
         onClick: () => currentProps.onDiscard(),
-        children: ['Stop it now'],
+        ariaLabel: 'Cancel this hotspot and restore the previous connection',
+        children: ['Cancel'],
       })
     },
 
