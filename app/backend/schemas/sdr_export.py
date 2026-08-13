@@ -11,6 +11,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.backend.schemas.location import SentryLocation
+
 SDR_EXPORT_API_VERSION = 1
 """Value of `api_version` and the `X-Sentry-Sdr-Api-Version` response header."""
 
@@ -24,6 +26,23 @@ class SdrExportSource(BaseModel):
     version: str
     host: str = Field(description="Never 0.0.0.0 or a container-internal address")
     http_port: int
+    location: SentryLocation = Field(
+        default_factory=SentryLocation,
+        description="This Sentry's fixed position; both coordinates null when unset",
+    )
+    """Where this Sentry physically is, so Sentinel can plot it.
+
+    Belongs on `source` rather than on each `SdrExportItem`: it is a fact about
+    the instance, not about a dongle, and four devices in one box would
+    otherwise repeat the same coordinates four times and invite them drifting
+    apart.
+
+    Additive within api_version 1 — a consumer that does not know the key is
+    unaffected, and one that does gets a plottable Sentry from the same single
+    call that gives it the device list. Note this endpoint is unauthenticated
+    (ADR-0010), so the position is readable by anyone who can reach the Pi; see
+    `schemas/location.py`.
+    """
 
 
 class SdrExportItem(BaseModel):

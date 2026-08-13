@@ -1,6 +1,6 @@
 """SQLAlchemy 2.0 declarative models for Sentry's persisted state (architecture §6).
 
-Two tables. `sdr_devices` holds **operator intent**, not
+`sdr_devices` holds **operator intent**, not
 observed reality — a detected-but-unconfigured device lives only in memory
 (`device_registry`); a row's existence here means "the operator configured
 this device". Column names and types mirror `interfaces.types.PersistedDeviceRow`
@@ -11,6 +11,11 @@ exactly, since that frozen dataclass is the contract the rest of the backend
 separate rather than a column on anything: it is credential material with a
 different lifecycle, different access pattern, and a very different
 consequence if it is ever accidentally serialised alongside device data.
+
+`host_control_settings` and `sentry_location` are single-row instance settings,
+each kept separate for the same reason: they are different *kinds* of fact
+(what this host is allowed to do, and where this host physically is), and one
+wide "settings" table would make both harder to reason about than either.
 """
 
 from __future__ import annotations
@@ -236,3 +241,54 @@ class HostControlSettingsModel(Base):
     """Unix ms this row last changed. Displayed; never used for an auth decision."""
 
     __table_args__ = (CheckConstraint("id = 1", name="ck_host_control_settings_single_row"),)
+
+
+class SentryLocationModel(Base):
+    """This Sentry's fixed geographic position, as the operator typed it.
+
+    A single row, like `console_auth` and `host_control_settings`. It exists so
+    a Sentinel can plot the Pi on a map without anybody having to tell Sentinel
+    separately where the Pi is — the coordinates travel with the device list
+    Sentinel already fetches.
+
+    Deliberately *not* a column on `host_control_settings`. That table is the
+    host-capability switches (ADR-0013), where the bar for a new setting is that
+    flipping it must be safe for whoever can reach the console. A latitude is
+    not a capability, and folding it in would blur a table whose whole purpose
+    is being the place where dangerous switches live.
+
+    Both coordinates are nullable and start that way. "Unset" is a real state —
+    a Sentry whose operator has not placed it yet must be distinguishable from
+    one sitting at 0°N 0°E in the Gulf of Guinea, or every fresh install plots
+    itself onto Null Island.
+    """
+
+    __tablename__ = "sentry_location"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    """Always 1. A single-row table, constrained below rather than by convention."""
+
+    latitude: Mapped[float | None] = mapped_column(nullable=True, default=None)
+    """Decimal degrees, -90..90. `None` means the operator has not set a position."""
+
+    longitude: Mapped[float | None] = mapped_column(nullable=True, default=None)
+    """Decimal degrees, -180..180. `None` means the operator has not set a position."""
+
+    updated_at: Mapped[int] = mapped_column(nullable=False, default=0)
+    """Unix ms this row last changed. Displayed; never used for an auth decision."""
+
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_sentry_location_single_row"),
+        # Rejected at the storage layer as well as in the schema. The API is not
+        # the only writer — a migration, a repair script or a future importer
+        # could all reach this row, and a longitude of 900 silently stored is a
+        # marker dropped somewhere impossible on every Sentinel watching.
+        CheckConstraint(
+            "latitude IS NULL OR (latitude >= -90.0 AND latitude <= 90.0)",
+            name="ck_sentry_location_latitude_range",
+        ),
+        CheckConstraint(
+            "longitude IS NULL OR (longitude >= -180.0 AND longitude <= 180.0)",
+            name="ck_sentry_location_longitude_range",
+        ),
+    )

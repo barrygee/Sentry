@@ -12,6 +12,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.backend.schemas.location import SentryLocation
+
 DeviceState = Literal[
     "detected", "configured", "starting", "streaming", "degraded", "stopped", "error"
 ]
@@ -189,6 +191,18 @@ class StatusResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     generated_at: int = Field(description="Unix ms this snapshot was assembled")
+    location: SentryLocation = Field(
+        default_factory=SentryLocation,
+        description="This Sentry's fixed position; both coordinates null when unset",
+    )
+    """Carried here so Sentinel gets *where* this Sentry is in the same poll that
+    tells it *what* this Sentry has plugged in.
+
+    Sentinel's fleet poller already caches this endpoint on a timer
+    (`backend/services/sentry_fleet.py`), so a marker on its map costs no extra
+    round trip and no second endpoint to keep reachable. Additive, and defaulted,
+    so an older consumer that does not know the key is unaffected.
+    """
     sdrs: tuple[DeviceStatus, ...] = Field(
         description="Sorted by usb.topology_path; absent devices last"
     )

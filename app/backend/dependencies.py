@@ -26,6 +26,7 @@ from app.backend.services.health import HealthService
 from app.backend.services.host_control_settings import HostControlSettingsService
 from app.backend.services.hotspot import HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
+from app.backend.services.sentry_location import SentryLocationService
 from app.backend.services.supervisor import SupervisorService
 
 
@@ -89,6 +90,12 @@ def get_host_control_settings(request: Request) -> HostControlSettingsService:
         request.app.state.container.host_control_settings
     )
     return host_control_settings
+
+
+def get_sentry_location_service(request: Request) -> SentryLocationService:
+    """Return the process-wide `SentryLocationService` — this Sentry's fixed position."""
+    sentry_location: SentryLocationService = request.app.state.container.sentry_location
+    return sentry_location
 
 
 def get_hotspot_service(request: Request) -> HotspotService:

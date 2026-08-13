@@ -2,6 +2,7 @@ import { consolePasswordPanel } from '../components/auth/consolePasswordPanel.js
 import { configPanel } from '../components/config/configPanel.js'
 import { noticeList } from '../components/sdrs/noticeList.js'
 import { hotspotPanel } from '../components/hotspot/hotspotPanel.js'
+import { locationPanel } from '../components/location/locationPanel.js'
 import type { Component } from '../core/component.js'
 import { ref } from '../core/dom.js'
 import { loadPreview, resetTransientState as resetConfig } from '../state/configStore.js'
@@ -9,6 +10,7 @@ import {
   refresh as refreshHotspot,
   resetTransientState as resetHotspot,
 } from '../state/hotspotStore.js'
+import { refreshLocation, resetTransientState as resetLocation } from '../state/locationStore.js'
 
 /**
  * The Settings destination: the two instance-wide surfaces, as sections.
@@ -36,6 +38,7 @@ export function mountSettingsView(root: ParentNode): {
 } {
   const noticeContainer = ref(root, 'settings-notice-list', HTMLElement)
   const passwordContainer = ref(root, 'console-password-panel', HTMLElement)
+  const locationContainer = ref(root, 'location-panel', HTMLElement)
   const hotspotContainer = ref(root, 'hotspot-panel', HTMLElement)
   const configContainer = ref(root, 'config-panel', HTMLElement)
 
@@ -53,6 +56,12 @@ export function mountSettingsView(root: ParentNode): {
   passwordContainer.appendChild(password.element)
   panels.push(password)
 
+  // Above the hotspot: it is the shorter, simpler of the two and the one an
+  // operator sets once when the Pi is installed, rather than returned to.
+  const location = locationPanel()
+  locationContainer.appendChild(location.element)
+  panels.push(location)
+
   const hotspot = hotspotPanel()
   hotspotContainer.appendChild(hotspot.element)
   panels.push(hotspot)
@@ -69,6 +78,7 @@ export function mountSettingsView(root: ParentNode): {
      */
     onShown(): void {
       void refreshHotspot()
+      void refreshLocation()
       void loadPreview()
     },
 
@@ -79,6 +89,7 @@ export function mountSettingsView(root: ParentNode): {
      */
     onHidden(): void {
       resetHotspot()
+      resetLocation()
       resetConfig()
     },
 

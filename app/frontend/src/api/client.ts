@@ -7,6 +7,9 @@ export type DevicePatch = components['schemas']['DevicePatch']
 export type DeviceRecord = components['schemas']['DeviceRecord']
 export type DevicesListResponse = components['schemas']['DevicesListResponse']
 export type StatusResponse = components['schemas']['StatusResponse']
+/** This Sentry's fixed position, as published to Sentinel. Both coordinates null when unset. */
+export type SentryLocation = components['schemas']['SentryLocation']
+export type SentryLocationUpdate = components['schemas']['SentryLocationUpdate']
 export type HealthResponse = components['schemas']['HealthResponse']
 export type PortConstraints = components['schemas']['PortConstraints']
 export type SerialFlashRequest = components['schemas']['SerialFlashRequest']
@@ -148,6 +151,13 @@ export const apiClient = {
     }),
 
   getStatus: () => request<StatusResponse>('/status'),
+
+  // This Sentry's fixed position (`schemas/location.py`). A PUT, not a PATCH:
+  // the body always states both coordinates, and two nulls is how the operator
+  // clears the position rather than an omission meaning "leave it alone".
+  getLocation: () => request<SentryLocation>('/location'),
+  putLocation: (body: SentryLocationUpdate) =>
+    request<SentryLocation>('/location', { method: 'PUT', body: JSON.stringify(body) }),
   getHealth: () => request<HealthResponse>('/health'),
   listDevices: () => request<DevicesListResponse>('/devices'),
   patchDevice: (deviceId: string, patch: DevicePatch) =>

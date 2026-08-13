@@ -27,6 +27,7 @@ from app.backend.dependencies import (
     get_device_registry,
     get_event_bus,
     get_health_service,
+    get_sentry_location_service,
     get_settings_dependency,
 )
 from app.backend.interfaces.clock import Clock
@@ -41,6 +42,7 @@ from app.backend.security import require_console_session
 from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.event_bus import RESYNC_EVENT_NAME, EventBus
 from app.backend.services.health import HealthService
+from app.backend.services.sentry_location import SentryLocationService
 
 router = APIRouter(tags=["events"], dependencies=[Depends(require_console_session)])
 
@@ -85,6 +87,7 @@ async def _event_stream(
     event_bus: EventBus,
     health_service: HealthService,
     clock: Clock,
+    location_service: SentryLocationService,
     public_host: str,
 ) -> AsyncIterator[str]:
     """The full named-event stream: `retry:`, an immediate `snapshot`, then the live bus.
@@ -101,8 +104,12 @@ async def _event_stream(
     # it: the registry emits `output.host=""` because it cannot know the
     # publishable address (architecture §7.7), so it is overlaid on every
     # DeviceStatus leaving this stream.
+    # Read per snapshot rather than once per connection: an operator can move
+    # the position from Settings while a stream is open, and a resync below must
+    # then carry the new one rather than the value this connection opened with.
     snapshot = StatusResponse(
         generated_at=clock.now_ms(),
+        location=await location_service.get_location(),
         sdrs=with_resolved_hosts(device_registry.list_statuses(), public_host),
     )
     yield _format_sse("snapshot", snapshot)
@@ -128,6 +135,7 @@ async def _event_stream(
                     # ever relaying this internal marker onto the wire.
                     resync_snapshot = StatusResponse(
                         generated_at=clock.now_ms(),
+                        location=await location_service.get_location(),
                         sdrs=with_resolved_hosts(device_registry.list_statuses(), public_host),
                     )
                     yield _format_sse("snapshot", resync_snapshot)
@@ -164,6 +172,7 @@ async def get_events(
     health_service: HealthService = Depends(get_health_service),
     clock: Clock = Depends(get_clock),
     settings: Settings = Depends(get_settings_dependency),
+    location_service: SentryLocationService = Depends(get_sentry_location_service),
 ) -> StreamingResponse:
     """Open an SSE stream of SDR events.
 
@@ -190,6 +199,7 @@ async def get_events(
             event_bus,
             health_service,
             clock,
+            location_service,
             resolve_public_host(request, settings),
         ),
         media_type="text/event-stream",

@@ -361,6 +361,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/hotspot/clients/{mac_address}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Release one DHCP lease
+         * @description Ask the AP's DHCP server to forget one lease.
+         *
+         *     Keyed by MAC alone: the address to release is looked up from the lease
+         *     list, so a request cannot pair one client's MAC with another's IP.
+         *
+         *     This frees a reservation; it does not disconnect anyone. A client still in
+         *     range will ask again and may be handed the same address back.
+         */
+        delete: operations["release_hotspot_lease_api_hotspot_clients__mac_address__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/hotspot/confirm": {
         parameters: {
             query?: never;
@@ -471,6 +497,34 @@ export interface paths {
          */
         get: operations["list_interfaces_api_hotspot_interfaces_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * This Sentry's fixed latitude / longitude
+         * @description Return the stored position, with both coordinates null when none is set.
+         */
+        get: operations["get_location_api_location_get"];
+        /**
+         * Set or clear this Sentry's fixed position
+         * @description Store the given coordinates, or clear the position when both are null.
+         *
+         *     Bounds and the both-or-neither rule are enforced by `SentryLocationUpdate`,
+         *     so anything reaching here is already a position Sentinel can plot (or an
+         *     explicit erasure).
+         */
+        put: operations["set_location_api_location_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1619,6 +1673,8 @@ export interface components {
             host: string;
             /** Http Port */
             http_port: number;
+            /** @description This Sentry's fixed position; both coordinates null when unset */
+            location?: components["schemas"]["SentryLocation"];
             /**
              * Name
              * @default sentry
@@ -1706,6 +1762,55 @@ export interface components {
             version: number;
         };
         /**
+         * SentryLocation
+         * @description This instance's position — `GET /api/location`, and the value published to Sentinel.
+         *
+         *     `latitude`/`longitude` are both `None` until an operator sets a position.
+         *     They are always both-or-neither: a lone latitude cannot be plotted and is
+         *     only ever a half-finished edit, so the pair is validated as a unit rather
+         *     than letting one arrive without the other.
+         */
+        SentryLocation: {
+            /**
+             * Latitude
+             * @description Decimal degrees. Null when the operator has not set a position
+             */
+            latitude?: number | null;
+            /**
+             * Longitude
+             * @description Decimal degrees. Null when the operator has not set a position
+             */
+            longitude?: number | null;
+            /**
+             * Updated At
+             * @description Unix ms the position last changed
+             * @default 0
+             */
+            updated_at: number;
+        };
+        /**
+         * SentryLocationUpdate
+         * @description `PUT /api/location` body — the position to store, or `null`s to clear it.
+         *
+         *     Deliberately a PUT with both fields required-but-nullable rather than a
+         *     PATCH of optional keys. An omitted key in a patch is ambiguous here ("leave
+         *     it alone" or "clear it"?), and the only two things an operator ever wants
+         *     are *set this pair* and *unset the position entirely* — both of which this
+         *     body says unambiguously.
+         */
+        SentryLocationUpdate: {
+            /**
+             * Latitude
+             * @description Decimal degrees
+             */
+            latitude?: number | null;
+            /**
+             * Longitude
+             * @description Decimal degrees
+             */
+            longitude?: number | null;
+        };
+        /**
          * SerialFlashAccepted
          * @description `202 Accepted` body; the outcome arrives later as an SSE `notice`.
          */
@@ -1769,6 +1874,8 @@ export interface components {
              * @description Unix ms this snapshot was assembled
              */
             generated_at: number;
+            /** @description This Sentry's fixed position; both coordinates null when unset */
+            location?: components["schemas"]["SentryLocation"];
             /**
              * Sdrs
              * @description Sorted by usb.topology_path; absent devices last
@@ -1912,7 +2019,7 @@ export interface components {
             carries_default_route: boolean;
             /**
              * In Use By
-             * @description The connection currently active on this interface, if any
+             * @description Another connection currently active on this interface, if any. Null when the interface is idle, or when the only thing using it is this Sentry's own hotspot.
              */
             in_use_by?: string | null;
             /**
@@ -2386,6 +2493,35 @@ export interface operations {
             };
         };
     };
+    release_hotspot_lease_api_hotspot_clients__mac_address__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mac_address: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     confirm_hotspot_api_hotspot_confirm_post: {
         parameters: {
             query?: never;
@@ -2521,6 +2657,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WirelessInterfacesResponse"];
+                };
+            };
+        };
+    };
+    get_location_api_location_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentryLocation"];
+                };
+            };
+        };
+    };
+    set_location_api_location_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SentryLocationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentryLocation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
