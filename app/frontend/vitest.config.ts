@@ -27,9 +27,36 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      include: ['src/components/sdrs/noticeList.ts', 'src/state/sdrsStore.ts'],
+      include: [
+        'src/components/sdrs/noticeList.ts',
+        'src/state/sdrsStore.ts',
+        'src/utils/locationValidation.ts',
+        'src/state/locationStore.ts',
+        'src/components/location/locationPanel.ts',
+      ],
       thresholds: {
         'src/components/sdrs/noticeList.ts': {
+          lines: 100,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+        },
+        // The Sentry Location trio joins the gate whole: all three landed with
+        // their tests, so unlike `sdrsStore.ts` there is no untested half whose
+        // absence a threshold would be measuring.
+        'src/utils/locationValidation.ts': {
+          lines: 100,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+        },
+        'src/state/locationStore.ts': {
+          lines: 100,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+        },
+        'src/components/location/locationPanel.ts': {
           lines: 100,
           statements: 100,
           functions: 100,

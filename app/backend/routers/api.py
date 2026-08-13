@@ -9,7 +9,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.backend.routers import auth, config, devices, events, health, hotspot, sdrs, status
+from app.backend.routers import (
+    auth,
+    config,
+    devices,
+    events,
+    health,
+    hotspot,
+    location,
+    sdrs,
+    status,
+)
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
@@ -20,3 +30,4 @@ api_router.include_router(devices.router)
 api_router.include_router(sdrs.router)
 api_router.include_router(hotspot.router)
 api_router.include_router(config.router)
+api_router.include_router(location.router)

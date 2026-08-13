@@ -71,6 +71,7 @@ from app.backend.services.host_control_settings import HostControlSettingsServic
 from app.backend.services.hotplug import HotplugService
 from app.backend.services.hotspot import HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
+from app.backend.services.sentry_location import SentryLocationService
 from app.backend.services.supervisor import SupervisorService
 from app.backend.services.usb_discovery import UsbDiscoveryService
 
@@ -264,6 +265,7 @@ class AppContainer:
     hotspot_service: HotspotService
     console_auth_service: ConsoleAuthService
     host_control_settings: HostControlSettingsService
+    sentry_location: SentryLocationService
     background_tasks: list[asyncio.Task[None]]
 
 
@@ -343,6 +345,11 @@ def _build_container(settings: Settings) -> AppContainer:
     # way device configuration does.
     console_auth_service = ConsoleAuthService(session_factory)
 
+    # Shares the session factory for the same reason the auth service does: the
+    # position is a fact about this physical Pi, so it must survive a container
+    # recreation rather than living in the environment.
+    sentry_location = SentryLocationService(session_factory, clock)
+
     # `.env` can still force hotspot control on and, when it does, wins over the
     # stored value permanently (ADR-0013).
     host_control_settings = HostControlSettingsService(
@@ -389,6 +396,7 @@ def _build_container(settings: Settings) -> AppContainer:
         hotspot_service=hotspot_service,
         console_auth_service=console_auth_service,
         host_control_settings=host_control_settings,
+        sentry_location=sentry_location,
         background_tasks=[],
     )
 

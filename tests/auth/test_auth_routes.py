@@ -27,6 +27,7 @@ MANAGEMENT_ROUTES = [
     pytest.param("/api/devices", id="devices"),
     pytest.param("/api/hotspot", id="hotspot"),
     pytest.param("/api/config", id="config"),
+    pytest.param("/api/location", id="location"),
 ]
 """Management routes exercised over HTTP.
 
@@ -217,11 +218,11 @@ class TestRouterProtection:
     """
 
     def test_every_management_router_requires_a_session(self) -> None:
-        from app.backend.routers import config, devices, events, hotspot
+        from app.backend.routers import config, devices, events, hotspot, location
         from app.backend.routers import status as status_router
         from app.backend.security import require_console_session
 
-        for module in (status_router, devices, events, hotspot, config):
+        for module in (status_router, devices, events, hotspot, config, location):
             dependencies = [marker.dependency for marker in module.router.dependencies]
             assert require_console_session in dependencies, (
                 f"{module.__name__} does not require a console session"

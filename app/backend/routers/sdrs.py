@@ -13,6 +13,11 @@ control here — which makes it heavier than it was. "Private" used to mean "not
 exported to Sentinel"; it now means "not readable by anyone who can reach this
 Pi". Everything published here — name, host, port, description, notes, antenna —
 is readable by any client on the network.
+
+That now includes `source.location`, this Sentry's operator-set coordinates.
+It rides here so a Sentinel gets *where* the Sentry is and *what* it has plugged
+in from one call, but the visibility toggle does not cover it: the position is
+per-instance and is published whether or not any device is public.
 """
 
 from __future__ import annotations
@@ -20,7 +25,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from app.backend.config import Settings
-from app.backend.dependencies import get_clock, get_device_registry, get_settings_dependency
+from app.backend.dependencies import (
+    get_clock,
+    get_device_registry,
+    get_sentry_location_service,
+    get_settings_dependency,
+)
 from app.backend.example_fixtures import SENTRY_VERSION
 from app.backend.interfaces.clock import Clock
 from app.backend.routers.host_resolution import resolve_public_host
@@ -32,6 +42,7 @@ from app.backend.schemas.sdr_export import (
     SdrExportSource,
 )
 from app.backend.services.device_registry import DeviceRegistry
+from app.backend.services.sentry_location import SentryLocationService
 
 router = APIRouter(tags=["sdrs"])
 
@@ -69,6 +80,7 @@ async def _build_sdr_export(
     device_registry: DeviceRegistry,
     settings: Settings,
     clock: Clock,
+    location_service: SentryLocationService,
     include_disabled: bool,
     available_only: bool,
 ) -> SdrExportResponse:
@@ -106,7 +118,15 @@ async def _build_sdr_export(
     return SdrExportResponse(
         api_version=SDR_EXPORT_API_VERSION,
         generated_at=clock.now_ms(),
-        source=SdrExportSource(version=SENTRY_VERSION, host=host, http_port=settings.http_port),
+        source=SdrExportSource(
+            version=SENTRY_VERSION,
+            host=host,
+            http_port=settings.http_port,
+            # A fact about this instance, not about any one dongle, so it rides
+            # on `source` — which is also why a Sentry with no public devices
+            # still reports a plottable position.
+            location=await location_service.get_location(),
+        ),
         control_port_offset=2,
         sdrs=tuple(items),
     )
@@ -126,6 +146,7 @@ async def get_sdrs_v1(
     device_registry: DeviceRegistry = Depends(get_device_registry),
     settings: Settings = Depends(get_settings_dependency),
     clock: Clock = Depends(get_clock),
+    location_service: SentryLocationService = Depends(get_sentry_location_service),
 ) -> SdrExportResponse:
     """Return every *public* configured device, mapped onto Sentinel's `SdrRadio` field names.
 
@@ -133,7 +154,14 @@ async def get_sdrs_v1(
     `_build_sdr_export`.
     """
     return await _build_sdr_export(
-        request, response, device_registry, settings, clock, include_disabled, available_only
+        request,
+        response,
+        device_registry,
+        settings,
+        clock,
+        location_service,
+        include_disabled,
+        available_only,
     )
 
 
@@ -151,8 +179,16 @@ async def get_sdrs_alias(
     device_registry: DeviceRegistry = Depends(get_device_registry),
     settings: Settings = Depends(get_settings_dependency),
     clock: Clock = Depends(get_clock),
+    location_service: SentryLocationService = Depends(get_sentry_location_service),
 ) -> SdrExportResponse:
     """Permanent convenience alias serving the current stable SDR export version."""
     return await _build_sdr_export(
-        request, response, device_registry, settings, clock, include_disabled, available_only
+        request,
+        response,
+        device_registry,
+        settings,
+        clock,
+        location_service,
+        include_disabled,
+        available_only,
     )

@@ -2076,6 +2076,10 @@
             "title": "Http Port",
             "type": "integer"
           },
+          "location": {
+            "$ref": "#/components/schemas/SentryLocation",
+            "description": "This Sentry's fixed position; both coordinates null when unset"
+          },
           "name": {
             "const": "sentry",
             "default": "sentry",
@@ -2209,6 +2213,83 @@
         "title": "SentryConfig",
         "type": "object"
       },
+      "SentryLocation": {
+        "description": "This instance's position \u2014 `GET /api/location`, and the value published to Sentinel.\n\n`latitude`/`longitude` are both `None` until an operator sets a position.\nThey are always both-or-neither: a lone latitude cannot be plotted and is\nonly ever a half-finished edit, so the pair is validated as a unit rather\nthan letting one arrive without the other.",
+        "properties": {
+          "latitude": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Decimal degrees. Null when the operator has not set a position",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "maximum": 180.0,
+                "minimum": -180.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Decimal degrees. Null when the operator has not set a position",
+            "title": "Longitude"
+          },
+          "updated_at": {
+            "default": 0,
+            "description": "Unix ms the position last changed",
+            "title": "Updated At",
+            "type": "integer"
+          }
+        },
+        "title": "SentryLocation",
+        "type": "object"
+      },
+      "SentryLocationUpdate": {
+        "additionalProperties": false,
+        "description": "`PUT /api/location` body \u2014 the position to store, or `null`s to clear it.\n\nDeliberately a PUT with both fields required-but-nullable rather than a\nPATCH of optional keys. An omitted key in a patch is ambiguous here (\"leave\nit alone\" or \"clear it\"?), and the only two things an operator ever wants\nare *set this pair* and *unset the position entirely* \u2014 both of which this\nbody says unambiguously.",
+        "properties": {
+          "latitude": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Decimal degrees",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "maximum": 180.0,
+                "minimum": -180.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Decimal degrees",
+            "title": "Longitude"
+          }
+        },
+        "title": "SentryLocationUpdate",
+        "type": "object"
+      },
       "SerialFlashAccepted": {
         "description": "`202 Accepted` body; the outcome arrives later as an SSE `notice`.",
         "properties": {
@@ -2302,6 +2383,10 @@
             "description": "Unix ms this snapshot was assembled",
             "title": "Generated At",
             "type": "integer"
+          },
+          "location": {
+            "$ref": "#/components/schemas/SentryLocation",
+            "description": "This Sentry's fixed position; both coordinates null when unset"
           },
           "sdrs": {
             "description": "Sorted by usb.topology_path; absent devices last",
@@ -2610,7 +2695,7 @@
                 "type": "null"
               }
             ],
-            "description": "The connection currently active on this interface, if any",
+            "description": "Another connection currently active on this interface, if any. Null when the interface is idle, or when the only thing using it is this Sentry's own hotspot.",
             "title": "In Use By"
           },
           "ipv4_addresses": {
@@ -3204,6 +3289,42 @@
         ]
       }
     },
+    "/api/hotspot/clients/{mac_address}": {
+      "delete": {
+        "description": "Ask the AP's DHCP server to forget one lease.\n\nKeyed by MAC alone: the address to release is looked up from the lease\nlist, so a request cannot pair one client's MAC with another's IP.\n\nThis frees a reservation; it does not disconnect anyone. A client still in\nrange will ask again and may be handed the same address back.",
+        "operationId": "release_hotspot_lease_api_hotspot_clients__mac_address__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mac_address",
+            "required": true,
+            "schema": {
+              "title": "Mac Address",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release one DHCP lease",
+        "tags": [
+          "hotspot"
+        ]
+      }
+    },
     "/api/hotspot/confirm": {
       "post": {
         "description": "Cancel the pending rollback and let the hotspot survive a reboot.\n\nReaching this route at all is the proof the commit-confirm flow wants: the\nAPI is still answering with the hotspot running.",
@@ -3371,6 +3492,68 @@
         "summary": "Wireless interfaces the hotspot could use",
         "tags": [
           "hotspot"
+        ]
+      }
+    },
+    "/api/location": {
+      "get": {
+        "description": "Return the stored position, with both coordinates null when none is set.",
+        "operationId": "get_location_api_location_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentryLocation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "This Sentry's fixed latitude / longitude",
+        "tags": [
+          "location"
+        ]
+      },
+      "put": {
+        "description": "Store the given coordinates, or clear the position when both are null.\n\nBounds and the both-or-neither rule are enforced by `SentryLocationUpdate`,\nso anything reaching here is already a position Sentinel can plot (or an\nexplicit erasure).",
+        "operationId": "set_location_api_location_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SentryLocationUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentryLocation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set or clear this Sentry's fixed position",
+        "tags": [
+          "location"
         ]
       }
     },
