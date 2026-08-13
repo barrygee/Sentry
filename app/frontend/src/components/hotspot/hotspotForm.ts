@@ -193,10 +193,12 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     return wouldDropUplink(currentEffectiveInterface())
   }
   /** Whether either header switch is showing something the Pi is not doing yet. */
-  function switchesDifferFromServer(): boolean {
-    return (
-      hotspotEnabled !== currentProps.state.active || hidden !== (currentProps.state.hidden ?? true)
-    )
+  function enabledDiffersFromServer(): boolean {
+    return hotspotEnabled !== currentProps.state.active
+  }
+
+  function hiddenDiffersFromServer(): boolean {
+    return hidden !== (currentProps.state.hidden ?? true)
   }
 
   function computeCanSubmit(): boolean {
@@ -350,27 +352,36 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
   // Stacked and left-aligned, below the header text. Enable comes first: it is
   // the one an operator came to use, and hiding a network is a property of a
   // hotspot that is already running.
-  // Neither switch acts on its own — both are form state, applied by "Save
-  // hotspot settings" like every other field. Without this the switch reads
-  // "Hotspot enabled" the instant it is flipped, which is a claim about the
-  // Pi that is not true until the form is submitted.
+  // Beside the switch it qualifies, not below the pair. Under both toggles it
+  // was a caption on the group, and the label directly above it — "Hotspot
+  // enabled" — reads as a statement of fact in the same weight as every other
+  // readout on the panel. A qualifier two rows down does not win that
+  // argument; one on the same line does.
   //
-  // Shown only while a switch disagrees with the server, so it is a statement
-  // about the pending change rather than a permanent caption.
-  // Not a live region. The panel already has one for save progress, and a
-  // second `role="status"` competes with it for the same announcement queue.
-  // This sits immediately after the switches in DOM order, so it is met on the
-  // way past rather than announced over something else.
-  const pendingSwitchNotice = el(
-    'p',
-    { class: 'm-0 text-[11px] leading-[1.6] text-signal-muted' },
-    ['Not applied yet — press “Save hotspot settings” below.'],
-  )
+  // Neither switch acts on its own: both are form state, applied by "Save
+  // hotspot settings" like every other field. So each gets its own, shown only
+  // while that switch disagrees with the server.
+  //
+  // Not live regions. The panel already has one for save progress, and further
+  // `role="status"` elements compete with it for the same announcement queue.
+  const PENDING_NOTICE_CLASS = 'm-0 text-[11px] leading-[1.6] text-signal-muted'
+  const PENDING_NOTICE_TEXT = 'Not applied until you save'
+
+  const enabledPendingNotice = el('p', { class: PENDING_NOTICE_CLASS }, [PENDING_NOTICE_TEXT])
+  const hiddenPendingNotice = el('p', { class: PENDING_NOTICE_CLASS }, [PENDING_NOTICE_TEXT])
+
+  const enabledToggleRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
+    enabledToggle.element,
+    enabledPendingNotice,
+  ])
+  const hiddenToggleRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
+    hiddenToggle.element,
+    hiddenPendingNotice,
+  ])
 
   const headerControls = el('div', { class: 'flex flex-col items-start gap-2' }, [
-    enabledToggle.element,
-    hiddenToggle.element,
-    pendingSwitchNotice,
+    enabledToggleRow,
+    hiddenToggleRow,
   ])
   if (props.headerControlsHost) {
     props.headerControlsHost.appendChild(headerControls)
@@ -462,7 +473,8 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     const busy = currentProps.busy
     const interfaces = currentProps.interfaces
 
-    setVisible(pendingSwitchNotice, switchesDifferFromServer())
+    setVisible(enabledPendingNotice, enabledDiffersFromServer())
+    setVisible(hiddenPendingNotice, hiddenDiffersFromServer())
 
     ssidField.update({
       label: 'Network name (SSID)',
