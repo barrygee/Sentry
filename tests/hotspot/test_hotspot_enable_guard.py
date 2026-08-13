@@ -123,6 +123,7 @@ def _service(controller: _RecordingWifiApController) -> HotspotService:
         default_gateway_cidr=GATEWAY_CIDR,
         confirm_timeout_s=CONFIRM_TIMEOUT_S,
         configured_interface=HOTSPOT_INTERFACE,
+        hotspot_connection_name="sentry-hotspot",
     )
 
 

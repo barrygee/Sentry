@@ -377,7 +377,17 @@ class NmcliWifiApController:
             active_connection_name=active_connection,
             # The profile name is the best available proxy for the joined SSID:
             # NetworkManager names a station profile after the network by default.
-            station_ssid=active_connection if active_connection else None,
+            #
+            # Except when that profile is our own AP. NetworkManager reports the
+            # hotspot's connection as the interface's active one while it is up,
+            # which read back as the Pi having *joined* a network called
+            # `sentry-hotspot` — the warning above the form said the Pi's own
+            # link was "to sentry-hotspot", naming the hotspot it was serving.
+            station_ssid=(
+                active_connection
+                if active_connection and active_connection != self._connection_name
+                else None
+            ),
             ipv4_addresses=collect_indexed_property(properties, "IP4.ADDRESS"),
             carries_default_route=bool(properties.get("IP4.GATEWAY", "").strip()),
         )

@@ -115,6 +115,7 @@ class HotspotService:
         default_gateway_cidr: str,
         confirm_timeout_s: float,
         configured_interface: str | None,
+        hotspot_connection_name: str,
     ) -> None:
         self._controller = controller
         self._event_bus = event_bus
@@ -122,6 +123,10 @@ class HotspotService:
         self._default_gateway_cidr = default_gateway_cidr
         self._confirm_timeout_s = confirm_timeout_s
         self._configured_interface = configured_interface
+        # Needed to tell "this radio is joined to a network" apart from "this
+        # radio is running our own AP" — NetworkManager reports both the same
+        # way, as the interface's active connection.
+        self._hotspot_connection_name = hotspot_connection_name
 
         self._lock = asyncio.Lock()
         """Serialises every mutation across the whole process.
@@ -633,11 +638,24 @@ class HotspotService:
         warning in the UI. Reported even while the hotspot is already up, since
         that is precisely when an operator wants to understand why the Pi is no
         longer on the house network.
+
+        The hotspot's own profile does not count. NetworkManager reports it as
+        the interface's active connection while the AP is up, and treating any
+        active connection as an uplink meant the warning appeared *because* the
+        hotspot had started — telling the operator that starting the hotspot
+        would disconnect the hotspot. A real default route still counts, since
+        an interface routing the host's traffic is an uplink whatever profile
+        is doing it.
         """
         for entry in await self._controller.list_wireless_interfaces():
             if entry.name != interface_name:
                 continue
-            return entry.carries_default_route or entry.active_connection_name is not None
+            if entry.carries_default_route:
+                return True
+            return (
+                entry.active_connection_name is not None
+                and entry.active_connection_name != self._hotspot_connection_name
+            )
         return False
 
     def _publish_notice(self, level: str, code: str, message: str) -> None:
