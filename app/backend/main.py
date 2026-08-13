@@ -370,6 +370,7 @@ def _build_container(settings: Settings) -> AppContainer:
         default_gateway_cidr=settings.hotspot_gateway_cidr,
         confirm_timeout_s=settings.hotspot_confirm_timeout_s,
         configured_interface=settings.hotspot_interface,
+        hotspot_connection_name=settings.hotspot_connection_name,
     )
 
     return AppContainer(

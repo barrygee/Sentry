@@ -105,6 +105,7 @@ def build_service(controller: RecordingController) -> HotspotService:
         default_gateway_cidr=GATEWAY_CIDR,
         confirm_timeout_s=120.0,
         configured_interface=CONNECTION_INTERFACE,
+        hotspot_connection_name="sentry-hotspot",
     )
 
 
