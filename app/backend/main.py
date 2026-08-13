@@ -64,6 +64,7 @@ from app.backend.routers.api import api_router
 from app.backend.services.console_auth import ConsoleAuthService
 from app.backend.services.control_follower import ControlFollowerService
 from app.backend.services.device_registry import DeviceRegistry
+from app.backend.services.device_reservations import DeviceReservationService
 from app.backend.services.eeprom import EepromService
 from app.backend.services.event_bus import EventBus
 from app.backend.services.health import HealthService
@@ -266,6 +267,7 @@ class AppContainer:
     console_auth_service: ConsoleAuthService
     host_control_settings: HostControlSettingsService
     sentry_location: SentryLocationService
+    device_reservations: DeviceReservationService
     background_tasks: list[asyncio.Task[None]]
 
 
@@ -349,6 +351,9 @@ def _build_container(settings: Settings) -> AppContainer:
     # position is a fact about this physical Pi, so it must survive a container
     # recreation rather than living in the environment.
     sentry_location = SentryLocationService(session_factory, clock, event_bus)
+    # Shares the session factory: a lease outlives the request that took it
+    # and must survive a container recreation, like every other stored fact.
+    device_reservations = DeviceReservationService(session_factory, clock)
 
     # `.env` can still force hotspot control on and, when it does, wins over the
     # stored value permanently (ADR-0013).
@@ -397,6 +402,7 @@ def _build_container(settings: Settings) -> AppContainer:
         console_auth_service=console_auth_service,
         host_control_settings=host_control_settings,
         sentry_location=sentry_location,
+        device_reservations=device_reservations,
         background_tasks=[],
     )
 

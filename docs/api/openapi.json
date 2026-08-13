@@ -816,6 +816,42 @@
         "title": "DeviceRecord",
         "type": "object"
       },
+      "DeviceReservation": {
+        "description": "A claim, as reported by the API.\n\nCarries no `is_live` of its own: liveness is a question about *now*, and a\nmodel cannot answer it without a clock. Giving it one would let a\ndeserialised object insist a long-lapsed lease is still good. The service\ndecides, against the same clock the rest of Sentry uses.",
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "Unix ms it lapses unless renewed",
+            "title": "Expires At",
+            "type": "integer"
+          },
+          "holder": {
+            "title": "Holder",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "title": "Label",
+            "type": "string"
+          },
+          "reserved_at": {
+            "description": "Unix ms the claim was first taken",
+            "title": "Reserved At",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "device_id",
+          "holder",
+          "reserved_at",
+          "expires_at"
+        ],
+        "title": "DeviceReservation",
+        "type": "object"
+      },
       "DeviceStatus": {
         "description": "One device's realtime status \u2014 the `GET /api/status` and SSE payload shape.",
         "properties": {
@@ -2004,6 +2040,69 @@
         "title": "ProcessInfo",
         "type": "object"
       },
+      "ReservationRequest": {
+        "additionalProperties": false,
+        "description": "`POST /api/devices/{id}/reservation` body \u2014 acquire or renew a lease.",
+        "properties": {
+          "force": {
+            "default": false,
+            "description": "Take the device from its current holder. For the operator, never a machine",
+            "title": "Force",
+            "type": "boolean"
+          },
+          "holder": {
+            "description": "Opaque consumer id, e.g. sentinel:<instance-uuid>",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Holder",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "description": "Operator-facing, e.g. \"Sentinel \u2014 AIR (ADS-B)\"",
+            "maxLength": 120,
+            "title": "Label",
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "default": 120,
+            "description": "How long the lease lasts unless renewed",
+            "maximum": 3600.0,
+            "minimum": 5.0,
+            "title": "Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "holder"
+        ],
+        "title": "ReservationRequest",
+        "type": "object"
+      },
+      "ReservationState": {
+        "description": "`GET`-shaped view of a device's claim: present, or explicitly absent.\n\nA wrapper rather than a bare `DeviceReservation | None` so the response has\nsomewhere to say *why* there is no reservation \u2014 expired reads differently\nfrom never claimed, and an operator watching a device change hands benefits\nfrom the difference.",
+        "properties": {
+          "reservation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceReservation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reserved": {
+            "title": "Reserved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reserved"
+        ],
+        "title": "ReservationState",
+        "type": "object"
+      },
       "SdrExportItem": {
         "description": "One configured device, mapped onto Sentinel's `SdrRadio` / `RadioIn` field names.\n\nField-by-field mapping and rationale: architecture \u00a77.8.",
         "properties": {
@@ -2073,6 +2172,36 @@
             "description": "The relay's IQ port P",
             "title": "Port",
             "type": "integer"
+          },
+          "reserved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Consumer currently holding this device, or null when free",
+            "title": "Reserved By"
+          },
+          "reserved_label": {
+            "default": "",
+            "description": "Operator-facing holder name, e.g. \"Sentinel \u2014 AIR (ADS-B)\"",
+            "title": "Reserved Label",
+            "type": "string"
+          },
+          "reserved_until": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unix ms the holder's lease lapses unless renewed",
+            "title": "Reserved Until"
           },
           "rf_gain": {
             "anyOf": [
@@ -3159,6 +3288,22 @@
               "title": "Device Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Sentry-Reservation-Holder",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Sentry-Reservation-Holder"
+            }
           }
         ],
         "requestBody": {
@@ -3194,6 +3339,175 @@
           }
         },
         "summary": "Create or update a device's configuration",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/api/devices/{device_id}/reservation": {
+      "delete": {
+        "description": "Give this device up.\n\nIdempotent, and silent about a device that was already free: a holder\nshutting down should not have to care whether its lease happened to lapse a\nmoment earlier, and there is nothing it could do differently if it had.\n\nOnly the holder may release, unless `force` \u2014 dropping somebody else's lease\nis the same harm as taking it, reached from the other side.",
+        "operationId": "release_device_reservation_api_devices__device_id__reservation_delete",
+        "parameters": [
+          {
+            "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+              "examples": [
+                "serial:ADSB-01"
+              ],
+              "title": "Device Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Sentry-Reservation-Holder",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Sentry-Reservation-Holder"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release this device",
+        "tags": [
+          "devices"
+        ]
+      },
+      "get": {
+        "description": "Report this device's live claim, if any.\n\n`200` with `reserved: false` rather than `404` when nothing holds it: an\nunclaimed device is a normal answer to a normal question, and making the\ncaller catch an error to learn \"it is free\" would be the wrong shape.",
+        "operationId": "get_device_reservation_api_devices__device_id__reservation_get",
+        "parameters": [
+          {
+            "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+              "examples": [
+                "serial:ADSB-01"
+              ],
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Who is currently using this device",
+        "tags": [
+          "devices"
+        ]
+      },
+      "post": {
+        "description": "Take or renew a lease on this device.\n\nThe same call does both, so a holder never has to know whether its previous\nlease lapsed while it was away \u2014 a renewal that arrives a moment too late\nsimply becomes a fresh claim rather than an error it would have to handle.\n\nRefused with `409 device_reserved` when somebody else holds it, naming them,\nunless the body sets `force`.\n\nDeliberately **not** idempotent in the HTTP sense, and deliberately a POST:\neach call moves the expiry, which is the entire point \u2014 a PUT implying \"make\nit so\" would suggest re-sending the same body leaves the world unchanged,\nand here it must not.",
+        "operationId": "acquire_device_reservation_api_devices__device_id__reservation_post",
+        "parameters": [
+          {
+            "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "description": "Either \"serial:<value>\" or \"usb:<topology_path>\"",
+              "examples": [
+                "serial:ADSB-01"
+              ],
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceReservation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Claim this device, or renew a claim already held",
         "tags": [
           "devices"
         ]

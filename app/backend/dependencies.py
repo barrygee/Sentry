@@ -20,6 +20,7 @@ from app.backend.interfaces.clock import Clock
 from app.backend.services.console_auth import ConsoleAuthService
 from app.backend.services.control_follower import ControlFollowerService
 from app.backend.services.device_registry import DeviceRegistry
+from app.backend.services.device_reservations import DeviceReservationService
 from app.backend.services.eeprom import EepromService
 from app.backend.services.event_bus import EventBus
 from app.backend.services.health import HealthService
@@ -90,6 +91,12 @@ def get_host_control_settings(request: Request) -> HostControlSettingsService:
         request.app.state.container.host_control_settings
     )
     return host_control_settings
+
+
+def get_device_reservations(request: Request) -> DeviceReservationService:
+    """Return the process-wide `DeviceReservationService` — who is holding which dongle."""
+    device_reservations: DeviceReservationService = request.app.state.container.device_reservations
+    return device_reservations
 
 
 def get_sentry_location_service(request: Request) -> SentryLocationService:
