@@ -91,28 +91,10 @@
              carries `border-l-2` for its active marker, which centres the icon
              in the remaining 46px. `pl-[13px]` less the `-ml-px` puts the 26px
              mark at x=12, and its centre — the dot — at 25. -->
-        <svg
-          width="26"
-          height="26"
-          viewBox="0 0 34.9 34.9"
-          aria-hidden="true"
-          focusable="false"
-          class="-ml-px shrink-0"
-        >
-          <circle
-            cx="17.449658203125"
-            cy="17.449658203125"
-            r="14.41"
-            fill="none"
-            stroke="#ffffff"
-            stroke-width="4.08"
-          />
-          <!-- `signal.accent` (#c8ff00), the same lime Sentinel's mark uses.
-               The two apps' marks are one identity rather than two drawings of
-               it, which is worth more here than reserving the accent purely for
-               live state. -->
-          <circle cx="17.449658203125" cy="17.449658203125" r="5.69" fill="#c8ff00" />
-        </svg>
+        <!-- Filled by `logoMark()` from `main.ts`: the mark is drawn in one
+             place now that the sign-in screen shows it too. `text-ink-inverse`
+             is the ring colour it inherits — see `components/base/logoMark.ts`. -->
+        <span data-ref="header-logo-mark" class="-ml-px flex shrink-0 text-ink-inverse"></span>
         <h1
           class="m-0 font-wordmark text-[23px] font-medium uppercase leading-none tracking-wordmark text-ink-inverse"
         >

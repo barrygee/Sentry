@@ -120,10 +120,6 @@ describe('locationPanel', () => {
     expect(heading?.textContent?.trim()).toBe('Sentry Location')
   })
 
-  it('explains what the coordinates are for', () => {
-    expect(panelText()).toMatch(/Set a fixed latitude \/ longitude for this Sentry/)
-  })
-
   it('offers a latitude and a longitude field', () => {
     expect(field('Lat')).toBeTruthy()
     expect(field('Lon')).toBeTruthy()

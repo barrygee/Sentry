@@ -54,10 +54,6 @@ export function locationPanel(): Component<void> {
   let longitudeError: string | null = null
   let pairError: string | null = null
 
-  const introParagraph = el('p', { class: 'm-0 text-[12.5px] leading-[1.55] text-signal-muted' }, [
-    'Set a fixed latitude / longitude for this Sentry. Sentinel reads it to plot this Sentry on its map.',
-  ])
-
   const statusLine = el('p', { class: 'm-0 text-[12px] text-signal-muted' }, [])
 
   function onLatitudeChange(value: string): void {
@@ -242,7 +238,7 @@ export function locationPanel(): Component<void> {
     isBoxTitle: true,
     bodyClass: 'flex flex-col gap-6 pt-2',
     children: [
-      el('div', { class: 'flex flex-col gap-2' }, [introParagraph, statusLine]),
+      el('div', { class: 'flex flex-col gap-2' }, [statusLine]),
       errorNotice.element,
       form,
     ],
