@@ -9,6 +9,7 @@ import { disclosureSection } from '../base/disclosureSection.js'
 import {
   confirm as confirmHotspot,
   disable as disableHotspot,
+  enable as enableHotspot,
   hotspotStore,
   refresh,
   save,
@@ -318,6 +319,12 @@ export function hotspotPanel(): Component<void> {
           interfaces: storeState.interfaces,
           busy: isBusy,
           onSubmit: (config) => void save(config),
+          // The switch acts now. `enable`/`disable` carry the acknowledgement
+          // straight through, so the uplink check the operator ticked is the
+          // one the server is told about.
+          onEnabledChange: (enabled, confirmUplinkLoss) => {
+            void (enabled ? enableHotspot(confirmUplinkLoss) : disableHotspot(confirmUplinkLoss))
+          },
           actions: buildHotspotFormActions,
           // The countdown belongs beside the button that caused it. At the top
           // of the panel it sat a full screen away from the control an operator
