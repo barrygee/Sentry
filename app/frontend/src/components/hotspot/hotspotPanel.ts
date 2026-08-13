@@ -230,6 +230,7 @@ export function hotspotPanel(): Component<void> {
       setVisible(countdownSlot, deadline !== null)
       if (deadline !== null) {
         const countdownProps: HotspotConfirmCountdownProps = {
+          ssid: state.ssid ?? null,
           deadlineMs: deadline,
           busy: isBusy,
           onConfirm: () => void confirmHotspot(),
