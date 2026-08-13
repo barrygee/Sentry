@@ -52,6 +52,19 @@ export interface HotspotFormProps {
   /** True while a request is in flight; every control goes read-only. */
   busy: boolean
   onSubmit: (config: HotspotConfigRequest) => void
+  /**
+   * Start or stop the hotspot, now.
+   *
+   * The Enable switch is the one control here that is not form state: it acts
+   * on its own rather than waiting for Save, because a switch that reports
+   * "Hotspot enabled" while nothing has happened is a claim about the Pi that
+   * is not true. Routed out as a callback rather than calling the store from
+   * here, so the form stays drivable from fixture props alone.
+   *
+   * `confirmUplinkLoss` carries the operator's acknowledgement, since the
+   * switch can now be the thing that cuts this Sentry's own link.
+   */
+  onEnabledChange: (enabled: boolean, confirmUplinkLoss: boolean) => void
   /** Slot equivalent: builds the form's footer actions, kept current via `canSubmit`/`busy`. */
   actions: ComponentFactory<HotspotFormActionsProps>
   /**
@@ -159,7 +172,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
   let passphraseChanging = !props.state.passphrase_set
   let security: 'wpa2' | 'wpa3' = props.state.security ?? 'wpa2'
   let hidden = props.state.hidden ?? true
-  let hotspotEnabled = props.state.active
   let selectedInterfaceName = props.state.interface ?? ''
   let band: 'bg' | 'a' = props.state.band ?? 'bg'
   let channel = String(props.state.channel ?? 0)
@@ -193,10 +205,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     return wouldDropUplink(currentEffectiveInterface())
   }
   /** Whether either header switch is showing something the Pi is not doing yet. */
-  function enabledDiffersFromServer(): boolean {
-    return hotspotEnabled !== currentProps.state.active
-  }
-
   function hiddenDiffersFromServer(): boolean {
     return hidden !== (currentProps.state.hidden ?? true)
   }
@@ -330,15 +338,27 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     disabled: props.busy,
   })
 
+  /**
+   * The switch is refused, not silently ignored, while starting the hotspot
+   * would cut this Sentry's own link and nobody has said that is acceptable.
+   *
+   * That acknowledgement used to gate Save alone. Now that the switch acts on
+   * its own it would otherwise walk straight past the one check standing
+   * between an operator and a Pi they can no longer reach — the server would
+   * still refuse with `uplink_loss_unconfirmed`, but "flip switch, get error"
+   * is not a safety mechanism. The warning box beside it explains, and ticking
+   * its checkbox releases the switch.
+   */
+  function enabledToggleBlocked(): boolean {
+    return currentWouldDropUplink() && !acknowledgedUplinkLoss
+  }
+
   const enabledToggle = baseToggle({
-    value: hotspotEnabled,
-    onChange: (value) => {
-      hotspotEnabled = value
-      render()
-    },
-    label: enabledToggleLabel(hotspotEnabled),
+    value: props.state.active,
+    onChange: (value) => currentProps.onEnabledChange(value, acknowledgedUplinkLoss),
+    label: enabledToggleLabel(props.state.active),
     accessibleName: 'Run the hotspot now',
-    disabled: props.busy,
+    disabled: props.busy || enabledToggleBlocked(),
   })
 
   const actionsComponent = props.actions({ canSubmit: computeCanSubmit(), busy: props.busy })
@@ -367,12 +387,10 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
   const PENDING_NOTICE_CLASS = 'm-0 text-[11px] leading-[1.6] text-signal-muted'
   const PENDING_NOTICE_TEXT = 'Not applied until you save'
 
-  const enabledPendingNotice = el('p', { class: PENDING_NOTICE_CLASS }, [PENDING_NOTICE_TEXT])
   const hiddenPendingNotice = el('p', { class: PENDING_NOTICE_CLASS }, [PENDING_NOTICE_TEXT])
 
   const enabledToggleRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
     enabledToggle.element,
-    enabledPendingNotice,
   ])
   const hiddenToggleRow = el('div', { class: 'flex flex-wrap items-center gap-3' }, [
     hiddenToggle.element,
@@ -435,7 +453,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     ssid = nextState.ssid ?? ''
     security = nextState.security ?? 'wpa2'
     hidden = nextState.hidden ?? true
-    hotspotEnabled = nextState.active
     selectedInterfaceName = nextState.interface ?? ''
     band = nextState.band ?? 'bg'
     channel = String(nextState.channel ?? 0)
@@ -451,7 +468,11 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
       ssid,
       security,
       hidden,
-      enabled: hotspotEnabled,
+      // The server's own value, not a draft. `enabled` defaults to false in
+      // the request schema, so omitting it would stop a running hotspot on an
+      // unrelated save; echoing what is already true makes Save neutral about
+      // running state, which the switch now owns.
+      enabled: currentProps.state.active,
       interface: selectedInterfaceName === '' ? null : selectedInterfaceName,
       band,
       channel: Number(channel),
@@ -473,7 +494,6 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     const busy = currentProps.busy
     const interfaces = currentProps.interfaces
 
-    setVisible(enabledPendingNotice, enabledDiffersFromServer())
     setVisible(hiddenPendingNotice, hiddenDiffersFromServer())
 
     ssidField.update({
@@ -593,14 +613,13 @@ export function hotspotForm(props: HotspotFormProps): Component<HotspotFormProps
     }
 
     enabledToggle.update({
-      value: hotspotEnabled,
-      onChange: (value) => {
-        hotspotEnabled = value
-        render()
-      },
-      label: enabledToggleLabel(hotspotEnabled),
+      // Reflects the server, never a draft: the switch now reports what the
+      // hotspot is doing rather than what will happen on Save.
+      value: currentProps.state.active,
+      onChange: (value) => currentProps.onEnabledChange(value, acknowledgedUplinkLoss),
+      label: enabledToggleLabel(currentProps.state.active),
       accessibleName: 'Run the hotspot now',
-      disabled: busy,
+      disabled: busy || enabledToggleBlocked(),
     })
 
     actionsComponent.update({ canSubmit: computeCanSubmit(), busy })
