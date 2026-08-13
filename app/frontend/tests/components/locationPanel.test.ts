@@ -315,15 +315,18 @@ describe('locationPanel', () => {
       expect(put).toHaveBeenCalledWith({ latitude: null, longitude: null })
     })
 
-    it('confirms a successful save', async () => {
+    it('renders no confirmation of its own — the notice log carries that', async () => {
+      // The server publishes a `notice` on every stored position, shown by the
+      // app-wide log. A banner here would be a second, differently-dismissed
+      // copy of the same message, and would stay silent when another browser
+      // moved the Sentry.
       vi.spyOn(apiClient, 'putLocation').mockResolvedValue(serverLocation())
       await storeSettled()
-
       typeInto('Lat', String(LATITUDE))
       typeInto('Lon', String(LONGITUDE))
       await save()
 
-      expect(visibleText()).toMatch(/Location saved/)
+      expect(visibleText()).not.toMatch(/saved/i)
     })
 
     it('shows the server’s rejection rather than claiming success', async () => {

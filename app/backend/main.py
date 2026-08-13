@@ -348,7 +348,7 @@ def _build_container(settings: Settings) -> AppContainer:
     # Shares the session factory for the same reason the auth service does: the
     # position is a fact about this physical Pi, so it must survive a container
     # recreation rather than living in the environment.
-    sentry_location = SentryLocationService(session_factory, clock)
+    sentry_location = SentryLocationService(session_factory, clock, event_bus)
 
     # `.env` can still force hotspot control on and, when it does, wins over the
     # stored value permanently (ADR-0013).

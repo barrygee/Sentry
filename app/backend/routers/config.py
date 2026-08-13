@@ -13,6 +13,13 @@ The hotspot passphrase is importable but never exportable, so a provisioning
 file an operator wrote can carry one while a file Sentry produced cannot. The
 deploy-time gates (`SENTRY_HOTSPOT_CONTROL_ENABLED`, `SENTRY_AUTH_TOKEN`) are
 neither — see `schemas/config.py` for why that line falls where it does.
+
+The fixed position travels both ways. It is *always* exported — as two empty
+strings when none is set, so the file reads as a template — and applied under
+`apply_location` (on by default), except that an empty section never clears a
+position the destination already has. It is the one section that describes the
+*box* rather than its configuration, so cloning one Pi's file onto another and
+leaving the flag on will put both markers at the same coordinates.
 """
 
 from __future__ import annotations
@@ -30,6 +37,7 @@ from app.backend.dependencies import (
     get_device_registry,
     get_hotspot_service,
     get_port_allocator,
+    get_sentry_location_service,
     get_settings_dependency,
 )
 from app.backend.example_fixtures import SENTRY_VERSION
@@ -43,6 +51,7 @@ from app.backend.schemas.config import (
     DeviceConfigEntry,
     DeviceImportOutcome,
     HotspotConfigEntry,
+    LocationConfigEntry,
     SentryConfig,
 )
 from app.backend.schemas.device import DevicePatch
@@ -52,6 +61,7 @@ from app.backend.services.console_auth import ConsoleAuthService, PasswordTooSho
 from app.backend.services.device_registry import DeviceRegistry
 from app.backend.services.hotspot import HotspotError, HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
+from app.backend.services.sentry_location import SentryLocationService
 
 router = APIRouter(
     prefix="/config", tags=["config"], dependencies=[Depends(require_console_session)]
@@ -65,6 +75,7 @@ EXPORT_FILENAME = "sentry-config.json"
 async def _build_export(
     device_registry: DeviceRegistry,
     hotspot_service: HotspotService,
+    location_service: SentryLocationService,
     clock: Clock,
 ) -> SentryConfig:
     """Assemble this instance's exportable configuration.
@@ -116,12 +127,22 @@ async def _build_export(
         else None
     )
 
+    # Always written, even with no position set — it serialises as two empty
+    # strings, which is what makes the exported file usable as a template an
+    # operator fills in by hand (`LocationConfigEntry`). Only a file exported
+    # before this section existed omits the key.
+    stored_location = await location_service.get_location()
+    location = LocationConfigEntry(
+        latitude=stored_location.latitude, longitude=stored_location.longitude
+    )
+
     return SentryConfig(
         version=CONFIG_VERSION,
         generated_at=clock.now_ms(),
         sentry_version=SENTRY_VERSION,
         devices=devices,
         hotspot=hotspot,
+        location=location,
     )
 
 
@@ -134,10 +155,11 @@ async def _build_export(
 async def export_config(
     device_registry: DeviceRegistry = Depends(get_device_registry),
     hotspot_service: HotspotService = Depends(get_hotspot_service),
+    location_service: SentryLocationService = Depends(get_sentry_location_service),
     clock: Clock = Depends(get_clock),
 ) -> SentryConfig:
     """Return the whole configuration as JSON, for import into another Sentry."""
-    return await _build_export(device_registry, hotspot_service, clock)
+    return await _build_export(device_registry, hotspot_service, location_service, clock)
 
 
 @router.get(
@@ -149,6 +171,7 @@ async def export_config(
 async def download_config(
     device_registry: DeviceRegistry = Depends(get_device_registry),
     hotspot_service: HotspotService = Depends(get_hotspot_service),
+    location_service: SentryLocationService = Depends(get_sentry_location_service),
     clock: Clock = Depends(get_clock),
 ) -> Response:
     """The same payload as `GET /api/config`, with a filename attached.
@@ -161,7 +184,7 @@ async def download_config(
     log. The UI fetches `GET /api/config` authenticated and saves the file
     itself instead.
     """
-    config = await _build_export(device_registry, hotspot_service, clock)
+    config = await _build_export(device_registry, hotspot_service, location_service, clock)
     payload = json.dumps(config.model_dump(mode="json"), indent=2, ensure_ascii=False)
     return Response(
         content=payload + "\n",
@@ -304,6 +327,32 @@ async def _import_hotspot(
     return True, ""
 
 
+async def _import_location(
+    entry: LocationConfigEntry,
+    location_service: SentryLocationService,
+) -> tuple[bool, str]:
+    """Apply the file's fixed position, returning `(applied, why_not)`.
+
+    **An empty section does not clear the destination's position.** Every
+    exported file now carries this section whether or not the source had
+    coordinates, so importing a file from an unplaced Sentry would otherwise
+    silently wipe the position of a Sentry that has one — and the operator's
+    intent in that case is almost never "erase". Clearing a position stays
+    something you do deliberately, from the panel or `PUT /api/location`, where
+    it is the obvious reading of the action.
+
+    The pair is validated by `LocationConfigEntry` at parse time, so a set
+    section reaching here is always plottable.
+    """
+    if not entry.is_set:
+        return False, (
+            "The file records no position. Set one in the Sentry Location panel — "
+            "importing an empty section never clears the position already stored here."
+        )
+    await location_service.set_location(entry.latitude, entry.longitude)
+    return True, ""
+
+
 async def _import_console_password(
     password: str, console_auth: ConsoleAuthService
 ) -> tuple[bool, str]:
@@ -343,6 +392,7 @@ async def import_config(
     port_allocator: PortAllocatorService = Depends(get_port_allocator),
     hotspot_service: HotspotService = Depends(get_hotspot_service),
     settings: Settings = Depends(get_settings_dependency),
+    location_service: SentryLocationService = Depends(get_sentry_location_service),
     clock: Clock = Depends(get_clock),
     console_auth: ConsoleAuthService = Depends(get_console_auth_service),
 ) -> ConfigImportResult:
@@ -374,6 +424,16 @@ async def import_config(
                 config.hotspot, hotspot_service, settings, await console_auth.is_password_set()
             )
 
+    location_applied = False
+    location_detail = ""
+    if request_body.apply_location:
+        if config.location is None:
+            location_detail = "The file has no fixed position."
+        else:
+            location_applied, location_detail = await _import_location(
+                config.location, location_service
+            )
+
     console_password_applied = False
     console_password_detail = ""
     if config.console_password is not None:
@@ -390,11 +450,12 @@ async def import_config(
             set_session_cookie(response, await console_auth.issue_session())
 
     _logger.info(
-        "config import: %d applied, %d skipped, %d failed, hotspot_applied=%s",
+        "config import: %d applied, %d skipped, %d failed, hotspot_applied=%s, location_applied=%s",
         sum(1 for outcome in outcomes if outcome.outcome == "applied"),
         sum(1 for outcome in outcomes if outcome.outcome == "skipped"),
         sum(1 for outcome in outcomes if outcome.outcome == "failed"),
         hotspot_applied,
+        location_applied,
     )
 
     return ConfigImportResult(
@@ -406,5 +467,7 @@ async def import_config(
         hotspot_detail=hotspot_detail,
         console_password_applied=console_password_applied,
         console_password_detail=console_password_detail,
+        location_applied=location_applied,
+        location_detail=location_detail,
         generated_at=clock.now_ms(),
     )

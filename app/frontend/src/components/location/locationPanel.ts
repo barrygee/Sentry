@@ -53,7 +53,6 @@ export function locationPanel(): Component<void> {
   let latitudeError: string | null = null
   let longitudeError: string | null = null
   let pairError: string | null = null
-  let showSaved = false
 
   const introParagraph = el('p', { class: 'm-0 text-[12.5px] leading-[1.55] text-signal-muted' }, [
     'Set a fixed latitude / longitude for this Sentry. Sentinel reads it to plot this Sentry on its map.',
@@ -107,11 +106,6 @@ export function locationPanel(): Component<void> {
   })
 
   const errorNotice = noticeBox({ tone: 'danger', role: 'alert', children: [] })
-  const savedNotice = noticeBox({
-    tone: 'ok',
-    role: 'status',
-    children: ['Location saved. Any Sentinel polling this Sentry picks it up on its next refresh.'],
-  })
 
   const saveButton = baseButton({
     type: 'submit',
@@ -153,7 +147,6 @@ export function locationPanel(): Component<void> {
         : null
 
     if (latitudeError !== null || longitudeError !== null || pairError !== null) {
-      showSaved = false
       render(locationStore.state)
       // Return focus to the field that was rejected — otherwise a screen-reader
       // user is told something is wrong without being taken to it.
@@ -167,12 +160,16 @@ export function locationPanel(): Component<void> {
 
     const saved = await saveLocation(latitude, longitude)
     if (saved) {
-      showSaved = true
       // Re-sync the drafts from what the server actually stored, so a value it
       // normalised is what the operator is left looking at.
       draftInitialised = false
       render(locationStore.state)
     }
+    // No confirmation is rendered here. The server publishes a `notice` when a
+    // position is stored, which the app-wide notice log shows and dismisses the
+    // same way it does every other "something happened" message — including one
+    // caused by another browser, which a banner local to this panel could never
+    // report.
   }
 
   /** Format a stored coordinate for a text field. Empty string when unset. */
@@ -232,9 +229,7 @@ export function locationPanel(): Component<void> {
     setVisible(errorNotice.element, message !== null)
     if (message !== null) {
       errorNotice.update({ tone: 'danger', role: 'alert', children: [message] })
-      showSaved = false
     }
-    setVisible(savedNotice.element, showSaved && message === null)
   }
 
   const disclosure = disclosureSection({
@@ -249,7 +244,6 @@ export function locationPanel(): Component<void> {
     children: [
       el('div', { class: 'flex flex-col gap-2' }, [introParagraph, statusLine]),
       errorNotice.element,
-      savedNotice.element,
       form,
     ],
   })
@@ -278,7 +272,6 @@ export function locationPanel(): Component<void> {
       longitudeField.destroy()
       saveButton.destroy()
       errorNotice.destroy()
-      savedNotice.destroy()
       disclosure.destroy()
     },
   }

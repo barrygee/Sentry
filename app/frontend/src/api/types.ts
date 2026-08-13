@@ -519,13 +519,27 @@ export interface paths {
         /**
          * Set or clear this Sentry's fixed position
          * @description Store the given coordinates, or clear the position when both are null.
-         *
-         *     Bounds and the both-or-neither rule are enforced by `SentryLocationUpdate`,
-         *     so anything reaching here is already a position Sentinel can plot (or an
-         *     explicit erasure).
          */
         put: operations["set_location_api_location_put"];
-        post?: never;
+        /**
+         * Set or clear this Sentry's fixed position (alias for PUT)
+         * @description Identical to `PUT` — same body, same rules, same response.
+         *
+         *     Offered because a Sentry has exactly one position, so "create" and
+         *     "replace" are the same act: there is no collection to append to and no
+         *     second location a `POST` could mean. Clients that reach for `POST` by
+         *     habit (or whose HTTP layer makes `PUT` awkward) get the obvious verb
+         *     instead of a 405 telling them to use another one.
+         *
+         *     Deliberately **not** create-only. A `POST` that 409'd once a position
+         *     existed would make the natural verb the one that stops working the moment
+         *     it has been used, and an operator correcting a typo would be told the
+         *     Sentry already has a location — which they knew, and are trying to change.
+         *
+         *     Idempotent, as `PUT` is: sending the same pair twice leaves the same
+         *     position, so a retried request after a dropped response is safe.
+         */
+        post: operations["post_location_api_location_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -661,6 +675,12 @@ export interface components {
              * @default false
              */
             apply_hotspot: boolean;
+            /**
+             * Apply Location
+             * @description Apply the file's fixed position. On by default — restoring a Pi is the common case; turn it off when provisioning a second Pi from the first's file
+             * @default true
+             */
+            apply_location: boolean;
             config: components["schemas"]["SentryConfig-Input"];
         };
         /**
@@ -720,6 +740,17 @@ export interface components {
              * @default
              */
             hotspot_detail: string;
+            /**
+             * Location Applied
+             * @default false
+             */
+            location_applied: boolean;
+            /**
+             * Location Detail
+             * @description Why the position was not applied, when it was not
+             * @default
+             */
+            location_detail: string;
         };
         /**
          * DeviceConfigEntry
@@ -1492,6 +1523,66 @@ export interface components {
             warnings: ("auth_token_missing" | "advertised_host_overrides_gateway" | "single_radio_uplink_loss" | "nm_unavailable")[];
         };
         /**
+         * LocationConfigEntry
+         * @description The file's fixed-position section, whose unset coordinates are `""` on the wire.
+         *
+         *     Internally these stay `float | None`, which is what every other layer already
+         *     speaks; the empty string exists only in JSON. Two conversions bridge the gap:
+         *     `_empty_string_is_no_value` on the way in, `_serialise` on the way out.
+         *
+         *     The empty string rather than `null` is deliberate, and it is about the file
+         *     being *hand-editable*. A config file is the artefact an operator opens in a
+         *     text editor to fill in, and `"latitude": ""` is an obvious blank waiting for
+         *     a number, where `null` reads as a value someone chose and `"latitude"`
+         *     missing altogether reads as a key you would have to know to add.
+         *
+         *     Both coordinates or neither, and both within range — the same rules
+         *     `PUT /api/location` applies, enforced here so a hand-edited file fails at
+         *     parse time with a message about the field rather than deep inside an import.
+         */
+        "LocationConfigEntry-Input": {
+            /**
+             * Latitude
+             * @description Decimal degrees, or "" when no position is set
+             */
+            latitude?: number | null;
+            /**
+             * Longitude
+             * @description Decimal degrees, or "" when no position is set
+             */
+            longitude?: number | null;
+        };
+        /**
+         * LocationConfigEntry
+         * @description The file's fixed-position section, whose unset coordinates are `""` on the wire.
+         *
+         *     Internally these stay `float | None`, which is what every other layer already
+         *     speaks; the empty string exists only in JSON. Two conversions bridge the gap:
+         *     `_empty_string_is_no_value` on the way in, `_serialise` on the way out.
+         *
+         *     The empty string rather than `null` is deliberate, and it is about the file
+         *     being *hand-editable*. A config file is the artefact an operator opens in a
+         *     text editor to fill in, and `"latitude": ""` is an obvious blank waiting for
+         *     a number, where `null` reads as a value someone chose and `"latitude"`
+         *     missing altogether reads as a key you would have to know to add.
+         *
+         *     Both coordinates or neither, and both within range — the same rules
+         *     `PUT /api/location` applies, enforced here so a hand-edited file fails at
+         *     parse time with a message about the field rather than deep inside an import.
+         */
+        "LocationConfigEntry-Output": {
+            /**
+             * Latitude
+             * @description Decimal degrees, or "" when no position is set
+             */
+            latitude?: number | string;
+            /**
+             * Longitude
+             * @description Decimal degrees, or "" when no position is set
+             */
+            longitude?: number | string;
+        };
+        /**
          * LoginRequest
          * @description `POST /api/auth/login` body.
          */
@@ -1712,6 +1803,8 @@ export interface components {
              */
             generated_at: number;
             hotspot?: components["schemas"]["HotspotConfigEntry-Input"] | null;
+            /** @description The exporting Sentry's fixed position. Always written on export, with empty strings when none is set. Absent entirely in a pre-location file */
+            location?: components["schemas"]["LocationConfigEntry-Input"] | null;
             /**
              * Sentry Version
              * @description The app version that wrote it
@@ -1748,6 +1841,8 @@ export interface components {
              */
             generated_at: number;
             hotspot?: components["schemas"]["HotspotConfigEntry-Output"] | null;
+            /** @description The exporting Sentry's fixed position. Always written on export, with empty strings when none is set. Absent entirely in a pre-location file */
+            location?: components["schemas"]["LocationConfigEntry-Output"] | null;
             /**
              * Sentry Version
              * @description The app version that wrote it
@@ -2682,6 +2777,39 @@ export interface operations {
         };
     };
     set_location_api_location_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SentryLocationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentryLocation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_location_api_location_post: {
         parameters: {
             query?: never;
             header?: never;
