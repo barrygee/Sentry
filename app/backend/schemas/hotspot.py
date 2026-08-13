@@ -335,7 +335,12 @@ class WirelessInterfaceItem(BaseModel):
     ipv4_addresses: tuple[str, ...] = ()
     carries_default_route: bool = False
     in_use_by: str | None = Field(
-        default=None, description="The connection currently active on this interface, if any"
+        default=None,
+        description=(
+            "Another connection currently active on this interface, if any. "
+            "Null when the interface is idle, or when the only thing using it "
+            "is this Sentry's own hotspot."
+        ),
     )
 
 

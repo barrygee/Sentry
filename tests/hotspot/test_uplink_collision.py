@@ -22,13 +22,21 @@ Run with:  uv run pytest tests/hotspot
 
 from __future__ import annotations
 
-import pytest
+import os
+from pathlib import Path
 
+import pytest
+from fastapi.testclient import TestClient
+
+from app.backend.config import get_settings
+from app.backend.dependencies import get_hotspot_service
 from app.backend.interfaces.types import (
     HotspotProfile,
     HotspotRuntimeState,
     WirelessInterface,
 )
+from app.backend.main import create_app
+from app.backend.security import require_console_session
 from app.backend.services.event_bus import EventBus
 from app.backend.services.hotspot import HotspotService
 from tests.fakes.clock import FakeClock
@@ -179,3 +187,60 @@ async def test_an_idle_radio_is_not_an_uplink() -> None:
     snapshot = await service.get_snapshot()
 
     assert snapshot.uplink_interface_is_hotspot_interface is False
+
+
+class _InterfaceListingService:
+    """Just enough `HotspotService` for `GET /api/hotspot/interfaces`."""
+
+    def __init__(self, interface: WirelessInterface) -> None:
+        self._interface = interface
+
+    @property
+    def hotspot_connection_name(self) -> str:
+        return HOTSPOT_CONNECTION_NAME
+
+    async def list_interfaces(self) -> tuple[WirelessInterface, ...]:
+        return (self._interface,)
+
+
+def _interfaces_payload(interface: WirelessInterface, tmp_path: Path) -> dict[str, object]:
+    """Call the route with the service and console session stubbed out."""
+    os.environ["SENTRY_DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path / 'interfaces.db'}"
+    get_settings.cache_clear()
+    try:
+        app = create_app()
+        app.dependency_overrides[get_hotspot_service] = lambda: _InterfaceListingService(interface)
+        app.dependency_overrides[require_console_session] = lambda: None
+        with TestClient(app) as client:
+            response = client.get("/api/hotspot/interfaces")
+        assert response.status_code == 200
+        payload: dict[str, object] = response.json()
+        return payload
+    finally:
+        get_settings.cache_clear()
+
+
+def test_in_use_by_omits_the_hotspots_own_profile(tmp_path: Path) -> None:
+    """The console reads a non-null `in_use_by` as "this radio carries a link".
+
+    Reporting our own AP there is what kept the red "starting the hotspot will
+    disconnect this link" warning on screen while the hotspot was running.
+    """
+    payload = _interfaces_payload(
+        _interface(active_connection_name=HOTSPOT_CONNECTION_NAME, carries_default_route=False),
+        tmp_path,
+    )
+
+    entry = payload["interfaces"][0]  # type: ignore[index]
+    assert entry["in_use_by"] is None
+
+
+def test_in_use_by_still_reports_another_connection(tmp_path: Path) -> None:
+    """A genuine station connection must still be named, or the warning vanishes."""
+    payload = _interfaces_payload(
+        _interface(active_connection_name="house-wifi", carries_default_route=False),
+        tmp_path,
+    )
+
+    entry = payload["interfaces"][0]  # type: ignore[index]
+    assert entry["in_use_by"] == "house-wifi"

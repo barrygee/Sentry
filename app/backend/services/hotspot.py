@@ -169,6 +169,15 @@ class HotspotService:
             last_error=self._last_error,
         )
 
+    @property
+    def hotspot_connection_name(self) -> str:
+        """The NetworkManager profile this Sentry's own AP uses.
+
+        Exposed so callers can tell "another connection is using this radio"
+        from "our own hotspot is". NetworkManager reports both the same way.
+        """
+        return self._hotspot_connection_name
+
     async def list_interfaces(self) -> tuple[WirelessInterface, ...]:
         """List wireless interfaces the operator could put the hotspot on."""
         return await self._controller.list_wireless_interfaces()

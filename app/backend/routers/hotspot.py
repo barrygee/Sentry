@@ -260,7 +260,16 @@ async def list_interfaces(
                 station_ssid=entry.station_ssid,
                 ipv4_addresses=entry.ipv4_addresses,
                 carries_default_route=entry.carries_default_route,
-                in_use_by=entry.active_connection_name,
+                # Our own AP does not count as something else using the radio.
+                # NetworkManager reports the hotspot's profile as the active
+                # connection while it is up, and the console reads a non-null
+                # `in_use_by` as "starting the hotspot here will cut a link" —
+                # which showed that warning *because* the hotspot had started.
+                in_use_by=(
+                    None
+                    if entry.active_connection_name == hotspot_service.hotspot_connection_name
+                    else entry.active_connection_name
+                ),
             )
             for entry in interfaces
         ),
