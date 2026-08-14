@@ -9,6 +9,7 @@ import {
 } from '../../state/consoleAuth.js'
 import { baseButton } from '../base/baseButton.js'
 import { baseField } from '../base/baseField.js'
+import { logoMark } from '../base/logoMark.js'
 import { nextElementId } from '../base/idGenerator.js'
 import { noticeBox } from '../base/noticeBox.js'
 import { sectionHeading } from '../base/sectionHeading.js'
@@ -29,6 +30,34 @@ export function signInView(): Component<void> {
   const headingId = nextElementId('sign-in-heading')
 
   let draftPassword = ''
+
+  // The mark and wordmark, above the form.
+  //
+  // This is the first — and on a locked console the only — screen an operator
+  // sees, and it was the one place in the app that never said which app it was:
+  // the header carrying the logo is hidden behind this view, so a bare "Sign in"
+  // box could have belonged to anything on the network. On a Pi that may be
+  // reached by IP alone, that matters more than it would elsewhere.
+  //
+  // `text-ink-primary` sets the ring's colour: the mark inherits it through
+  // `currentColor`, and the white ring the header uses would be invisible on
+  // this light canvas.
+  //
+  // The wordmark is a `<p>`, not a heading. "Sign in" is the page's `h1` and
+  // says what to do here; promoting the app's name above it would push the
+  // instruction to `h2` and leave a screen-reader user navigating by heading to
+  // a title that asks nothing of them.
+  const logoLockup = el('div', { class: 'flex items-center gap-2.5 text-ink-primary' }, [
+    logoMark({ size: 30 }),
+    el(
+      'p',
+      {
+        class:
+          'm-0 font-wordmark text-[25px] font-medium uppercase leading-none tracking-wordmark text-ink-primary',
+      },
+      ['Sentry'],
+    ),
+  ])
 
   const heading = sectionHeading({ level: 1, children: ['Sign in'] })
   heading.element.id = headingId
@@ -68,7 +97,10 @@ export function signInView(): Component<void> {
       },
     },
     [
-      el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph]),
+      el('div', { class: 'flex flex-col gap-5' }, [
+        logoLockup,
+        el('div', { class: 'flex flex-col gap-2' }, [heading.element, introParagraph]),
+      ]),
       errorNotice.element,
       passwordField.element,
       submitButton.element,

@@ -1,4 +1,5 @@
 import { signInView } from './components/auth/signInView.js'
+import { logoMark } from './components/base/logoMark.js'
 import { unprotectedWarning } from './components/auth/unprotectedWarning.js'
 import { liveAnnouncer } from './core/liveAnnouncer.js'
 import { watchStore } from './core/observable.js'
@@ -27,6 +28,11 @@ import { mountSettingsView } from './views/settingsView.js'
  */
 
 const shell = document.body
+
+// The header's ⊙ mark. Drawn here rather than inline in `index.html` because
+// the sign-in screen shows the same mark, and a hand-copied second SVG is how
+// an app ends up with two slightly different logos.
+ref(shell, 'header-logo-mark', HTMLElement).appendChild(logoMark({ size: 26 }))
 
 // ---------------------------------------------------------------------------
 // Nav rail show/hide
