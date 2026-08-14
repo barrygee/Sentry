@@ -82,8 +82,25 @@ CMD_SET_AGC_MODE = 0x08  # 1 = AGC on, 0 = AGC off
 # than rtl_tcp's raw defaults). Mirrors the Sentinel backend's connect-time defaults.
 DEFAULT_CENTER_HZ = 100_000_000
 DEFAULT_SAMPLE_RATE = 2_048_000
+
+# The device's configured startup tuning, handed over by the supervisor
+# (`services/supervisor.py`) which spawns this process.
+#
+# These exist because this relay *asserts* its tracked tuner state over the
+# dongle on every upstream (re)connect — that is what lets a re-enumerated
+# device resume on the operator's tuning rather than rtl_tcp's raw defaults.
+# Without being told what that tuning is, the state it asserts is the module
+# defaults above, which would immediately retune the dongle away from the
+# `-f`/`-s` the supervisor just passed to `rtl_tcp`: the operator's frequency
+# would reach the hardware for only as long as it took this process to connect,
+# and a device configured for 1090 MHz would sit in the FM broadcast band.
 DEFAULT_GAIN_DB = 30.0
 DEFAULT_GAIN_AUTO = True
+
+INITIAL_CENTER_HZ = int(os.environ.get("RELAY_CENTER_HZ", "") or DEFAULT_CENTER_HZ)
+INITIAL_SAMPLE_RATE = int(os.environ.get("RELAY_SAMPLE_RATE", "") or DEFAULT_SAMPLE_RATE)
+INITIAL_GAIN_AUTO = os.environ.get("RELAY_GAIN_AUTO", "") != "0"
+INITIAL_GAIN_DB = float(os.environ.get("RELAY_GAIN_DB", "") or DEFAULT_GAIN_DB)
 # A control client that falls this far behind on state pushes is treated as dead.
 CONTROL_QUEUE_MAX_MESSAGES = 64
 # Bytes pulled from upstream per fan-out iteration. Small enough for low latency,
@@ -136,10 +153,10 @@ class RelayState:
         self.upstream_writer: asyncio.StreamWriter | None = None
         self.client_queues: set[asyncio.Queue[bytes | None]] = set()
         # Tuning-ownership coordination (control channel).
-        self.center_hz: int = DEFAULT_CENTER_HZ
-        self.sample_rate: int = DEFAULT_SAMPLE_RATE
-        self.gain_db: float = DEFAULT_GAIN_DB
-        self.gain_auto: bool = DEFAULT_GAIN_AUTO
+        self.center_hz: int = INITIAL_CENTER_HZ
+        self.sample_rate: int = INITIAL_SAMPLE_RATE
+        self.gain_db: float = INITIAL_GAIN_DB
+        self.gain_auto: bool = INITIAL_GAIN_AUTO
         self.current_owner: ControlSession | None = None
         self.control_sessions: set[ControlSession] = set()
 

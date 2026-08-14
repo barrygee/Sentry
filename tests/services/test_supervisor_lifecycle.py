@@ -356,7 +356,7 @@ class TestSpawnPair:
         await cancel_background_tasks(supervisor)
 
     @pytest.mark.asyncio
-    async def test_the_relay_gets_exactly_its_six_frozen_env_vars(self) -> None:
+    async def test_the_relay_gets_exactly_its_frozen_env_vars(self) -> None:
         """Architecture §12.7: the relay is configured through these and nothing else."""
         spawner = FakeProcessSpawner()
         supervisor = build_supervisor(spawner=spawner)
@@ -372,7 +372,117 @@ class TestSpawnPair:
             "RELAY_LISTEN_PORT": "2345",
             "RELAY_CONTROL_PORT": "2347",
             "RELAY_EXIT_ON_WEDGE": "1",
+            "RELAY_GAIN_AUTO": "1",
         }
+
+        await cancel_background_tasks(supervisor)
+
+    @pytest.mark.asyncio
+    async def test_the_relay_is_told_the_devices_startup_tuning(self) -> None:
+        """Without this the relay retunes the dongle to its own defaults on connect.
+
+        The relay asserts its tracked tuner state upstream every time it
+        connects. Told nothing, it tracks 100 MHz at 2.048 MSPS and asserts
+        *that* — undoing the `-f`/`-s` this same spawn just gave `rtl_tcp`,
+        milliseconds later. A device configured for 1090 MHz then sits in the FM
+        broadcast band while the API reports it on 1090.
+        """
+        spawner = FakeProcessSpawner()
+        supervisor = build_supervisor(spawner=spawner)
+
+        await supervisor._spawn_pair(  # noqa: SLF001
+            DEVICE_ID, runnable_device(center_hz=1_090_000_000, sample_rate=2_400_000)
+        )
+        await settle()
+
+        _, relay_env, _ = spawner.spawns[1]
+        assert relay_env["RELAY_CENTER_HZ"] == "1090000000"
+        assert relay_env["RELAY_SAMPLE_RATE"] == "2400000"
+
+        await cancel_background_tasks(supervisor)
+
+    @pytest.mark.asyncio
+    async def test_an_untuned_device_leaves_the_relay_on_its_own_defaults(self) -> None:
+        # A device with no configured tuning has nothing to assert, and sending
+        # an empty value would be worse than sending none.
+        spawner = FakeProcessSpawner()
+        supervisor = build_supervisor(spawner=spawner)
+
+        await supervisor._spawn_pair(  # noqa: SLF001
+            DEVICE_ID, runnable_device(center_hz=None, sample_rate=None)
+        )
+        await settle()
+
+        _, relay_env, _ = spawner.spawns[1]
+        assert "RELAY_CENTER_HZ" not in relay_env
+        assert "RELAY_SAMPLE_RATE" not in relay_env
+
+        await cancel_background_tasks(supervisor)
+
+    @pytest.mark.asyncio
+    async def test_a_fixed_gain_reaches_the_relay_only_when_agc_is_off(self) -> None:
+        # Same reasoning as `rtl_tcp`'s `-g`: a stale `gain_db` asserted while
+        # AGC is on would fight the operator's own choice.
+        spawner = FakeProcessSpawner()
+        supervisor = build_supervisor(spawner=spawner)
+
+        await supervisor._spawn_pair(  # noqa: SLF001
+            DEVICE_ID, runnable_device(gain_db=42.1, gain_auto=False)
+        )
+        await settle()
+
+        _, relay_env, _ = spawner.spawns[1]
+        assert relay_env["RELAY_GAIN_AUTO"] == "0"
+        assert relay_env["RELAY_GAIN_DB"] == "42.1"
+
+        await cancel_background_tasks(supervisor)
+
+    @pytest.mark.asyncio
+    async def test_retuning_a_running_device_restarts_its_pair(self) -> None:
+        """Tuning is startup-only, so a change that does not restart never reaches the signal.
+
+        `rtl_tcp` takes the frequency as an argv flag and the relay asserts it
+        on connect; neither re-reads it. Before this, a `PATCH` setting
+        `center_hz` was stored, reported back as applied, and changed nothing
+        the aerial was actually receiving until something else happened to
+        restart the pair.
+        """
+        spawner = FakeProcessSpawner()
+        registry = ScriptedDeviceRegistry()
+        registry.runnable = (runnable_device(center_hz=100_000_000),)
+        supervisor = build_supervisor(spawner=spawner, registry=registry)
+
+        await supervisor.reconcile()
+        await settle()
+        spawns_before = len(spawner.spawns)
+
+        registry.runnable = (runnable_device(center_hz=1_090_000_000),)
+        await supervisor.reconcile()
+        await settle()
+
+        assert len(spawner.spawns) > spawns_before
+        _, relay_env, _ = spawner.spawns[-1]
+        assert relay_env["RELAY_CENTER_HZ"] == "1090000000"
+
+        await cancel_background_tasks(supervisor)
+
+    @pytest.mark.asyncio
+    async def test_reconciling_unchanged_tuning_leaves_the_pair_alone(self) -> None:
+        # Renewals re-send the same values every 30s; restarting on each would
+        # tear the stream down continuously.
+        spawner = FakeProcessSpawner()
+        registry = ScriptedDeviceRegistry()
+        registry.runnable = (runnable_device(center_hz=1_090_000_000),)
+        supervisor = build_supervisor(spawner=spawner, registry=registry)
+
+        await supervisor.reconcile()
+        await settle()
+        spawns_before = len(spawner.spawns)
+
+        await supervisor.reconcile()
+        await settle()
+
+        assert len(spawner.spawns) == spawns_before
 
         await cancel_background_tasks(supervisor)
 

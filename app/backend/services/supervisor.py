@@ -169,6 +169,17 @@ class _RunningPair:
     relay_process: ManagedProcess
     spawned_output_port: int
     spawned_ppm_correction: int
+    spawned_center_hz: int | None = None
+    spawned_sample_rate: int | None = None
+    spawned_gain_db: float | None = None
+    spawned_gain_auto: bool = True
+    """The tuning this pair was actually started with.
+
+    Recorded because tuning is applied as `rtl_tcp` *startup arguments* and by
+    the relay's initial state — neither of which a running process re-reads. A
+    `PATCH` that changes a frequency therefore has to restart the pair, and this
+    is what `reconcile()` compares against to notice.
+    """
     settle_task: asyncio.Task[None] | None = None
 
 
@@ -298,8 +309,19 @@ class SupervisorService:
                 if running_pair is not None and (
                     running_pair.spawned_output_port != desired.output_port
                     or running_pair.spawned_ppm_correction != desired.ppm_correction
+                    or running_pair.spawned_center_hz != desired.center_hz
+                    or running_pair.spawned_sample_rate != desired.sample_rate
+                    or running_pair.spawned_gain_db != desired.gain_db
+                    or running_pair.spawned_gain_auto != desired.gain_auto
                 ):
                     # architecture §7.5: output_port/ppm_correction changes restart the pair.
+                    #
+                    # So do the tuning fields, for the same reason: they are
+                    # `rtl_tcp` startup arguments and the relay's initial state,
+                    # so a running process never re-reads them. Without this a
+                    # `PATCH` setting a frequency is stored, reported back as
+                    # applied, and silently does nothing to the signal until
+                    # something else happens to restart the pair.
                     await self._stop_pair(device_id, grace_period_s=5.0, reason="reconfiguring")
                     running_pair = None
                 if (
@@ -539,6 +561,28 @@ class SupervisorService:
             "RELAY_LISTEN_PORT": str(desired.output_port),
             "RELAY_CONTROL_PORT": str(desired.control_port),
             "RELAY_EXIT_ON_WEDGE": "1",
+            # The relay asserts its tracked tuner state over the dongle every
+            # time it (re)connects upstream, which is what lets a re-enumerated
+            # device come back on the operator's tuning. Without these it has
+            # nothing to track but its own module defaults — 100 MHz at
+            # 2.048 MSPS — so it would immediately retune the dongle away from
+            # the `-f`/`-s` this same function just passed to `rtl_tcp`, and the
+            # operator's configured frequency would reach the hardware for only
+            # as long as it took the relay to connect.
+            **(
+                {"RELAY_CENTER_HZ": str(desired.center_hz)} if desired.center_hz is not None else {}
+            ),
+            **(
+                {"RELAY_SAMPLE_RATE": str(desired.sample_rate)}
+                if desired.sample_rate is not None
+                else {}
+            ),
+            "RELAY_GAIN_AUTO": "1" if desired.gain_auto else "0",
+            **(
+                {"RELAY_GAIN_DB": str(desired.gain_db)}
+                if desired.gain_db is not None and not desired.gain_auto
+                else {}
+            ),
         }
         try:
             relay_process = await self._process_spawner.spawn(
@@ -563,6 +607,10 @@ class SupervisorService:
             relay_process=relay_process,
             spawned_output_port=desired.output_port,
             spawned_ppm_correction=desired.ppm_correction,
+            spawned_center_hz=desired.center_hz,
+            spawned_sample_rate=desired.sample_rate,
+            spawned_gain_db=desired.gain_db,
+            spawned_gain_auto=desired.gain_auto,
         )
         self._pairs[device_id] = running_pair
         self._watch_tasks[device_id] = asyncio.create_task(
