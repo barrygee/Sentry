@@ -28,6 +28,7 @@ from app.backend.config import Settings
 from app.backend.dependencies import (
     get_clock,
     get_device_registry,
+    get_device_reservations,
     get_sentry_location_service,
     get_settings_dependency,
 )
@@ -35,6 +36,7 @@ from app.backend.example_fixtures import SENTRY_VERSION
 from app.backend.interfaces.clock import Clock
 from app.backend.routers.host_resolution import resolve_public_host
 from app.backend.schemas.device import DeviceRecord
+from app.backend.schemas.reservation import DeviceReservation
 from app.backend.schemas.sdr_export import (
     SDR_EXPORT_API_VERSION,
     SdrExportItem,
@@ -42,6 +44,7 @@ from app.backend.schemas.sdr_export import (
     SdrExportSource,
 )
 from app.backend.services.device_registry import DeviceRegistry
+from app.backend.services.device_reservations import DeviceReservationService
 from app.backend.services.sentry_location import SentryLocationService
 
 router = APIRouter(tags=["sdrs"])
@@ -49,7 +52,9 @@ router = APIRouter(tags=["sdrs"])
 API_VERSION_HEADER = "X-Sentry-Sdr-Api-Version"
 
 
-def _map_to_export_item(record: DeviceRecord) -> SdrExportItem:
+def _map_to_export_item(
+    record: DeviceRecord, reservation: DeviceReservation | None
+) -> SdrExportItem:
     """Map one `DeviceRecord` onto Sentinel's field names (architecture §7.8)."""
     description = record.description.strip()
     if not description:
@@ -71,6 +76,9 @@ def _map_to_export_item(record: DeviceRecord) -> SdrExportItem:
         agc=record.gain_auto,
         available=record.present,
         state=record.state,
+        reserved_by=reservation.holder if reservation else None,
+        reserved_label=reservation.label if reservation else "",
+        reserved_until=reservation.expires_at if reservation else None,
     )
 
 
@@ -81,6 +89,7 @@ async def _build_sdr_export(
     settings: Settings,
     clock: Clock,
     location_service: SentryLocationService,
+    reservations: DeviceReservationService,
     include_disabled: bool,
     available_only: bool,
 ) -> SdrExportResponse:
@@ -101,6 +110,10 @@ async def _build_sdr_export(
     """
     response.headers[API_VERSION_HEADER] = str(SDR_EXPORT_API_VERSION)
     host = resolve_public_host(request, settings)
+    # One query for every live claim rather than a lookup per device: this route
+    # is polled, and the device loop below would otherwise issue a round trip per
+    # dongle to answer the same question.
+    live_reservations = await reservations.list_reservations()
 
     items: list[SdrExportItem] = []
     for record in device_registry.list_records():
@@ -112,7 +125,7 @@ async def _build_sdr_export(
             continue
         if available_only and not record.present:
             continue
-        item = _map_to_export_item(record)
+        item = _map_to_export_item(record, live_reservations.get(record.device_id))
         items.append(item.model_copy(update={"host": host}))
 
     return SdrExportResponse(
@@ -147,6 +160,7 @@ async def get_sdrs_v1(
     settings: Settings = Depends(get_settings_dependency),
     clock: Clock = Depends(get_clock),
     location_service: SentryLocationService = Depends(get_sentry_location_service),
+    reservations: DeviceReservationService = Depends(get_device_reservations),
 ) -> SdrExportResponse:
     """Return every *public* configured device, mapped onto Sentinel's `SdrRadio` field names.
 
@@ -160,6 +174,7 @@ async def get_sdrs_v1(
         settings,
         clock,
         location_service,
+        reservations,
         include_disabled,
         available_only,
     )
@@ -180,6 +195,7 @@ async def get_sdrs_alias(
     settings: Settings = Depends(get_settings_dependency),
     clock: Clock = Depends(get_clock),
     location_service: SentryLocationService = Depends(get_sentry_location_service),
+    reservations: DeviceReservationService = Depends(get_device_reservations),
 ) -> SdrExportResponse:
     """Permanent convenience alias serving the current stable SDR export version."""
     return await _build_sdr_export(
@@ -189,6 +205,7 @@ async def get_sdrs_alias(
         settings,
         clock,
         location_service,
+        reservations,
         include_disabled,
         available_only,
     )

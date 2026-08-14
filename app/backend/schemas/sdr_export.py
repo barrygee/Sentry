@@ -67,6 +67,27 @@ class SdrExportItem(BaseModel):
     agc: bool | None = Field(default=None, description="Sentry's gain_auto")
     available: bool = Field(description="Display-only: grey out rather than hide when false")
     state: str = Field(description="Display-only device state")
+    reserved_by: str | None = Field(
+        default=None, description="Consumer currently holding this device, or null when free"
+    )
+    reserved_label: str = Field(
+        default="", description='Operator-facing holder name, e.g. "Sentinel — AIR (ADS-B)"'
+    )
+    reserved_until: int | None = Field(
+        default=None, description="Unix ms the holder's lease lapses unless renewed"
+    )
+    """Who has this dongle, so a *second* Sentinel can see it is taken.
+
+    Without it, two Sentinels both wanting the same device would each discover
+    the conflict only by trying to claim it and being refused — which works, but
+    means the UI can never show "in use by …" until the operator has already
+    asked for it. Additive within api_version 1: a consumer that does not know
+    these keys is unaffected.
+
+    `reserved_until` is published as well as the holder because a lease that is
+    about to lapse and one just renewed are different situations to a consumer
+    deciding whether to wait.
+    """
 
 
 class SdrExportResponse(BaseModel):

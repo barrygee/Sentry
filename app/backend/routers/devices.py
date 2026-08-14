@@ -16,11 +16,12 @@ import logging
 import uuid
 from collections.abc import Sequence
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, status
 
 from app.backend.config import Settings
 from app.backend.dependencies import (
     get_device_registry,
+    get_device_reservations,
     get_eeprom_service,
     get_port_allocator,
     get_settings_dependency,
@@ -33,15 +34,111 @@ from app.backend.schemas.device import (
     PortConstraints,
 )
 from app.backend.schemas.errors import error_detail
+from app.backend.schemas.reservation import (
+    DeviceReservation,
+    ReservationRequest,
+    ReservationState,
+)
 from app.backend.schemas.serial import SerialFlashAccepted, SerialFlashRequest
 from app.backend.security import require_console_session
 from app.backend.services.device_registry import DeviceRegistry, IncompleteConfigurationError
+from app.backend.services.device_reservations import (
+    DeviceReservationService,
+    ReservationHeldError,
+)
 from app.backend.services.eeprom import EepromService
 from app.backend.services.port_allocator import PortAllocatorService
 
 router = APIRouter(
     prefix="/devices", tags=["devices"], dependencies=[Depends(require_console_session)]
 )
+
+HOLDER_HEADER = "X-Sentry-Reservation-Holder"
+"""Identifies the caller against a device's lease.
+
+A header rather than a body field because it is metadata about *who is asking*,
+not configuration to store — and because `DevicePatch` is replayed verbatim by
+the config importer, where a holder id would be meaningless and `extra="forbid"`
+would reject it.
+
+The console sends nothing, so an operator editing a reserved device is refused
+and told who holds it, with the option to take it back. That is the intended
+asymmetry: a machine proves it holds the lease, a human decides to break it.
+"""
+
+# Fields that change what the *signal* is. Editing any of these under a holder's
+# feet is what a reservation exists to prevent: it silently retunes the stream
+# somebody else is decoding. Metadata (name, description, notes, antenna,
+# visibility) is deliberately absent — renaming a device harms nobody, and
+# refusing it would make the lock feel arbitrary.
+_TUNING_FIELDS = frozenset(
+    {
+        "center_hz",
+        "sample_rate",
+        "gain_db",
+        "gain_auto",
+        "ppm_correction",
+        "bias_tee",
+        "direct_sampling",
+        "enabled",
+        "output_port",
+    }
+)
+
+
+def _identity_of(device_id: str) -> tuple[str, str]:
+    """Split `"serial:ABC"` into its identity tier and key.
+
+    Reservations are keyed by identity rather than by the device row, so a claim
+    follows the physical dongle (ADR-0003). `device_id` is already that pair
+    joined by a colon; the key may itself contain colons, so this splits once.
+    """
+    kind, _, key = device_id.partition(":")
+    return kind, key
+
+
+def _reservation_conflict(reservation: DeviceReservation) -> HTTPException:
+    """The 409 every "somebody else has this device" path returns.
+
+    Names the holder and when its lease lapses, because "device busy" alone
+    leaves the caller with nothing to decide from — whether to wait, to take it,
+    or to go and stop whatever is holding it.
+    """
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=error_detail(
+            "device_reserved",
+            f"{reservation.label or reservation.holder} is using this device.",
+            holder=reservation.holder,
+            label=reservation.label,
+            expires_at=reservation.expires_at,
+        ),
+    )
+
+
+async def _require_tuning_allowed(
+    patch: DevicePatch,
+    device_id: str,
+    holder: str | None,
+    reservations: DeviceReservationService,
+) -> None:
+    """Refuse a tuning change to a device somebody else is holding.
+
+    A patch touching only metadata passes whatever the lease says — see
+    `_TUNING_FIELDS`. `exclude_unset` so a field the caller never mentioned is
+    not treated as a change: a patch that omits `center_hz` is not an attempt to
+    retune, and reading defaults as intent would lock out edits that change
+    nothing.
+    """
+    touched = set(patch.model_dump(exclude_unset=True))
+    if not touched & _TUNING_FIELDS:
+        return
+    kind, key = _identity_of(device_id)
+    reservation = await reservations.get_reservation(kind, key)
+    if reservation is None or reservation.holder == holder:
+        return
+    raise _reservation_conflict(reservation)
+
 
 _logger = logging.getLogger(__name__)
 
@@ -158,6 +255,8 @@ async def patch_device(
     device_id: str = DEVICE_ID_PATH,
     device_registry: DeviceRegistry = Depends(get_device_registry),
     port_allocator: PortAllocatorService = Depends(get_port_allocator),
+    reservations: DeviceReservationService = Depends(get_device_reservations),
+    holder: str | None = Header(default=None, alias=HOLDER_HEADER),
 ) -> DeviceRecord:
     """Upsert one device's configuration; creates the row on first call for a detected device.
 
@@ -174,6 +273,10 @@ async def patch_device(
     which the lock also happens to prevent but which existed as a fallback
     before the lock did.
     """
+    # Checked before the port allocator and before any mutation: a caller who
+    # may not retune this device should be refused without its request having
+    # taken the allocation lock or changed anything on the way.
+    await _require_tuning_allowed(patch, device_id, holder, reservations)
     return await apply_device_configuration(patch, device_id, device_registry, port_allocator)
 
 
@@ -389,3 +492,90 @@ async def flash_serial(
         status="in_progress",
         requires_replug=True,
     )
+
+
+@router.get(
+    "/{device_id}/reservation",
+    response_model=ReservationState,
+    status_code=status.HTTP_200_OK,
+    summary="Who is currently using this device",
+)
+async def get_device_reservation(
+    device_id: str = DEVICE_ID_PATH,
+    reservations: DeviceReservationService = Depends(get_device_reservations),
+) -> ReservationState:
+    """Report this device's live claim, if any.
+
+    `200` with `reserved: false` rather than `404` when nothing holds it: an
+    unclaimed device is a normal answer to a normal question, and making the
+    caller catch an error to learn "it is free" would be the wrong shape.
+    """
+    kind, key = _identity_of(device_id)
+    reservation = await reservations.get_reservation(kind, key)
+    return ReservationState(reserved=reservation is not None, reservation=reservation)
+
+
+@router.post(
+    "/{device_id}/reservation",
+    response_model=DeviceReservation,
+    status_code=status.HTTP_200_OK,
+    summary="Claim this device, or renew a claim already held",
+)
+async def acquire_device_reservation(
+    request_body: ReservationRequest,
+    device_id: str = DEVICE_ID_PATH,
+    reservations: DeviceReservationService = Depends(get_device_reservations),
+) -> DeviceReservation:
+    """Take or renew a lease on this device.
+
+    The same call does both, so a holder never has to know whether its previous
+    lease lapsed while it was away — a renewal that arrives a moment too late
+    simply becomes a fresh claim rather than an error it would have to handle.
+
+    Refused with `409 device_reserved` when somebody else holds it, naming them,
+    unless the body sets `force`.
+
+    Deliberately **not** idempotent in the HTTP sense, and deliberately a POST:
+    each call moves the expiry, which is the entire point — a PUT implying "make
+    it so" would suggest re-sending the same body leaves the world unchanged,
+    and here it must not.
+    """
+    kind, key = _identity_of(device_id)
+    try:
+        return await reservations.acquire(
+            kind,
+            key,
+            holder=request_body.holder,
+            label=request_body.label,
+            ttl_seconds=request_body.ttl_seconds,
+            force=request_body.force,
+        )
+    except ReservationHeldError as error:
+        raise _reservation_conflict(error.reservation) from error
+
+
+@router.delete(
+    "/{device_id}/reservation",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Release this device",
+)
+async def release_device_reservation(
+    device_id: str = DEVICE_ID_PATH,
+    holder: str | None = Header(default=None, alias=HOLDER_HEADER),
+    force: bool = False,
+    reservations: DeviceReservationService = Depends(get_device_reservations),
+) -> None:
+    """Give this device up.
+
+    Idempotent, and silent about a device that was already free: a holder
+    shutting down should not have to care whether its lease happened to lapse a
+    moment earlier, and there is nothing it could do differently if it had.
+
+    Only the holder may release, unless `force` — dropping somebody else's lease
+    is the same harm as taking it, reached from the other side.
+    """
+    kind, key = _identity_of(device_id)
+    try:
+        await reservations.release(kind, key, holder=holder or "", force=force)
+    except ReservationHeldError as error:
+        raise _reservation_conflict(error.reservation) from error

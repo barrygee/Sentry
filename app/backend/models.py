@@ -12,6 +12,11 @@ separate rather than a column on anything: it is credential material with a
 different lifecycle, different access pattern, and a very different
 consequence if it is ever accidentally serialised alongside device data.
 
+`device_reservations` holds live claims on dongles — a lease with an expiry,
+kept apart from device configuration because the two have different lifecycles:
+configuration is what the operator wants indefinitely, a lease is true for the
+next two minutes.
+
 `host_control_settings` and `sentry_location` are single-row instance settings,
 each kept separate for the same reason: they are different *kinds* of fact
 (what this host is allowed to do, and where this host physically is), and one
@@ -20,7 +25,7 @@ wide "settings" table would make both harder to reason about than either.
 
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, Index
+from sqlalchemy import CheckConstraint, Index, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -163,6 +168,79 @@ class SdrDeviceModel(Base):
             "visibility IN ('public', 'private')",
             name="ck_sdr_devices_visibility",
         ),
+    )
+
+
+class DeviceReservationModel(Base):
+    """A live claim on one dongle, held by a consumer that is using it.
+
+    A dongle is a single physical resource with several possible consumers —
+    Sentinel's AIR view, its voice decoder, a second Sentinel, or an operator in
+    this console. Any of them can retune it out from under the others, and the
+    one that loses simply stops decoding without being told why. A reservation
+    makes "this device is busy, and here is who has it" a fact the API can
+    enforce and every consumer can see.
+
+    **A reservation is a lease, not a flag.** `expires_at` is the whole design.
+    Every explicit-release path — a browser tab closed, a container killed, a
+    network partitioned, a laptop asleep — fails open into "locked for ever"
+    without it, and recovering would mean an operator finding a row in a
+    database. A holder renews for as long as it is still using the device;
+    stopping is how it lets go, whether it meant to or not.
+
+    Deliberately its own table rather than columns on `sdr_devices`, for the
+    reason `console_auth` and `sentry_location` are: a lease has a different
+    lifecycle from device configuration. Configuration is what the operator
+    wants to be true indefinitely; a lease is true for the next two minutes.
+    Keeping them apart also leaves `PersistedDeviceRow` — the frozen contract
+    the repository and registry are written against — untouched.
+
+    Keyed by `(identity_kind, identity_key)` rather than the surrogate device
+    row id, so a claim is on the *physical dongle* (ADR-0003) and means the same
+    thing across a replug, and so a device with no configuration row yet can
+    still be claimed.
+    """
+
+    __tablename__ = "device_reservations"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    identity_kind: Mapped[str] = mapped_column(nullable=False)
+    """Which identity tier this claim is keyed by: "serial" or "usb"."""
+
+    identity_key: Mapped[str] = mapped_column(nullable=False)
+    """The serial value or USB topology path identifying the claimed dongle."""
+
+    holder: Mapped[str] = mapped_column(nullable=False)
+    """Opaque consumer id, e.g. `sentinel:<instance-uuid>`.
+
+    Opaque on purpose: Sentry does not need to understand who its consumers are
+    to arbitrate between them, and a closed vocabulary here would need changing
+    every time something new wanted a dongle.
+    """
+
+    label: Mapped[str] = mapped_column(nullable=False, default="", server_default="")
+    """Operator-facing description, e.g. "Sentinel — AIR (ADS-B)".
+
+    Separate from `holder` because the two answer different questions: the
+    console shows this, and a machine matches on that. Without it the UI would
+    have to render a UUID at an operator and hope they recognised it.
+    """
+
+    reserved_at: Mapped[int] = mapped_column(nullable=False, default=0)
+    """Unix ms the claim was first taken. Not moved by a renewal, so the UI can
+    say how long a consumer has held a device rather than how recently it
+    checked in."""
+
+    expires_at: Mapped[int] = mapped_column(nullable=False, default=0)
+    """Unix ms the lease lapses unless renewed. The safety property; see above."""
+
+    __table_args__ = (
+        # One live claim per dongle, enforced by the database rather than by the
+        # service remembering to check. Two consumers racing to claim the same
+        # device is exactly the situation this table exists for, so the losing
+        # write must fail rather than quietly become the second row.
+        UniqueConstraint("identity_kind", "identity_key", name="uq_device_reservations_identity"),
     )
 
 

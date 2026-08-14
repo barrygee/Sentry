@@ -210,6 +210,57 @@ export interface paths {
         patch: operations["patch_device_api_devices__device_id__patch"];
         trace?: never;
     };
+    "/api/devices/{device_id}/reservation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who is currently using this device
+         * @description Report this device's live claim, if any.
+         *
+         *     `200` with `reserved: false` rather than `404` when nothing holds it: an
+         *     unclaimed device is a normal answer to a normal question, and making the
+         *     caller catch an error to learn "it is free" would be the wrong shape.
+         */
+        get: operations["get_device_reservation_api_devices__device_id__reservation_get"];
+        put?: never;
+        /**
+         * Claim this device, or renew a claim already held
+         * @description Take or renew a lease on this device.
+         *
+         *     The same call does both, so a holder never has to know whether its previous
+         *     lease lapsed while it was away — a renewal that arrives a moment too late
+         *     simply becomes a fresh claim rather than an error it would have to handle.
+         *
+         *     Refused with `409 device_reserved` when somebody else holds it, naming them,
+         *     unless the body sets `force`.
+         *
+         *     Deliberately **not** idempotent in the HTTP sense, and deliberately a POST:
+         *     each call moves the expiry, which is the entire point — a PUT implying "make
+         *     it so" would suggest re-sending the same body leaves the world unchanged,
+         *     and here it must not.
+         */
+        post: operations["acquire_device_reservation_api_devices__device_id__reservation_post"];
+        /**
+         * Release this device
+         * @description Give this device up.
+         *
+         *     Idempotent, and silent about a device that was already free: a holder
+         *     shutting down should not have to care whether its lease happened to lapse a
+         *     moment earlier, and there is nothing it could do differently if it had.
+         *
+         *     Only the holder may release, unless `force` — dropping somebody else's lease
+         *     is the same harm as taking it, reached from the other side.
+         */
+        delete: operations["release_device_reservation_api_devices__device_id__reservation_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/devices/{device_id}/serial": {
         parameters: {
             query?: never;
@@ -994,6 +1045,36 @@ export interface components {
             visibility: "public" | "private";
         };
         /**
+         * DeviceReservation
+         * @description A claim, as reported by the API.
+         *
+         *     Carries no `is_live` of its own: liveness is a question about *now*, and a
+         *     model cannot answer it without a clock. Giving it one would let a
+         *     deserialised object insist a long-lapsed lease is still good. The service
+         *     decides, against the same clock the rest of Sentry uses.
+         */
+        DeviceReservation: {
+            /** Device Id */
+            device_id: string;
+            /**
+             * Expires At
+             * @description Unix ms it lapses unless renewed
+             */
+            expires_at: number;
+            /** Holder */
+            holder: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Reserved At
+             * @description Unix ms the claim was first taken
+             */
+            reserved_at: number;
+        };
+        /**
          * DeviceStatus
          * @description One device's realtime status — the `GET /api/status` and SSE payload shape.
          */
@@ -1660,6 +1741,49 @@ export interface components {
             rtl_tcp_pid?: number | null;
         };
         /**
+         * ReservationRequest
+         * @description `POST /api/devices/{id}/reservation` body — acquire or renew a lease.
+         */
+        ReservationRequest: {
+            /**
+             * Force
+             * @description Take the device from its current holder. For the operator, never a machine
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Holder
+             * @description Opaque consumer id, e.g. sentinel:<instance-uuid>
+             */
+            holder: string;
+            /**
+             * Label
+             * @description Operator-facing, e.g. "Sentinel — AIR (ADS-B)"
+             * @default
+             */
+            label: string;
+            /**
+             * Ttl Seconds
+             * @description How long the lease lasts unless renewed
+             * @default 120
+             */
+            ttl_seconds: number;
+        };
+        /**
+         * ReservationState
+         * @description `GET`-shaped view of a device's claim: present, or explicitly absent.
+         *
+         *     A wrapper rather than a bare `DeviceReservation | None` so the response has
+         *     somewhere to say *why* there is no reservation — expired reads differently
+         *     from never claimed, and an operator watching a device change hands benefits
+         *     from the difference.
+         */
+        ReservationState: {
+            reservation?: components["schemas"]["DeviceReservation"] | null;
+            /** Reserved */
+            reserved: boolean;
+        };
+        /**
          * SdrExportItem
          * @description One configured device, mapped onto Sentinel's `SdrRadio` / `RadioIn` field names.
          *
@@ -1711,6 +1835,22 @@ export interface components {
              * @description The relay's IQ port P
              */
             port: number;
+            /**
+             * Reserved By
+             * @description Consumer currently holding this device, or null when free
+             */
+            reserved_by?: string | null;
+            /**
+             * Reserved Label
+             * @description Operator-facing holder name, e.g. "Sentinel — AIR (ADS-B)"
+             * @default
+             */
+            reserved_label: string;
+            /**
+             * Reserved Until
+             * @description Unix ms the holder's lease lapses unless renewed
+             */
+            reserved_until?: number | null;
             /**
              * Rf Gain
              * @description Sentry's gain_db; null when AGC
@@ -2388,7 +2528,9 @@ export interface operations {
     patch_device_api_devices__device_id__patch: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Sentry-Reservation-Holder"?: string | null;
+            };
             path: {
                 /** @description Either "serial:<value>" or "usb:<topology_path>" */
                 device_id: string;
@@ -2409,6 +2551,108 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DeviceRecord"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_device_reservation_api_devices__device_id__reservation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Either "serial:<value>" or "usb:<topology_path>" */
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acquire_device_reservation_api_devices__device_id__reservation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Either "serial:<value>" or "usb:<topology_path>" */
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceReservation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_device_reservation_api_devices__device_id__reservation_delete: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: {
+                "X-Sentry-Reservation-Holder"?: string | null;
+            };
+            path: {
+                /** @description Either "serial:<value>" or "usb:<topology_path>" */
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
