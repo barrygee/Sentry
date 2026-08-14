@@ -49,7 +49,7 @@ process, essentially unchanged**. It already provides everything a single dongle
 env vars, defaults, semantics — is frozen. Sentry configures N copies of it by environment and
 supervises them; it does not import it, subclass it, or fork its logic.
 
-### 2.1 The single permitted relay change: wedge exit code
+### 2.1 Permitted relay changes: wedge exit code, and startup tuning
 
 The Docker socket mount is deleted (ADR-0002), so `UpstreamWatchdog` recovers a wedge by exiting
 the relay process instead of calling the Docker Engine:
@@ -66,6 +66,23 @@ recovery than the container restart it replaced, because the wedged `rtl_tcp` is
 
 Sentry always sets `RELAY_EXIT_ON_WEDGE=1`. With it unset the watchdog only counts and never
 acts, so the relay can still be run standalone under a supervisor that recovers it another way.
+
+**The relay is also told the device's startup tuning:**
+
+```
+RELAY_CENTER_HZ   = int   (default 100_000_000)
+RELAY_SAMPLE_RATE = int   (default 2_048_000)
+RELAY_GAIN_AUTO   = "1" | "0"
+RELAY_GAIN_DB     = float (only when gain_auto is false)
+```
+
+This is not optional decoration. The relay **asserts its tracked tuner state over the dongle every
+time it connects upstream**, which is what lets a re-enumerated device resume on the operator's
+tuning rather than rtl_tcp's raw defaults. With nothing to track but its own module defaults it
+asserted *those* instead — 100 MHz at 2.048 MSPS — retuning the dongle away from the `-f`/`-s` the
+supervisor had just passed to `rtl_tcp`, milliseconds after it started. A device configured for
+1090 MHz therefore sat in the FM broadcast band and decoded nothing, while `GET /api/devices`
+correctly reported the frequency the operator had asked for.
 
 > **Amended after the initial build.** The Docker-restart branch was first kept alongside this
 > one so the retained legacy compose stayed working. That compose has since been removed, leaving
@@ -1177,8 +1194,9 @@ device.
 
 **12.7 `services/supervisor`** *(all against `FakeProcessSpawner` + `FakeRtlSdrLibrary`)* — spawns
 the correct argv and env for a device (assert the relay env is exactly
-`RELAY_UPSTREAM_HOST/PORT`, `RELAY_LISTEN_HOST/PORT`, `RELAY_CONTROL_PORT`, `RELAY_EXIT_ON_WEDGE`
-and nothing else); internal port slot allocation and reuse after a device is removed; `rtl_tcp`
+`RELAY_UPSTREAM_HOST/PORT`, `RELAY_LISTEN_HOST/PORT`, `RELAY_CONTROL_PORT`, `RELAY_EXIT_ON_WEDGE`,
+plus the startup tuning `RELAY_CENTER_HZ`/`RELAY_SAMPLE_RATE`/`RELAY_GAIN_AUTO`/`RELAY_GAIN_DB`
+where the device has one, and nothing else); internal port slot allocation and reuse after a device is removed; `rtl_tcp`
 exits → pair restarted; relay exits 0 → pair restarted; relay exits **75** → pair restarted and a
 `notice` raised; both exit simultaneously; restart budget exhausted → `error` + `crash_loop`, and
 no further spawns; backoff schedule exact under `FakeClock` (1,2,4,8,16,32,60,60…); index
