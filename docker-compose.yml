@@ -16,15 +16,10 @@ services:
     # the image deliberately runs as root (see the Dockerfile's note).
     privileged: true
 
-    # Pass the WHOLE USB bus as devices, not a volume bind-mount. A volume mount
-    # snapshots /dev/bus/usb at container start; when a dongle re-enumerates
-    # (device 3 -> 4, confirmed in dmesg on this hardware) the node path changes,
-    # the bind-mounted view goes stale, libusb's handle breaks and rtl_tcp
-    # crash-loops with "Failed to submit transfer 0". The devices + cgroup-rule
-    # form tracks the bus, so a re-enumerated node stays usable. This matters
-    # more with several dongles, not less.
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
+    # Authorises the whole USB char-major for this container. Pairs with the
+    # /dev/bus/usb bind mount under `volumes:` below — the mount makes the nodes
+    # visible, this rule makes them openable, and `*` covers every minor so a
+    # re-enumerated dongle stays authorised without a restart.
     device_cgroup_rules:
       - 'c 189:* rmw' # 189 = USB char-major; the whole bus, not one node
 
@@ -36,6 +31,22 @@ services:
     network_mode: host
 
     volumes:
+      # The WHOLE USB bus, as a bind mount — which must NOT go back to being a
+      # `devices:` entry. `devices:` pointed at a DIRECTORY is the form that
+      # snapshots: Docker walks /dev/bus/usb and expands it into a list of
+      # individual device nodes in the container's OCI spec, fixed at container
+      # start. When a dongle re-enumerates (device 14 -> 15, confirmed on this
+      # hardware) the host gains a node the container never sees, so libusb —
+      # which still enumerates the device through the visible /sys — counts it
+      # and then fails to open it. librtlsdr reads empty USB strings and Sentry
+      # correctly diagnoses `unresponsive_device`, until `docker compose
+      # restart` regenerates the device list. A replug must not need a restart.
+      #
+      # A bind mount of a devtmpfs DIRECTORY is the same directory, so nodes
+      # created after container start appear live. `device_cgroup_rules` above
+      # is what grants access to them.
+      - /dev/bus/usb:/dev/bus/usb
+
       # Device names, port assignments and tuning defaults live in SQLite here.
       # A named volume (not an anonymous one) so configuration survives
       # `docker compose down` and container recreation — requirement 7 is

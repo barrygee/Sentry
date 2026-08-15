@@ -55,7 +55,7 @@ docker build -t sentry .
 
 docker run -d --name sentry --restart unless-stopped \
   --privileged \
-  --device /dev/bus/usb:/dev/bus/usb \
+  -v /dev/bus/usb:/dev/bus/usb \
   --device-cgroup-rule 'c 189:* rmw' \
   --network host \
   -v sentry-data:/data \
@@ -65,7 +65,7 @@ docker run -d --name sentry --restart unless-stopped \
 | Option | Why it is required |
 | ------ | ------------------ |
 | `--privileged` | USB device access for dongles that re-enumerate at runtime. |
-| `--device /dev/bus/usb:/dev/bus/usb` | Passes the whole USB bus. A bind-mount would snapshot the tree and go stale the moment a dongle re-enumerates. |
+| `-v /dev/bus/usb:/dev/bus/usb` | Passes the whole USB bus as a bind mount, so nodes created when a dongle re-enumerates appear inside the container. Must not be `--device`: pointed at a directory, that expands to a fixed list of nodes at container start and goes stale on the next replug. |
 | `--device-cgroup-rule 'c 189:* rmw'` | Grants the whole USB char-major, not one node, so a re-enumerated dongle stays usable. |
 | `--network host` | Each dongle's ports are assigned by you at runtime, so they cannot be published statically with `-p`. |
 | `-v sentry-data:/data` | Device names and port assignments live here. Without it, all configuration is lost on container recreation. |
