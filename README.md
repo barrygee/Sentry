@@ -597,6 +597,97 @@ appears at all.
 
 ---
 
+## Wired (Ethernet) sharing
+
+The hotspot's twin, over a cable (ADR-0014). Plug a laptop straight into one of
+the Pi's Ethernet ports and Sentry hands it an address, so it reaches Sentry and
+Sentinel exactly as a hotspot client does — no router, no switch, no passphrase.
+
+Everything is done from the **Wired (Ethernet) sharing** box in Settings, below
+the hotspot.
+
+### Read this before you start
+
+**On a Pi with one Ethernet port, that port is the uplink.** Sharing it stops the
+Pi being a client of your network and makes it *be* the network for whatever is
+plugged in — so its LAN address goes away, and the browser you are reading this
+in loses the Pi if you are reaching it over that cable.
+
+Two things make that survivable, and you should have at least one of them:
+
+- **Sharing is provisional.** It comes up on trial and rolls itself back after
+  the confirmation window unless you press **Confirm** — so a share nobody can
+  reach cannot survive, and cannot start on boot.
+- **Confirm from the other side.** Start the hotspot first and confirm over that,
+  or plug the laptop in and confirm from the new address, or keep a keyboard and
+  monitor on the Pi.
+
+If you have a **USB Ethernet adapter**, use its port instead: it appears in the
+picker like any other, and sharing it costs the Pi nothing.
+
+### Turning it on
+
+1. Open the **Wired (Ethernet) sharing** box in Settings.
+2. Set a **controller password** first if you have not — sharing is refused
+   without one, because anyone who plugs in a cable lands on the same network as
+   this API. The **host network control** switch in the hotspot box above must
+   also be on; the same switch covers both features.
+3. Choose the **Ethernet port**. A port carrying the Pi's own connection says so
+   in the list, and choosing it raises the red acknowledgement box — tick it.
+4. Leave **Address for cabled machines** blank unless you need a specific range.
+   The default is `10.10.10.1/24`, deliberately not the hotspot's `10.42.0.1/24`.
+5. Press **Save wired settings**, then switch **Enable wired sharing** on.
+6. Press **Confirm** before the countdown runs out.
+
+### Connecting a machine
+
+1. Plug an Ethernet cable between the Pi's shared port and the machine. No
+   configuration is needed on the machine — it asks for an address and gets one.
+2. Read the **Sentry IP** off the panel (`10.10.10.1` by default) and enter it,
+   with each device's port, in Sentinel's SDR settings. The control channel is
+   still `port + 2`, exactly as on a LAN.
+
+The panel lists **recent DHCP leases** so you can see which machines were given
+an address, and warns when sharing is running with **nothing plugged in** — by
+far the commonest reason a share that came up correctly appears to do nothing.
+
+### Turning it off
+
+Switch **Enable wired sharing** off. The port goes back to its normal profile,
+which on a one-port Pi means the Pi rejoins your LAN at its usual address. To
+forget the configuration entirely:
+
+```bash
+curl -X DELETE http://<PI_IP>:8000/api/wired \
+     -H "Cookie: <your console session cookie>"
+```
+
+If you lock yourself out, from a keyboard and monitor on the Pi:
+
+```bash
+sudo nmcli connection down sentry-wired            # stop it now
+sudo nmcli connection modify sentry-wired \
+     connection.autoconnect no                     # and stop it starting on boot
+```
+
+### Things worth knowing
+
+- **The cable is the credential.** There is no passphrase anywhere in this
+  feature — reaching the network requires physical access to the port. That is a
+  deliberate property, not a missing one.
+- **Cabled machines can reach your uplink LAN**, where the Pi still has one:
+  NetworkManager's shared mode provides DHCP, DNS and NAT.
+- **Both can run at once.** The hotspot and the wired share are independent, on
+  separate ranges, with separate lease lists. On a one-radio, one-port Pi,
+  running the hotspot is how you keep a way in while sharing the cable.
+- **If `SENTRY_ADVERTISED_HOST` is set**, it is published to cabled machines too,
+  which cannot reach a LAN address. Sentry warns rather than overriding your
+  setting; use the address shown on the panel.
+- Sentry owns exactly one wired NetworkManager profile (`sentry-wired`) and never
+  reads, edits or deletes any other.
+
+---
+
 ## Configuration files
 
 Standing up a second Pi otherwise means retyping every device's name, port,
@@ -725,6 +816,14 @@ shows the exact lines to paste, with a copy button, rather than editing them.
 | `POST /api/hotspot/disable`     | Stop the hotspot                                                                   |
 | `POST /api/hotspot/confirm`     | Keep a hotspot that is on trial, and let it start on boot                          |
 | `DELETE /api/hotspot`           | Forget the hotspot, password included                                              |
+| `GET /api/wired`                | Wired-sharing configuration and state. Always 200 — degrades rather than failing   |
+| `GET /api/wired/interfaces`     | Ethernet ports that could be shared, and which carries the Pi's own link           |
+| `GET /api/wired/clients`        | DHCP leases the wired share has issued. `null` means "cannot tell", never "none"   |
+| `PUT /api/wired`                | Replace the wired-sharing configuration                                            |
+| `POST /api/wired/enable`        | Start wired sharing, provisionally — it rolls back unless confirmed                |
+| `POST /api/wired/disable`       | Stop wired sharing                                                                 |
+| `POST /api/wired/confirm`       | Keep a wired share that is on trial, and let it start on boot                      |
+| `DELETE /api/wired`             | Forget the wired-sharing configuration                                             |
 | `GET /api/config`               | Export this instance's configuration — devices and hotspot, never a password       |
 | `GET /api/config/download`      | The same payload with a `Content-Disposition` filename attached                    |
 | `POST /api/config`              | Import a configuration, reporting each entry's outcome. May carry a hotspot password |
@@ -766,6 +865,21 @@ WiFi hotspot (all inert while control is off):
 | `SENTRY_NMCLI_PATH`                 | `nmcli`                  | nmcli binary path                                             |
 | `SENTRY_NMCLI_TIMEOUT_S`            | `20.0`                   | Per-command timeout for nmcli                                 |
 | `SENTRY_NM_STATE_ROOT`              | `/var/lib/NetworkManager`| Where NetworkManager keeps its dnsmasq lease files            |
+
+Wired (Ethernet) sharing. Gated by the *same* `SENTRY_HOTSPOT_CONTROL_ENABLED`
+switch and the same console-password requirement — it is one host-network
+capability, not two (ADR-0014):
+
+| Variable                          | Default                  | Purpose                                                       |
+| --------------------------------- | ------------------------ | ------------------------------------------------------------- |
+| `SENTRY_WIRED_CONNECTION_NAME`    | `sentry-wired`           | The single NetworkManager wired profile Sentry owns           |
+| `SENTRY_WIRED_INTERFACE`          | *(chosen automatically)* | Ethernet port to share                                        |
+| `SENTRY_WIRED_GATEWAY_CIDR`       | `10.10.10.1/24`          | The Pi's address on the cable — what a plugged-in machine dials |
+| `SENTRY_WIRED_CONFIRM_TIMEOUT_S`  | `120.0`                  | Seconds to confirm a wired share before it rolls back         |
+
+`SENTRY_WIRED_GATEWAY_CIDR` must not overlap `SENTRY_HOTSPOT_GATEWAY_CIDR`;
+Sentry refuses to start if it does. Both features run their own DHCP server and
+can be up at the same time.
 
 ### Security
 
