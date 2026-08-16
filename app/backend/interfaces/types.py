@@ -284,8 +284,122 @@ class HotspotRuntimeState:
 
 
 @dataclass(frozen=True, slots=True)
+class WiredInterface:
+    """One wired (Ethernet) interface as the host's NetworkManager reports it.
+
+    Produced by `WiredShareController.list_wired_interfaces()`. The wired
+    counterpart of `WirelessInterface`, and deliberately a separate type rather
+    than a shared one with nullable radio fields: an Ethernet port has no SSID,
+    no band and no AP capability, and a type that pretends otherwise invites
+    exactly the confusion this feature has to avoid — the operator is choosing
+    between two physically different things.
+    """
+
+    name: str
+    """The kernel interface name, e.g. "eth0"."""
+
+    mac_address: str | None
+    """The interface's hardware address, or None when NetworkManager did not report one."""
+
+    state: str
+    """NetworkManager's device state verbatim, e.g. "connected", "disconnected"."""
+
+    active_connection_name: str | None
+    """The NM profile currently active on this interface, or None when idle.
+
+    Non-None means sharing this port would tear that connection down. On the
+    target Pi this is normally true of `eth0`, because the wired port *is* the
+    uplink — which is precisely why the service refuses without confirmation.
+    """
+
+    ipv4_addresses: tuple[str, ...]
+    """Every IPv4 address currently assigned, in CIDR form, e.g. ("192.168.5.67/24",)."""
+
+    carries_default_route: bool
+    """Whether the host's default route currently goes out of this interface.
+
+    The strongest available signal that this port *is* the uplink.
+    """
+
+    carrier_up: bool | None
+    """Whether a cable is physically plugged in and the link has come up.
+
+    `None` means NetworkManager did not report the carrier at all. This is the
+    one thing a wired interface can tell an operator that a radio cannot: "there
+    is nothing plugged into this port yet" is by far the most common reason a
+    directly-connected laptop does not appear, and guessing at it from the
+    device state alone conflates it with a dozen other conditions.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class WiredShareProfile:
+    """The desired wired-sharing configuration.
+
+    **There is no secret anywhere in this feature.** A wired share has no
+    passphrase, because the cable *is* the credential: reaching this network
+    requires physical access to the port. That is why this type, unlike
+    `HotspotProfile`, has no companion secret argument on `apply_profile()` —
+    there is nothing to keep write-only.
+    """
+
+    gateway_cidr: str
+    """The address the Pi takes on the shared port, e.g. "10.10.10.1/24".
+
+    Pinned explicitly, and deliberately a different subnet from the hotspot's
+    default: with both running, two shared connections on the same range would
+    give the Pi one address on two interfaces and blackhole one of them.
+    """
+
+    interface: str
+    """The wired interface to share, e.g. "eth0"."""
+
+    autoconnect: bool
+    """Whether NetworkManager should bring this profile up on boot.
+
+    Only ever set true once an operator has confirmed they can still reach the
+    API with sharing running — on a single-port Pi, sharing the uplink port is
+    exactly as capable of locking everyone out as a single-radio hotspot is.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class WiredShareRuntimeState:
+    """What the host's NetworkManager currently reports about Sentry's wired profile.
+
+    Read back rather than remembered, for the same reason `HotspotRuntimeState`
+    is: the profile is the system of record, and an operator editing it with
+    `nmcli` on the Pi is a legitimate thing to do.
+    """
+
+    profile_exists: bool
+    """Whether Sentry's wired-sharing profile is present at all."""
+
+    active: bool
+    """Whether the profile is currently up on its interface."""
+
+    autoconnect: bool
+    """Whether the profile is set to come up on boot."""
+
+    interface: str | None
+    """The interface the profile is bound to, or None when unset/absent."""
+
+    gateway_cidr: str | None
+    """The configured Pi-side address in CIDR form, or None when unset."""
+
+    activation_state: str | None
+    """NetworkManager's activation state for the profile, for diagnostics."""
+
+
+@dataclass(frozen=True, slots=True)
 class HotspotClient:
-    """One DHCP lease issued by the access point's dnsmasq instance.
+    """One DHCP lease issued by a shared connection's dnsmasq instance.
+
+    Named for the hotspot because that is what first needed it, and shared
+    unchanged with wired sharing (ADR-0014): NetworkManager runs the same
+    dnsmasq and writes the same lease file for `ipv4.method shared` whether the
+    interface underneath is a radio or a socket, so a second, identical type
+    would only be a synonym to keep in step.
 
     **A lease is not an association.** A client that walked out of range keeps
     its lease until expiry, and a statically-addressed client never appears at
