@@ -1,16 +1,17 @@
-"""A `WifiApController` that consults a switch before every call (ADR-0013).
+"""A `WiredShareController` that consults the host-control switch before every call.
 
-Hotspot control used to be selected once, at startup: `.env` said yes and the
-real nmcli controller was built, or it said no and a null object took its place.
-Making the switch operator-flippable means the choice has to be made per call
-instead, because the answer can now change while the process runs.
+The wired counterpart of `GatedWifiApController`, and it exists for the same
+reason and shares its switch: `host_control_settings.hotspot_control_enabled` is
+named for the hotspot but means "the API may reconfigure this host's
+networking", and sharing an Ethernet port is exactly that capability (ADR-0014).
+A second switch would ask an operator to grant the same permission twice, and
+would let them grant half of it — which is not a distinction the risk actually
+has, since either one can take the Pi off the network.
 
-Delegation rather than a flag inside `NmcliWifiApController`, so that ADR-0007's
-central property survives intact: with control switched off, *nothing* here
-reaches nmcli or the D-Bus socket — the disabled controller answers instead, and
-the real one is never asked. A boolean checked inside the real adapter would
-have put the enforcement one layer deeper than the capability, which is the
-wrong way round.
+Delegation rather than a flag inside `NmcliWiredShareController`, so ADR-0007's
+central property survives here too: with control switched off, *nothing* reaches
+nmcli or the D-Bus socket — the disabled controller answers instead, and the
+real one is never asked.
 """
 
 from __future__ import annotations
@@ -19,33 +20,33 @@ from collections.abc import Awaitable, Callable
 
 from app.backend.interfaces.types import (
     HotspotClient,
-    HotspotProfile,
-    HotspotRuntimeState,
-    WirelessInterface,
+    WiredInterface,
+    WiredShareProfile,
+    WiredShareRuntimeState,
 )
-from app.backend.interfaces.wifi_ap import WifiApController
+from app.backend.interfaces.wired_share import WiredShareController
 
 
-class GatedWifiApController:
+class GatedWiredShareController:
     """Routes every call to `enabled_controller` or `disabled_controller`.
 
     The predicate is awaited on each call rather than cached: it reads a single
-    row from a local SQLite file, and staleness here would mean a hotspot
-    switched off in the UI still answering as though it were on.
+    row from a local SQLite file, and staleness here would mean sharing switched
+    off in the UI still answering as though it were on.
     """
 
     def __init__(
         self,
         *,
-        enabled_controller: WifiApController,
-        disabled_controller: WifiApController,
+        enabled_controller: WiredShareController,
+        disabled_controller: WiredShareController,
         control_enabled: Callable[[], Awaitable[bool]],
     ) -> None:
         self._enabled_controller = enabled_controller
         self._disabled_controller = disabled_controller
         self._control_enabled = control_enabled
 
-    async def _controller(self) -> WifiApController:
+    async def _controller(self) -> WiredShareController:
         if await self._control_enabled():
             return self._enabled_controller
         return self._disabled_controller
@@ -54,17 +55,17 @@ class GatedWifiApController:
         controller = await self._controller()
         return await controller.is_available()
 
-    async def list_wireless_interfaces(self) -> tuple[WirelessInterface, ...]:
+    async def list_wired_interfaces(self) -> tuple[WiredInterface, ...]:
         controller = await self._controller()
-        return await controller.list_wireless_interfaces()
+        return await controller.list_wired_interfaces()
 
-    async def read_state(self) -> HotspotRuntimeState:
+    async def read_state(self) -> WiredShareRuntimeState:
         controller = await self._controller()
         return await controller.read_state()
 
-    async def apply_profile(self, profile: HotspotProfile, passphrase: str | None) -> None:
+    async def apply_profile(self, profile: WiredShareProfile) -> None:
         controller = await self._controller()
-        await controller.apply_profile(profile, passphrase)
+        await controller.apply_profile(profile)
 
     async def activate(self) -> None:
         controller = await self._controller()
@@ -99,7 +100,7 @@ class GatedWifiApController:
 
         Delegates to the enabled controller unconditionally, which is safe
         precisely because it is the one method that touches no network stack:
-        it reads NetworkManager's dnsmasq lease file. With the hotspot off there
-        are no leases and the answer is empty or `None` either way.
+        it reads NetworkManager's dnsmasq lease file. With sharing off there are
+        no leases and the answer is empty or `None` either way.
         """
         return self._enabled_controller.list_clients(interface)

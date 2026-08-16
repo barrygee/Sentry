@@ -182,9 +182,20 @@ class HotspotService:
         """List wireless interfaces the operator could put the hotspot on."""
         return await self._controller.list_wireless_interfaces()
 
-    def list_clients(self) -> tuple[HotspotClient, ...] | None:
-        """List the hotspot's DHCP leases. `None` means unknown, never zero."""
-        return self._controller.list_clients()
+    async def list_clients(self) -> tuple[HotspotClient, ...] | None:
+        """List the hotspot's DHCP leases. `None` means unknown, never zero.
+
+        Async only so it can read the profile's interface first. That read is
+        what scopes the lease file to the hotspot's own: Sentry can now also
+        share a wired port (ADR-0014), and an unscoped read listed the machine
+        on the Ethernet cable as a WiFi client. A profile with no interface —
+        which means no profile at all — has no leases of its own to report, so
+        it answers "unknown" rather than borrowing another interface's.
+        """
+        state = await self._controller.read_state()
+        if state.interface is None:
+            return None
+        return self._controller.list_clients(state.interface)
 
     async def release_lease(self, mac_address: str) -> None:
         """Forget one DHCP lease, identified by the client's MAC address.
@@ -207,7 +218,7 @@ class HotspotService:
                     "The hotspot is not running, so it has no leases to release.",
                 )
 
-            clients = self._controller.list_clients()
+            clients = self._controller.list_clients(state.interface)
             if clients is None:
                 raise HotspotError(
                     "leases_unreadable",

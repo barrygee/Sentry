@@ -84,7 +84,7 @@ class RecordingController:
     async def read_state(self) -> HotspotRuntimeState:
         return runtime_state(active=self._active)
 
-    def list_clients(self) -> tuple[HotspotClient, ...] | None:
+    def list_clients(self, interface: str | None = None) -> tuple[HotspotClient, ...] | None:
         return self._clients
 
     async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:

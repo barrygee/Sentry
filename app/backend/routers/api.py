@@ -19,6 +19,7 @@ from app.backend.routers import (
     location,
     sdrs,
     status,
+    wired,
 )
 
 api_router = APIRouter(prefix="/api")
@@ -29,5 +30,6 @@ api_router.include_router(events.router)
 api_router.include_router(devices.router)
 api_router.include_router(sdrs.router)
 api_router.include_router(hotspot.router)
+api_router.include_router(wired.router)
 api_router.include_router(config.router)
 api_router.include_router(location.router)

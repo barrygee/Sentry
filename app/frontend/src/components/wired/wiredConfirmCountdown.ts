@@ -3,18 +3,17 @@ import { rollbackCountdown } from '../base/rollbackCountdown.js'
 import type { RollbackCountdownProps } from '../base/rollbackCountdown.js'
 
 /**
- * The hotspot's commit-confirm window — the hotspot's wording over the shared
+ * The wired share's commit-confirm window — the wired wording over the shared
  * countdown.
  *
- * The timer, the announcement checkpoints and the deadline handling all live in
- * `base/rollbackCountdown`, because the wired share (ADR-0014) runs the
- * identical commit-confirm flow. This module supplies only what is specific to
- * a hotspot: the SSID as the subject, and "hotspot" as the noun the buttons and
- * announcements use.
+ * The timer, the announcement checkpoints and the deadline handling live in
+ * `base/rollbackCountdown`, shared with the hotspot, which runs the identical
+ * flow. This module supplies only the subject: the shared port's name, and
+ * "wired share" as the noun the buttons and announcements use.
  */
-export interface HotspotConfirmCountdownProps {
-  /** The network's name, so the notice names what is running. */
-  ssid: string | null
+export interface WiredConfirmCountdownProps {
+  /** The shared port's name, so the notice says which port is on trial. */
+  interfaceName: string | null
   /** Unix ms by which confirmation must arrive. */
   deadlineMs: number
   busy?: boolean
@@ -24,18 +23,17 @@ export interface HotspotConfirmCountdownProps {
    * Fires once when the deadline passes with no confirmation.
    *
    * The rollback happens on the server, silently — nothing is pushed to say it
-   * has. Without this the countdown simply reached zero and the panel went on
-   * showing the hotspot as up, long after it had been reverted, which is the
-   * one state this whole flow exists to make visible.
+   * has. Without this the countdown would reach zero and the panel go on
+   * showing sharing as up, long after the port had been handed back to the LAN.
    */
   onDeadlinePassed: () => void
 }
 
-function toCountdownProps(props: HotspotConfirmCountdownProps): RollbackCountdownProps {
+function toCountdownProps(props: WiredConfirmCountdownProps): RollbackCountdownProps {
   return {
-    subjectName: props.ssid,
-    subjectFallbackName: 'The hotspot',
-    subjectNoun: 'hotspot',
+    subjectName: props.interfaceName === null ? null : `Sharing on ${props.interfaceName}`,
+    subjectFallbackName: 'Wired sharing',
+    subjectNoun: 'wired share',
     deadlineMs: props.deadlineMs,
     // Spread rather than assigned: under `exactOptionalPropertyTypes` an
     // explicit `busy: undefined` is not the same as an absent `busy`, and only
@@ -47,10 +45,10 @@ function toCountdownProps(props: HotspotConfirmCountdownProps): RollbackCountdow
   }
 }
 
-/** Builds a `HotspotConfirmCountdown`. `update` mutates the same notice in place. */
-export function hotspotConfirmCountdown(
-  props: HotspotConfirmCountdownProps,
-): Component<HotspotConfirmCountdownProps> {
+/** Builds a `WiredConfirmCountdown`. `update` mutates the same notice in place. */
+export function wiredConfirmCountdown(
+  props: WiredConfirmCountdownProps,
+): Component<WiredConfirmCountdownProps> {
   const countdown = rollbackCountdown(toCountdownProps(props))
 
   return {

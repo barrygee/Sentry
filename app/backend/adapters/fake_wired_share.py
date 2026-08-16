@@ -1,52 +1,38 @@
-"""A scriptable `WifiApController` fake for testing the hotspot service.
+"""A scriptable `WiredShareController` fake for testing the wired-sharing service.
 
-The real controller talks to NetworkManager over D-Bus and needs a radio, a
-Linux host and root. This one holds the same state in memory and records every
-mutation, which is what makes the service's genuinely interesting logic —
-interface selection, the uplink-loss refusal, and the commit-confirm rollback
-timer — exercisable on a laptop with none of those things (ADR-0007).
+The real controller talks to NetworkManager over D-Bus and needs a Linux host
+and root. This one holds the same state in memory and records every mutation,
+which is what makes the service's genuinely interesting logic — port selection,
+the uplink-loss refusal, and the commit-confirm rollback timer — exercisable on
+a laptop with none of those things (ADR-0014).
 
-Follows the idiom `adapters/fake_process.py` established: frozen record types,
-a public list of what was called, and scripted failures a test arms in advance.
+The wired twin of `fake_wifi_ap.py`, following the same idiom: frozen record
+types, a public list of what was called, and scripted failures a test arms in
+advance. It is deliberately simpler in exactly one way — `apply_profile()` takes
+no passphrase, because there is no secret in this feature to capture.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 
 from app.backend.interfaces.types import (
     HotspotClient,
-    HotspotProfile,
-    HotspotRuntimeState,
-    WirelessInterface,
+    WiredInterface,
+    WiredShareProfile,
+    WiredShareRuntimeState,
 )
-from app.backend.interfaces.wifi_ap import WifiApError
+from app.backend.interfaces.wired_share import WiredShareError
 
 
-@dataclass(frozen=True, slots=True)
-class RecordedApply:
-    """One call made to `FakeWifiApController.apply_profile()`, captured for assertions."""
-
-    profile: HotspotProfile
-    """The exact profile applied."""
-
-    passphrase: str | None
-    """The passphrase passed, or None meaning "leave the stored key alone".
-
-    Captured deliberately: a test must be able to prove that an edit which does
-    not change the password sends no passphrase at all, rather than resending
-    it or writing back a placeholder.
-    """
-
-
-class FakeWifiApController:
-    """An in-memory `WifiApController` whose every answer a test controls."""
+class FakeWiredShareController:
+    """An in-memory `WiredShareController` whose every answer a test controls."""
 
     def __init__(
         self,
         *,
         available: bool = True,
-        interfaces: tuple[WirelessInterface, ...] = (),
+        interfaces: tuple[WiredInterface, ...] = (),
         clients: tuple[HotspotClient, ...] | None = None,
     ) -> None:
         self.available = available
@@ -55,10 +41,10 @@ class FakeWifiApController:
         Flip it to simulate a host with no NetworkManager."""
 
         self.interfaces = interfaces
-        """The wireless interfaces `list_wireless_interfaces()` reports."""
+        """The Ethernet ports `list_wired_interfaces()` reports."""
 
         self.clients = clients
-        """What `list_clients()` returns. `None` means "cannot tell", not "none connected"."""
+        """What `list_clients()` returns. `None` means "cannot tell", not "none plugged in"."""
 
         self.lease_scopes: list[str | None] = []
         """The `interface` argument of every `list_clients()` call, in order."""
@@ -66,24 +52,23 @@ class FakeWifiApController:
         self.released_leases: list[tuple[str, str, str]] = []
         """Every `(interface, ip_address, mac_address)` passed to `release_lease()`."""
 
-        self.state = HotspotRuntimeState(
+        self.state = WiredShareRuntimeState(
             profile_exists=False,
             active=False,
             autoconnect=False,
             interface=None,
-            ssid=None,
-            hidden=True,
-            security="wpa2",
-            band="bg",
-            channel=0,
             gateway_cidr=None,
-            passphrase_set=False,
             activation_state=None,
         )
         """The profile state as this fake currently holds it."""
 
-        self.recorded_applies: list[RecordedApply] = []
-        """Every `apply_profile()` call, in order."""
+        self.recorded_applies: list[WiredShareProfile] = []
+        """Every profile passed to `apply_profile()`, in order.
+
+        A bare list of profiles rather than a `RecordedApply` wrapper: the
+        hotspot's equivalent exists only to capture the passphrase alongside the
+        profile, and there is no passphrase here to capture.
+        """
 
         self.activated_names: list[str] = []
         """Every profile name passed to `activate_named()` — the rollback targets."""
@@ -94,9 +79,9 @@ class FakeWifiApController:
         self.active_connections: dict[str, str] = {}
         """Interface name -> the profile a test says is currently active on it."""
 
-        self._pending_error: WifiApError | None = None
+        self._pending_error: WiredShareError | None = None
 
-    def raise_on_next(self, error: WifiApError) -> None:
+    def raise_on_next(self, error: WiredShareError) -> None:
         """Arm the next mutating call to raise `error`, then disarm.
 
         One-shot rather than sticky so a test can script "the activation fails,
@@ -115,32 +100,24 @@ class FakeWifiApController:
         """Return the scripted availability."""
         return self.available
 
-    async def list_wireless_interfaces(self) -> tuple[WirelessInterface, ...]:
-        """Return the scripted interface list."""
+    async def list_wired_interfaces(self) -> tuple[WiredInterface, ...]:
+        """Return the scripted port list."""
         return self.interfaces
 
-    async def read_state(self) -> HotspotRuntimeState:
+    async def read_state(self) -> WiredShareRuntimeState:
         """Return the profile state this fake currently holds."""
         return self.state
 
-    async def apply_profile(self, profile: HotspotProfile, passphrase: str | None) -> None:
+    async def apply_profile(self, profile: WiredShareProfile) -> None:
         """Record the call and fold the profile into the held state."""
         self._check_pending_error()
-        self.recorded_applies.append(RecordedApply(profile=profile, passphrase=passphrase))
+        self.recorded_applies.append(profile)
         self.state = replace(
             self.state,
             profile_exists=True,
             autoconnect=profile.autoconnect,
             interface=profile.interface,
-            ssid=profile.ssid,
-            hidden=profile.hidden,
-            security=profile.security,
-            band=profile.band,
-            channel=profile.channel,
             gateway_cidr=profile.gateway_cidr,
-            # Once a key is set it stays set; passing None means "unchanged",
-            # so it must not clear the flag.
-            passphrase_set=self.state.passphrase_set or passphrase is not None,
         )
 
     async def activate(self) -> None:
@@ -168,9 +145,7 @@ class FakeWifiApController:
             active=False,
             autoconnect=False,
             interface=None,
-            ssid=None,
             gateway_cidr=None,
-            passphrase_set=False,
             activation_state=None,
         )
 
@@ -184,13 +159,7 @@ class FakeWifiApController:
         self.activated_names.append(connection_name)
 
     async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:
-        """Record the release triple, so a test can prove the MAC/IP pairing.
-
-        Was missing entirely, which meant this fake did not actually satisfy
-        `WifiApController` — every test using it passed only because nothing had
-        yet type-checked the pairing. Added alongside the wired fake's identical
-        method (ADR-0014), which is what surfaced the gap.
-        """
+        """Record the release triple, so a test can prove the MAC/IP pairing."""
         self._check_pending_error()
         self.released_leases.append((interface, ip_address, mac_address))
 
