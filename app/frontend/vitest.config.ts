@@ -33,6 +33,7 @@ export default defineConfig({
         'src/utils/locationValidation.ts',
         'src/state/locationStore.ts',
         'src/components/location/locationPanel.ts',
+        'src/state/wiredStore.ts',
       ],
       thresholds: {
         'src/components/sdrs/noticeList.ts': {
@@ -57,6 +58,16 @@ export default defineConfig({
           branches: 100,
         },
         'src/components/location/locationPanel.ts': {
+          lines: 100,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+        },
+        // Wired sharing's store (ADR-0014). Whole-file 100%, because every
+        // branch in it is one an operator can reach: each error code, each of
+        // the three lease-read outcomes, and each mutation's success and
+        // failure path.
+        'src/state/wiredStore.ts': {
           lines: 100,
           statements: 100,
           functions: 100,

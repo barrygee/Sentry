@@ -3,6 +3,7 @@ import { configPanel } from '../components/config/configPanel.js'
 import { noticeList } from '../components/sdrs/noticeList.js'
 import { hotspotPanel } from '../components/hotspot/hotspotPanel.js'
 import { locationPanel } from '../components/location/locationPanel.js'
+import { wiredPanel } from '../components/wired/wiredPanel.js'
 import type { Component } from '../core/component.js'
 import { ref } from '../core/dom.js'
 import { loadPreview, resetTransientState as resetConfig } from '../state/configStore.js'
@@ -11,6 +12,7 @@ import {
   resetTransientState as resetHotspot,
 } from '../state/hotspotStore.js'
 import { refreshLocation, resetTransientState as resetLocation } from '../state/locationStore.js'
+import { refresh as refreshWired, resetTransientState as resetWired } from '../state/wiredStore.js'
 
 /**
  * The Settings destination: the two instance-wide surfaces, as sections.
@@ -40,6 +42,7 @@ export function mountSettingsView(root: ParentNode): {
   const passwordContainer = ref(root, 'console-password-panel', HTMLElement)
   const locationContainer = ref(root, 'location-panel', HTMLElement)
   const hotspotContainer = ref(root, 'hotspot-panel', HTMLElement)
+  const wiredContainer = ref(root, 'wired-panel', HTMLElement)
   const configContainer = ref(root, 'config-panel', HTMLElement)
 
   const panels: Component<void>[] = []
@@ -66,6 +69,13 @@ export function mountSettingsView(root: ParentNode): {
   hotspotContainer.appendChild(hotspot.element)
   panels.push(hotspot)
 
+  // Directly beneath the hotspot: the two are the same question answered for
+  // two transports, and they share the one host-network control switch, so an
+  // operator who has just read the hotspot box has the context for this one.
+  const wired = wiredPanel()
+  wiredContainer.appendChild(wired.element)
+  panels.push(wired)
+
   const config = configPanel()
   configContainer.appendChild(config.element)
   panels.push(config)
@@ -78,6 +88,7 @@ export function mountSettingsView(root: ParentNode): {
      */
     onShown(): void {
       void refreshHotspot()
+      void refreshWired()
       void refreshLocation()
       void loadPreview()
     },
@@ -89,6 +100,7 @@ export function mountSettingsView(root: ParentNode): {
      */
     onHidden(): void {
       resetHotspot()
+      resetWired()
       resetLocation()
       resetConfig()
     },
