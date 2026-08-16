@@ -295,7 +295,7 @@ async def list_clients(
     simply has no lease file.
     """
     now_ms = clock.now_ms()
-    clients = hotspot_service.list_clients()
+    clients = await hotspot_service.list_clients()
     if clients is None:
         return HotspotClientsResponse(clients=None, generated_at=now_ms)
     return HotspotClientsResponse(

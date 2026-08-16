@@ -117,7 +117,7 @@ class _StubWifiApController:
     async def activate_named(self, connection_name: str) -> None:
         raise AssertionError("reading a snapshot must not activate a connection")
 
-    def list_clients(self) -> tuple[()] | None:
+    def list_clients(self, interface: str | None = None) -> tuple[()] | None:
         return ()
 
 
