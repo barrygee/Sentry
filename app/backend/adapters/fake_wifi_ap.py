@@ -60,12 +60,6 @@ class FakeWifiApController:
         self.clients = clients
         """What `list_clients()` returns. `None` means "cannot tell", not "none connected"."""
 
-        self.lease_scopes: list[str | None] = []
-        """The `interface` argument of every `list_clients()` call, in order."""
-
-        self.released_leases: list[tuple[str, str, str]] = []
-        """Every `(interface, ip_address, mac_address)` passed to `release_lease()`."""
-
         self.state = HotspotRuntimeState(
             profile_exists=False,
             active=False,
@@ -183,24 +177,6 @@ class FakeWifiApController:
         self._check_pending_error()
         self.activated_names.append(connection_name)
 
-    async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:
-        """Record the release triple, so a test can prove the MAC/IP pairing.
-
-        Was missing entirely, which meant this fake did not actually satisfy
-        `WifiApController` — every test using it passed only because nothing had
-        yet type-checked the pairing. Added alongside the wired fake's identical
-        method (ADR-0014), which is what surfaced the gap.
-        """
-        self._check_pending_error()
-        self.released_leases.append((interface, ip_address, mac_address))
-
-    def list_clients(self, interface: str | None = None) -> tuple[HotspotClient, ...] | None:
-        """Return the scripted lease list, recording the interface it was scoped to.
-
-        The scope is recorded rather than applied: a fake that filtered its own
-        scripted list would be testing this method's filter instead of the
-        caller's decision about which interface to ask for, which is the part
-        that can actually be wrong.
-        """
-        self.lease_scopes.append(interface)
+    def list_clients(self) -> tuple[HotspotClient, ...] | None:
+        """Return the scripted lease list."""
         return self.clients

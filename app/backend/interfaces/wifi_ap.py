@@ -159,7 +159,7 @@ class WifiApController(Protocol):
         """
         ...
 
-    def list_clients(self, interface: str | None = None) -> tuple[HotspotClient, ...] | None:
+    def list_clients(self) -> tuple[HotspotClient, ...] | None:
         """Return the access point's current DHCP leases.
 
         Synchronous and file-based, mirroring `SocketStatsSource` in
@@ -168,12 +168,5 @@ class WifiApController(Protocol):
         NetworkManager, hotspot never enabled), and callers must never render
         it as zero clients. An empty tuple means the file was read and holds no
         leases, which is a genuinely different statement.
-
-        `interface` scopes the read to one interface's lease file. Optional, and
-        `None` keeps the original behaviour of merging every lease file on the
-        host — but callers that know which interface they mean should say so.
-        Once wired sharing can run alongside the hotspot (ADR-0014) there are
-        two shared connections writing two lease files, and an unscoped read
-        would list a cabled laptop as a WiFi client.
         """
         ...

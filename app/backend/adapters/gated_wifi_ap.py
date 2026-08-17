@@ -94,7 +94,7 @@ class GatedWifiApController:
         controller = await self._controller()
         await controller.activate_named(connection_name)
 
-    def list_clients(self, interface: str | None = None) -> tuple[HotspotClient, ...] | None:
+    def list_clients(self) -> tuple[HotspotClient, ...] | None:
         """Synchronous, so it cannot await the switch.
 
         Delegates to the enabled controller unconditionally, which is safe
@@ -102,4 +102,4 @@ class GatedWifiApController:
         it reads NetworkManager's dnsmasq lease file. With the hotspot off there
         are no leases and the answer is empty or `None` either way.
         """
-        return self._enabled_controller.list_clients(interface)
+        return self._enabled_controller.list_clients()

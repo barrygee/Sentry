@@ -13,10 +13,6 @@ import {
   signOut,
 } from './state/consoleAuth.js'
 import { hotspotStore, isAwaitingConfirmation } from './state/hotspotStore.js'
-import {
-  isAwaitingConfirmation as isAwaitingWiredConfirmation,
-  wiredStore,
-} from './state/wiredStore.js'
 import { openSdrsStream } from './stream/sdrsStream.js'
 import { mountSdrsView } from './views/sdrsView.js'
 import { createNavigation } from './views/navigation.js'
@@ -102,19 +98,10 @@ const navigation = createNavigation({
   // hardware; the rollback would then strand an operator who walked away
   // believing it had stuck. The modal used to prevent this by refusing to
   // close, which a section cannot do.
-  blockDeparture: (from) => {
-    if (from !== 'settings') return null
-    if (isAwaitingConfirmation(hotspotStore.state)) {
-      return 'Confirm or discard the hotspot change before leaving settings.'
-    }
-    // Wired sharing runs the same commit-confirm flow (ADR-0014) and needs the
-    // same guard: walking away mid-countdown abandons a change that has already
-    // taken the Pi's Ethernet port off the LAN.
-    if (isAwaitingWiredConfirmation(wiredStore.state)) {
-      return 'Confirm or discard the wired-sharing change before leaving settings.'
-    }
-    return null
-  },
+  blockDeparture: (from) =>
+    from === 'settings' && isAwaitingConfirmation(hotspotStore.state)
+      ? 'Confirm or discard the hotspot change before leaving settings.'
+      : null,
   announce: (message) => liveAnnouncer().announceAssertive(message),
 })
 

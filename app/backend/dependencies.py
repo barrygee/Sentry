@@ -29,7 +29,6 @@ from app.backend.services.hotspot import HotspotService
 from app.backend.services.port_allocator import PortAllocatorService
 from app.backend.services.sentry_location import SentryLocationService
 from app.backend.services.supervisor import SupervisorService
-from app.backend.services.wired_share import WiredShareService
 
 
 def get_settings_dependency(request: Request) -> Settings:
@@ -110,12 +109,6 @@ def get_hotspot_service(request: Request) -> HotspotService:
     """Return the process-wide `HotspotService`."""
     hotspot_service: HotspotService = request.app.state.container.hotspot_service
     return hotspot_service
-
-
-def get_wired_share_service(request: Request) -> WiredShareService:
-    """Return the process-wide `WiredShareService` (ADR-0014)."""
-    wired_share_service: WiredShareService = request.app.state.container.wired_share_service
-    return wired_share_service
 
 
 def get_control_follower(request: Request) -> ControlFollowerService:

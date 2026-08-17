@@ -11,7 +11,7 @@ import ipaddress
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.backend.schemas.hotspot import validate_gateway_cidr
@@ -112,36 +112,6 @@ class Settings(BaseSettings):
         le=900,
         description="How long a hotspot activation has to be confirmed before it rolls back",
     )
-    # Wired sharing (ADR-0014). There is deliberately no `wired_control_enabled`
-    # here: `hotspot_control_enabled` above is the host-network control switch,
-    # and sharing an Ethernet port is that same capability. A second variable
-    # would ask an operator to grant one permission twice.
-    wired_connection_name: str = Field(
-        default="sentry-wired",
-        pattern=r"^[A-Za-z0-9_-]{1,32}$",
-        description="The single NetworkManager wired profile Sentry owns; never any other",
-    )
-    wired_interface: str | None = Field(
-        default=None,
-        pattern=r"^[A-Za-z0-9_.-]{1,15}$",
-        description=(
-            "Ethernet port to share; unset chooses an unused one automatically. On a "
-            "single-port Pi there is no unused one, so this (or the request) must name it"
-        ),
-    )
-    wired_gateway_cidr: str = Field(
-        default="10.10.10.1/24",
-        description=(
-            "The Pi's address on the shared Ethernet network — what a cabled machine "
-            "points Sentinel at. A different subnet from the hotspot's on purpose"
-        ),
-    )
-    wired_confirm_timeout_s: float = Field(
-        default=120.0,
-        ge=15,
-        le=900,
-        description="How long a wired-sharing activation has to be confirmed before it rolls back",
-    )
     nmcli_path: str = Field(default="nmcli", description="nmcli binary path")
     nmcli_timeout_s: float = Field(
         default=20.0, gt=0, le=120, description="Per-command timeout for nmcli invocations"
@@ -162,49 +132,6 @@ class Settings(BaseSettings):
         unusable leases, which is a far worse failure than refusing at startup.
         """
         return validate_gateway_cidr(gateway_cidr)
-
-    @field_validator("wired_gateway_cidr")
-    @classmethod
-    def _validate_wired_gateway_cidr(cls, gateway_cidr: str) -> str:
-        """Reject a shared-port address that would strand every cabled machine.
-
-        Same rule and same reasoning as the hotspot's: this value is the
-        fallback used whenever a request does not name one, so a typo in `.env`
-        would surface as a share that comes up and hands out unusable leases
-        rather than as a refusal at startup.
-        """
-        return validate_gateway_cidr(gateway_cidr)
-
-    @model_validator(mode="after")
-    def _check_shared_ranges_do_not_overlap(self) -> Settings:
-        """Refuse a wired range that overlaps the hotspot's.
-
-        Both features raise a `shared` connection with its own DHCP server, and
-        both can run at once on this Pi. Overlapping ranges would give the host
-        the same address on two interfaces, and the kernel would route one of
-        them into the other — a failure that presents as "the hotspot randomly
-        stopped working" long after the config change that caused it, which is
-        exactly the kind of thing worth refusing at startup instead.
-        """
-        hotspot_network = ipaddress.IPv4Interface(self.hotspot_gateway_cidr).network
-        wired_network = ipaddress.IPv4Interface(self.wired_gateway_cidr).network
-        if hotspot_network.overlaps(wired_network):
-            raise ValueError(
-                f"SENTRY_WIRED_GATEWAY_CIDR ({self.wired_gateway_cidr}) overlaps "
-                f"SENTRY_HOTSPOT_GATEWAY_CIDR ({self.hotspot_gateway_cidr}); the hotspot "
-                "and the wired share each run their own DHCP server and need "
-                "separate ranges"
-            )
-        return self
-
-    def wired_gateway_address(self) -> str:
-        """Return just the shared-port IP (`"10.10.10.1"`) without its prefix length.
-
-        This is the address a human types into Sentinel by hand after plugging
-        a cable in, so it is surfaced on its own rather than making every caller
-        re-split the CIDR.
-        """
-        return str(ipaddress.IPv4Interface(self.wired_gateway_cidr).ip)
 
     def hotspot_gateway_address(self) -> str:
         """Return just the gateway IP (`"10.42.0.1"`) without its prefix length.
