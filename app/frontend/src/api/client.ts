@@ -22,16 +22,6 @@ export type HotspotClientsResponse = components['schemas']['HotspotClientsRespon
 export type HotspotClient = components['schemas']['HotspotClientItem']
 export type WirelessInterface = components['schemas']['WirelessInterfaceItem']
 export type WirelessInterfacesResponse = components['schemas']['WirelessInterfacesResponse']
-// Wired sharing (ADR-0014). `WiredClientItem` is structurally identical to
-// `HotspotClientItem` — same dnsmasq, same lease file — which is why the shared
-// lease-list component takes either.
-export type WiredShareState = components['schemas']['WiredShareStateResponse']
-export type WiredShareConfigRequest = components['schemas']['WiredShareConfigRequest']
-export type WiredShareActivationRequest = components['schemas']['WiredShareActivationRequest']
-export type WiredClientsResponse = components['schemas']['WiredClientsResponse']
-export type WiredClient = components['schemas']['WiredClientItem']
-export type WiredInterface = components['schemas']['WiredInterfaceItem']
-export type WiredInterfacesResponse = components['schemas']['WiredInterfacesResponse']
 /**
  * A configuration as the server *returns* it — never carrying a hotspot
  * passphrase, which is import-only server-side.
@@ -207,24 +197,6 @@ export const apiClient = {
    */
   releaseHotspotLease: (macAddress: string) =>
     request<void>(`/hotspot/clients/${encodeURIComponent(macAddress)}`, { method: 'DELETE' }),
-
-  // Wired sharing (ADR-0014) — the same seven-route shape as the hotspot,
-  // minus everything to do with a passphrase, because a wired share has none.
-  getWired: () => request<WiredShareState>('/wired'),
-  getWiredInterfaces: () => request<WiredInterfacesResponse>('/wired/interfaces'),
-  getWiredClients: () => request<WiredClientsResponse>('/wired/clients'),
-  putWired: (body: WiredShareConfigRequest) =>
-    request<WiredShareState>('/wired', { method: 'PUT', body: JSON.stringify(body) }),
-  enableWired: (body: WiredShareActivationRequest) =>
-    request<WiredShareState>('/wired/enable', { method: 'POST', body: JSON.stringify(body) }),
-  disableWired: (body: WiredShareActivationRequest) =>
-    request<WiredShareState>('/wired/disable', { method: 'POST', body: JSON.stringify(body) }),
-  confirmWired: () => request<WiredShareState>('/wired/confirm', { method: 'POST' }),
-  deleteWired: () => request<void>('/wired', { method: 'DELETE' }),
-
-  /** Ask the wired share's DHCP server to forget one lease, keyed by MAC alone. */
-  releaseWiredLease: (macAddress: string) =>
-    request<void>(`/wired/clients/${encodeURIComponent(macAddress)}`, { method: 'DELETE' }),
 
   // Config export/import. The download route is deliberately NOT fetched here —
   // it is a plain navigation so the browser's own save-file behaviour handles

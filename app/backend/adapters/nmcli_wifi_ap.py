@@ -16,9 +16,7 @@ filtered out.
 
 **All parsing lives in pure module-level functions**, the discipline
 `adapters/net.py` follows, so the genuinely bug-prone part (nmcli's terse
-escaping) is exercised against fixture text with no subprocess involved. Those
-functions now live in `adapters/nmcli_parsing.py`, shared with the wired-sharing
-controller (ADR-0014) rather than copied into it.
+escaping) is exercised against fixture text with no subprocess involved.
 """
 
 from __future__ import annotations
@@ -29,18 +27,6 @@ import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from app.backend.adapters.nmcli_parsing import (
-    REDACTED_PLACEHOLDER,
-    STDERR_TRUNCATE_CHARS,
-    collect_indexed_property,
-    parse_active_connections,
-    parse_device_status,
-    parse_property_rows,
-    parse_yes_no,
-    read_dnsmasq_leases,
-    redact_text,
-    yes_no,
-)
 from app.backend.interfaces.process import ProcessSpawner
 from app.backend.interfaces.types import (
     HotspotClient,
@@ -59,6 +45,13 @@ _logger = logging.getLogger(__name__)
 
 _FALLBACK_SPAWN_PATH = "/usr/local/bin:/usr/bin:/bin"
 
+STDERR_TRUNCATE_CHARS = 400
+"""How much of a failed command's stderr reaches an operator. Bounded because it
+lands in an HTTP body and a log line, and neither should carry an unbounded
+attacker- or driver-controlled string."""
+
+REDACTED_PLACEHOLDER = "***"
+
 _PSK_PROPERTY = "802-11-wireless-security.psk"
 
 _DHCP_RELEASE_PATH = "/usr/bin/dhcp_release"
@@ -67,6 +60,179 @@ the same reason `nmcli`'s is: a bare name would be resolved against `PATH`."""
 
 _KEY_MANAGEMENT_BY_SECURITY: Mapping[HotspotSecurity, str] = {"wpa2": "wpa-psk", "wpa3": "sae"}
 _SECURITY_BY_KEY_MANAGEMENT: Mapping[str, HotspotSecurity] = {"wpa-psk": "wpa2", "sae": "wpa3"}
+
+
+def split_terse_row(row: str) -> tuple[str, ...]:
+    """Split one `nmcli --terse` output row into its fields.
+
+    nmcli separates fields with `:` and escapes any literal `:` or `\\` inside a
+    value as `\\:` and `\\\\`. A naive `row.split(":")` therefore corrupts every
+    row containing an SSID with a colon in it — a legal and not-especially-rare
+    network name — silently shifting every subsequent field by one. This is the
+    single most bug-prone piece of the whole adapter, which is why it is a pure
+    function with no I/O anywhere near it.
+    """
+    fields: list[str] = []
+    current: list[str] = []
+    escaped = False
+    for character in row:
+        if escaped:
+            current.append(character)
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == ":":
+            fields.append("".join(current))
+            current = []
+        else:
+            current.append(character)
+    if escaped:
+        # A trailing lone backslash is malformed; keep it literally rather than
+        # dropping a character the operator may need to see in a diagnostic.
+        current.append("\\")
+    fields.append("".join(current))
+    return tuple(fields)
+
+
+def parse_device_status(stdout: str) -> tuple[tuple[str, str, str, str], ...]:
+    """Parse `nmcli -f DEVICE,TYPE,STATE,CONNECTION device status` into rows.
+
+    Returns `(device, type, state, connection)` tuples. Rows with too few
+    fields are skipped rather than raising — one unexpected line must not hide
+    every other interface.
+    """
+    rows: list[tuple[str, str, str, str]] = []
+    for line in stdout.splitlines():
+        if not line.strip():
+            continue
+        fields = split_terse_row(line)
+        if len(fields) < 4:
+            continue
+        rows.append((fields[0], fields[1], fields[2], fields[3]))
+    return tuple(rows)
+
+
+def parse_property_rows(stdout: str) -> dict[str, str]:
+    """Parse `nmcli -f <props> device show`/`connection show` into a property map.
+
+    Both commands emit `PROPERTY:value` rows. Repeated properties (nmcli emits
+    `IP4.ADDRESS[1]`, `IP4.ADDRESS[2]`, ...) keep their bracketed suffix, so the
+    caller can collect them without them overwriting each other.
+    """
+    properties: dict[str, str] = {}
+    for line in stdout.splitlines():
+        if not line.strip():
+            continue
+        fields = split_terse_row(line)
+        if len(fields) < 2:
+            continue
+        properties[fields[0]] = ":".join(fields[1:])
+    return properties
+
+
+def collect_indexed_property(properties: Mapping[str, str], prefix: str) -> tuple[str, ...]:
+    """Collect every `PREFIX[n]` value from a parsed property map, in index order.
+
+    nmcli reports multi-valued properties as `IP4.ADDRESS[1]`, `IP4.ADDRESS[2]`
+    and so on; older versions emit a bare `IP4.ADDRESS`. Both are handled.
+    """
+    matches: list[tuple[int, str]] = []
+    for key, value in properties.items():
+        if key == prefix:
+            matches.append((0, value))
+        elif key.startswith(f"{prefix}[") and key.endswith("]"):
+            index_text = key[len(prefix) + 1 : -1]
+            try:
+                matches.append((int(index_text), value))
+            except ValueError:
+                continue
+    return tuple(value for _index, value in sorted(matches) if value)
+
+
+def parse_active_connections(stdout: str) -> tuple[tuple[str, str], ...]:
+    """Parse `nmcli -f NAME,DEVICE connection show --active` into `(name, device)` pairs."""
+    pairs: list[tuple[str, str]] = []
+    for line in stdout.splitlines():
+        if not line.strip():
+            continue
+        fields = split_terse_row(line)
+        if len(fields) < 2:
+            continue
+        pairs.append((fields[0], fields[1]))
+    return tuple(pairs)
+
+
+def parse_dnsmasq_leases(contents: str) -> tuple[HotspotClient, ...]:
+    """Parse one dnsmasq `.leases` file's contents into client records.
+
+    The format is one lease per line: `<expiry_epoch_s> <mac> <ipv4> <hostname>
+    <client-id>`, with `*` standing in for an absent hostname or client id.
+
+    Pure, so it is exercised against a fixture file with no `/var` anywhere.
+    Rows that are too short or carry an unparseable expiry are skipped rather
+    than raising — one corrupt line must not hide every other client, the same
+    rule `count_established_connections` follows in `adapters/net.py`.
+
+    Every lease is returned, expired ones included, carrying its expiry so the
+    API layer can *mark* rather than hide them. A lease is not an association,
+    and silently dropping the lapsed ones would imply a precision this source
+    does not have.
+    """
+    clients: list[HotspotClient] = []
+    for line in contents.splitlines():
+        fields = line.split()
+        if len(fields) < 4:
+            continue
+        expiry_text, mac_address, ip_address, hostname = fields[0], fields[1], fields[2], fields[3]
+        try:
+            expiry_epoch_seconds = int(expiry_text)
+        except ValueError:
+            continue
+        if not mac_address or not ip_address:
+            continue
+        clients.append(
+            HotspotClient(
+                mac_address=mac_address.lower(),
+                ip_address=ip_address,
+                hostname=None if hostname == "*" else hostname,
+                lease_expires_at_ms=expiry_epoch_seconds * 1000,
+            )
+        )
+    return tuple(clients)
+
+
+def read_dnsmasq_leases(nm_state_root: Path) -> tuple[HotspotClient, ...] | None:
+    """Read every dnsmasq lease file under `nm_state_root`, or `None` if there are none.
+
+    Deliberately standalone, and deliberately shared by *both* controllers:
+    reading a lease file is an ordinary filesystem read with no D-Bus, no
+    `nmcli` and no NetworkManager involved. A host that cannot *control* a
+    hotspot can still perfectly well report the leases of one, and throwing
+    that away just because the control path is unavailable would report "no
+    clients" where the honest answer is on disk.
+
+    Globs rather than composing an exact filename: the interface in the
+    filename is whatever NetworkManager used, and a wrong guess would silently
+    report an empty network instead of an unreadable one. `None` means unknown
+    and must never be rendered as zero.
+    """
+    try:
+        lease_paths = sorted(nm_state_root.glob("dnsmasq-*.leases"))
+    except OSError:
+        return None
+    if not lease_paths:
+        return None
+
+    clients: list[HotspotClient] = []
+    any_readable = False
+    for lease_path in lease_paths:
+        try:
+            contents = lease_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        any_readable = True
+        clients.extend(parse_dnsmasq_leases(contents))
+    return tuple(clients) if any_readable else None
 
 
 def redact_argv(argv: Sequence[str]) -> tuple[str, ...]:
@@ -80,6 +246,28 @@ def redact_argv(argv: Sequence[str]) -> tuple[str, ...]:
         if element == _PSK_PROPERTY and index + 1 < len(redacted):
             redacted[index + 1] = REDACTED_PLACEHOLDER
     return tuple(redacted)
+
+
+def redact_text(text: str, secret: str | None) -> str:
+    """Return `text` with `secret` scrubbed out of it.
+
+    nmcli can echo a property value back inside a parse error, so a failed
+    command's stderr is not safe to surface verbatim. Applied before any stderr
+    reaches an error body, an SSE notice, or a log record.
+    """
+    if not secret:
+        return text
+    return text.replace(secret, REDACTED_PLACEHOLDER)
+
+
+def _yes_no(value: bool) -> str:
+    """Render a boolean the way nmcli expects it on the command line."""
+    return "yes" if value else "no"
+
+
+def _parse_yes_no(value: str) -> bool:
+    """Parse nmcli's boolean rendering, treating anything unrecognised as False."""
+    return value.strip().lower() in {"yes", "true", "1"}
 
 
 class NmcliWifiApController:
@@ -184,7 +372,7 @@ class NmcliWifiApController:
             # Absent means this nmcli did not report the capability, not that the
             # radio lacks it — the field is version-dependent, so None here means
             # "assume capable and let activation fail loudly" rather than refusing.
-            supports_ap=None if supports_ap_text is None else parse_yes_no(supports_ap_text),
+            supports_ap=None if supports_ap_text is None else _parse_yes_no(supports_ap_text),
             state=properties.get("GENERAL.STATE", state),
             active_connection_name=active_connection,
             # The profile name is the best available proxy for the joined SSID:
@@ -245,10 +433,10 @@ class NmcliWifiApController:
         return HotspotRuntimeState(
             profile_exists=True,
             active=bool(activation_state and "activated" in activation_state.lower()),
-            autoconnect=parse_yes_no(properties.get("connection.autoconnect", "")),
+            autoconnect=_parse_yes_no(properties.get("connection.autoconnect", "")),
             interface=properties.get("connection.interface-name") or None,
             ssid=properties.get("802-11-wireless.ssid") or None,
-            hidden=parse_yes_no(properties.get("802-11-wireless.hidden", "")),
+            hidden=_parse_yes_no(properties.get("802-11-wireless.hidden", "")),
             security=_SECURITY_BY_KEY_MANAGEMENT.get(key_management, "wpa2"),
             band="a" if band_text == "a" else "bg",
             channel=int(channel_text) if channel_text.isdigit() else 0,
@@ -297,13 +485,13 @@ class NmcliWifiApController:
             "connection.interface-name",
             profile.interface,
             "connection.autoconnect",
-            yes_no(profile.autoconnect),
+            _yes_no(profile.autoconnect),
             "802-11-wireless.mode",
             "ap",
             "802-11-wireless.ssid",
             profile.ssid,
             "802-11-wireless.hidden",
-            yes_no(profile.hidden),
+            _yes_no(profile.hidden),
             "802-11-wireless.band",
             profile.band,
             # Channel 0 is Sentry's "automatic", but it is not a value nmcli
@@ -376,7 +564,7 @@ class NmcliWifiApController:
                 "modify",
                 self._connection_name,
                 "connection.autoconnect",
-                yes_no(autoconnect),
+                _yes_no(autoconnect),
             ]
         )
 
@@ -401,15 +589,9 @@ class NmcliWifiApController:
         """Bring an arbitrary previously-recorded profile back up (the rollback target)."""
         await self._run(["connection", "up", connection_name])
 
-    def list_clients(self, interface: str | None = None) -> tuple[HotspotClient, ...] | None:
-        """Return the AP's DHCP leases, or None when no lease file can be read.
-
-        `interface` scopes the read to the AP's own lease file. Sentry can now
-        also share a wired port (ADR-0014), and NetworkManager writes one
-        dnsmasq lease file per interface — so an unscoped read would list a
-        laptop on the Ethernet cable among the hotspot's WiFi clients.
-        """
-        return read_dnsmasq_leases(self._nm_state_root, interface)
+    def list_clients(self) -> tuple[HotspotClient, ...] | None:
+        """Return the AP's DHCP leases, or None when no lease file can be read."""
+        return read_dnsmasq_leases(self._nm_state_root)
 
     async def release_lease(self, interface: str, ip_address: str, mac_address: str) -> None:
         """Ask the AP's dnsmasq to forget one lease, via `dhcp_release`.
@@ -583,8 +765,8 @@ class UnavailableWifiApController:
         """Refuse: there is no access point here whose leases could be released."""
         raise WifiApUnavailableError(self._reason)
 
-    def list_clients(self, interface: str | None = None) -> tuple[HotspotClient, ...] | None:
+    def list_clients(self) -> tuple[HotspotClient, ...] | None:
         """Read the leases anyway when a state root is known; None means unknown, not zero."""
         if self._nm_state_root is None:
             return None
-        return read_dnsmasq_leases(self._nm_state_root, interface)
+        return read_dnsmasq_leases(self._nm_state_root)

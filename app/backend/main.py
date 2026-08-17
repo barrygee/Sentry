@@ -44,13 +44,8 @@ from app.backend.adapters.asyncio_process import AsyncioProcessSpawner
 from app.backend.adapters.composite_hotplug import CompositeHotplugSource
 from app.backend.adapters.ctypes_rtlsdr import CtypesRtlSdrLibrary, RtlSdrLibraryUnavailableError
 from app.backend.adapters.gated_wifi_ap import GatedWifiApController
-from app.backend.adapters.gated_wired_share import GatedWiredShareController
 from app.backend.adapters.net import SocketPortProber
 from app.backend.adapters.nmcli_wifi_ap import NmcliWifiApController, UnavailableWifiApController
-from app.backend.adapters.nmcli_wired_share import (
-    NmcliWiredShareController,
-    UnavailableWiredShareController,
-)
 from app.backend.adapters.reconcile_hotplug import ReconcileHotplugSource
 from app.backend.adapters.sysfs_usb import SysfsUsbDiscovery
 from app.backend.adapters.system_clock import SystemClock
@@ -64,7 +59,6 @@ from app.backend.interfaces.process import ProcessSpawner
 from app.backend.interfaces.rtlsdr import RtlSdrLibrary
 from app.backend.interfaces.types import RtlSdrUsbStrings
 from app.backend.interfaces.wifi_ap import WifiApController
-from app.backend.interfaces.wired_share import WiredShareController
 from app.backend.repositories.device_repository import DeviceRepository
 from app.backend.routers.api import api_router
 from app.backend.services.console_auth import ConsoleAuthService
@@ -81,7 +75,6 @@ from app.backend.services.port_allocator import PortAllocatorService
 from app.backend.services.sentry_location import SentryLocationService
 from app.backend.services.supervisor import SupervisorService
 from app.backend.services.usb_discovery import UsbDiscoveryService
-from app.backend.services.wired_share import WiredShareService
 
 _logger = logging.getLogger(__name__)
 
@@ -235,36 +228,6 @@ def _build_wifi_ap_controller(
     )
 
 
-def _build_wired_share_controller(
-    settings: Settings, process_spawner: ProcessSpawner
-) -> WiredShareController:
-    """Construct the real nmcli-backed wired controller, degrading to the null object.
-
-    The same two host preconditions as `_build_wifi_ap_controller` — `nmcli`
-    exists and the host's D-Bus socket is reachable — so this deliberately reads
-    as its twin. It logs nothing when they fail: that function has already
-    warned about the identical missing pieces on the identical startup, and a
-    second copy of the same two lines would only teach an operator to skim them.
-    """
-    if shutil.which(settings.nmcli_path) is None:
-        return UnavailableWiredShareController(
-            f"{settings.nmcli_path} is not installed.",
-            nm_state_root=Path(settings.nm_state_root),
-        )
-    if not DBUS_SYSTEM_BUS_SOCKET.exists():
-        return UnavailableWiredShareController(
-            "The host's D-Bus socket is not mounted into this container.",
-            nm_state_root=Path(settings.nm_state_root),
-        )
-    return NmcliWiredShareController(
-        process_spawner=process_spawner,
-        nmcli_path=settings.nmcli_path,
-        connection_name=settings.wired_connection_name,
-        nm_state_root=Path(settings.nm_state_root),
-        timeout_s=settings.nmcli_timeout_s,
-    )
-
-
 def _run_migrations_sync(database_url: str) -> None:
     """Run `alembic upgrade head` synchronously against `database_url`.
 
@@ -301,7 +264,6 @@ class AppContainer:
     port_allocator: PortAllocatorService
     health_service: HealthService
     hotspot_service: HotspotService
-    wired_share_service: WiredShareService
     console_auth_service: ConsoleAuthService
     host_control_settings: HostControlSettingsService
     sentry_location: SentryLocationService
@@ -423,28 +385,6 @@ def _build_container(settings: Settings) -> AppContainer:
         hotspot_connection_name=settings.hotspot_connection_name,
     )
 
-    # Wired sharing (ADR-0014), assembled exactly like the hotspot above and
-    # gated by the *same* switch: `hotspot_control_enabled` is the host-network
-    # control flag, and sharing an Ethernet port is that capability.
-    wired_share_controller = GatedWiredShareController(
-        enabled_controller=_build_wired_share_controller(settings, process_spawner),
-        disabled_controller=UnavailableWiredShareController(
-            "Host network control is switched off for this Sentry.",
-            nm_state_root=Path(settings.nm_state_root),
-        ),
-        control_enabled=host_control_settings.hotspot_control_enabled,
-    )
-
-    wired_share_service = WiredShareService(
-        controller=wired_share_controller,
-        event_bus=event_bus,
-        clock=clock,
-        default_gateway_cidr=settings.wired_gateway_cidr,
-        confirm_timeout_s=settings.wired_confirm_timeout_s,
-        configured_interface=settings.wired_interface,
-        wired_connection_name=settings.wired_connection_name,
-    )
-
     return AppContainer(
         settings=settings,
         clock=clock,
@@ -459,7 +399,6 @@ def _build_container(settings: Settings) -> AppContainer:
         port_allocator=port_allocator,
         health_service=health_service,
         hotspot_service=hotspot_service,
-        wired_share_service=wired_share_service,
         console_auth_service=console_auth_service,
         host_control_settings=host_control_settings,
         sentry_location=sentry_location,
@@ -619,14 +558,6 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             await container.hotspot_service.close()
         except Exception:
             _logger.exception("error closing hotspot service")
-
-        try:
-            # Same contract as the hotspot's close, and it matters more here: a
-            # restart must not tear down the wired share, which may be the only
-            # way anyone can currently reach this Sentry (ADR-0014).
-            await container.wired_share_service.close()
-        except Exception:
-            _logger.exception("error closing wired share service")
 
         try:
             await container.device_registry.close()

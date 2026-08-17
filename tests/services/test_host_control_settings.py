@@ -195,7 +195,7 @@ class RecordingWifiApController:
     async def activate_named(self, connection_name: str) -> None:
         self.calls.append("activate_named")
 
-    def list_clients(self, interface: str | None = None) -> tuple[HotspotClient, ...] | None:
+    def list_clients(self) -> tuple[HotspotClient, ...] | None:
         self.calls.append("list_clients")
         return None
 

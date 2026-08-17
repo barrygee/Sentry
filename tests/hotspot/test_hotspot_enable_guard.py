@@ -110,7 +110,7 @@ class _RecordingWifiApController:
     async def activate_named(self, connection_name: str) -> None:
         pass
 
-    def list_clients(self, interface: str | None = None) -> tuple[()] | None:
+    def list_clients(self) -> tuple[()] | None:
         return ()
 
 
