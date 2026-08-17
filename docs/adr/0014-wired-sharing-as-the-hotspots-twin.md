@@ -102,12 +102,30 @@ overlap: one asks for a network name, a password, a band and a channel; the
 other asks which socket. A single form covering both would be mostly disabled
 fields.
 
-**Link-local (169.254.x.x) plus mDNS instead of DHCP.** Genuinely attractive: it
-never takes the uplink down, because it needs no server at all. Rejected as the
-primary mechanism because it gives an unpredictable address, and the address is
-the product here — a human reads it off the screen and types it into Sentinel on
-the other machine. It remains a reasonable future addition *alongside* this, not
-instead of it.
+**Link-local plus mDNS instead of DHCP.** Genuinely attractive: it never takes
+the uplink down, because it needs no server at all. Rejected as the primary
+mechanism because it gives an unpredictable address, and the address is the
+product here — a human reads it off the screen and types it into Sentinel on the
+other machine.
+
+*Amended 2026-08-17, after testing it on the real hardware.* This route already
+works and needs no code: with sharing off, a directly-cabled machine and the Pi
+both self-assign, Avahi answers mDNS, and `http://sentinel.local:8000` reaches
+the console. Two things were learned doing it, and both are now in the README:
+
+- It requires `SENTRY_HTTP_HOST=::`. On a link with no DHCP server, mDNS answers
+  with an **IPv6** link-local address, and the default `0.0.0.0` is IPv4-only —
+  so the name resolves and the connection is then refused. The default is left
+  alone because a host with IPv6 disabled cannot bind `::` and would fail to
+  start.
+- It reaches the *console* and not the *SDRs*. Sentry publishes each dongle's
+  address for Sentinel to dial, and those are IPv4, so nothing can stream over
+  the link-local path.
+
+That second point is what keeps this decision intact rather than overturning it.
+The two mechanisms answer different questions — "I have lost access to a Pi" and
+"a client on this cable has to receive audio" — so they are complementary, and
+documenting the cheaper one first is the honest ordering.
 
 **Require a second (USB) Ethernet adapter, refusing to share the uplink port.**
 This is the configuration where the feature costs nothing, and it works today —

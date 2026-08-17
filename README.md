@@ -670,6 +670,50 @@ sudo nmcli connection modify sentry-wired \
      connection.autoconnect no                     # and stop it starting on boot
 ```
 
+### Reaching the Pi over a direct cable *without* sharing
+
+Wired sharing is not the only way to reach a Pi down a cable, and it is not
+always the right one — on a single-port Pi it costs you the LAN.
+
+Plug a laptop straight in with sharing switched **off** and nothing hands out
+addresses, so both machines self-assign a link-local address after a few
+seconds. That is enough to reach the Pi by name, because Avahi answers mDNS on
+that link:
+
+```
+http://sentinel.local:8000        # Sentry
+http://sentinel.local:8080        # Sentinel, if you run it on the Pi
+```
+
+**This needs Sentry listening dual-stack.** On a link with no DHCP server, mDNS
+answers with an **IPv6** link-local address, and Sentry's default
+`SENTRY_HTTP_HOST=0.0.0.0` is IPv4-only — so the name resolves and the
+connection is then refused. Set:
+
+```bash
+SENTRY_HTTP_HOST=::
+```
+
+`::` binds both families, so the LAN address keeps working exactly as before and
+the cable starts working too. It is not the default because a host with IPv6
+disabled in the kernel cannot bind it at all, and would fail to start.
+
+Weigh the two against each other:
+
+| | Direct cable, no sharing | Wired sharing |
+| --- | --- | --- |
+| Uplink | **Untouched** — the Pi stays on your LAN | Taken over on a one-port Pi |
+| Setup | One `.env` line | Enable, acknowledge, confirm in time |
+| Address | `sentinel.local` (the numeric one is unpredictable) | Fixed, e.g. `10.10.10.1` |
+| Client needs | Working mDNS and IPv6 | Nothing at all — just DHCP |
+| Sentinel's SDR addresses | Not usable — they are published as IPv4 | Usable |
+
+The last row is the deciding one. Sentry publishes each dongle's address for
+Sentinel to dial, and those are IPv4 — so the cable-plus-mDNS route is a fine
+way to reach the *console*, and not a way to stream from the SDRs. Use it to
+administer a Pi you have lost, and wired sharing when a client actually has to
+receive audio down the cable.
+
 ### Things worth knowing
 
 - **The cable is the credential.** There is no passphrase anywhere in this
