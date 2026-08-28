@@ -84,26 +84,32 @@ _FRONTEND_DIST = _REPO_ROOT / "app" / "frontend" / "dist"
 
 
 class CacheAwareSpaStaticFiles(StaticFiles):
-    """Serves the built SPA with cache headers that match how Vite names files.
+    """Serves the built SPA with cache headers that match how the build names files.
 
-    Vite content-hashes every JS/CSS asset (`index-GcUORenv.css`), so those are
-    immutable: a changed file gets a new name, and the old name is never reused.
-    They can be cached for a year.
+    Every file this serves has a stable, content-independent name: the build is
+    `tsc` plus the Tailwind CLI (see `app/frontend/package.json`), which emit
+    `dist/js/**/*.js` and `dist/app.css` verbatim. Nothing is content-hashed, so
+    a changed file keeps its old name and a cached copy is indistinguishable
+    from a current one by URL alone.
 
-    `index.html` is the exception and the reason this class exists. It is the
-    one file with a stable name, and it is what *points at* the hashed assets.
-    Served with default headers a browser may reuse a cached copy indefinitely,
-    pinning the app to the previous deploy's asset names — the UI simply does
-    not change after an upgrade, with no error anywhere to explain why. Serving
-    it `no-cache` means the browser must revalidate it on every load, so a new
-    deploy is picked up immediately while the (usually much larger) hashed
-    assets still come from cache.
+    That makes `immutable` — and any long `max-age` — actively wrong here. A
+    browser told an asset is immutable will not revalidate it for the stated
+    lifetime, even on a normal reload. Because `index.html` revalidates and the
+    assets did not, the two halves of the app drifted apart across a deploy:
+    current shell markup driving a stylesheet and module graph from an earlier
+    build, which rendered as a blank dark page with nothing in the console to
+    explain it. Safari was worst hit, honouring `immutable` past a plain reload.
 
-    `no-cache` is deliberate rather than `no-store`: it permits a conditional
-    request, so an unchanged index still answers 304 rather than resending.
+    So everything is served `no-cache`: the browser must revalidate on every
+    load, and a deploy is picked up immediately. `no-cache` is deliberate rather
+    than `no-store` — it permits a conditional request, so an unchanged file
+    still answers 304 with no body rather than being resent. Over a LAN to a Pi
+    that is the right trade.
+
+    If the build ever content-hashes its output, hashed assets can and should go
+    back to `public, max-age=31536000, immutable`; only `index.html`, which
+    points at them, must stay `no-cache`.
     """
-
-    IMMUTABLE_SUFFIXES = (".js", ".css", ".woff2", ".woff", ".svg", ".png", ".jpg", ".webp")
 
     def file_response(
         self,
@@ -115,13 +121,9 @@ class CacheAwareSpaStaticFiles(StaticFiles):
         scope: Scope,
         status_code: int = 200,
     ) -> Response:
-        """Delegate to Starlette, then set `Cache-Control` from the file's extension."""
+        """Delegate to Starlette, then require revalidation of every served file."""
         response = super().file_response(full_path, stat_result, scope, status_code)
-        path_name = str(full_path)
-        if path_name.endswith(".html"):
-            response.headers["Cache-Control"] = "no-cache"
-        elif path_name.endswith(self.IMMUTABLE_SUFFIXES):
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        response.headers["Cache-Control"] = "no-cache"
         return response
 
 
