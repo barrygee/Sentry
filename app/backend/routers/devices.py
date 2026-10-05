@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Path, status
 
 from app.backend.config import Settings
 from app.backend.dependencies import (
+    get_control_follower,
     get_device_registry,
     get_device_reservations,
     get_eeprom_service,
@@ -41,6 +42,7 @@ from app.backend.schemas.reservation import (
 )
 from app.backend.schemas.serial import SerialFlashAccepted, SerialFlashRequest
 from app.backend.security import require_console_session
+from app.backend.services.control_follower import ControlFollowerService, TuneRequest
 from app.backend.services.device_registry import DeviceRegistry, IncompleteConfigurationError
 from app.backend.services.device_reservations import (
     DeviceReservationService,
@@ -141,6 +143,46 @@ async def _require_tuning_allowed(
 
 
 _logger = logging.getLogger(__name__)
+
+# The subset of `_TUNING_FIELDS` the relay can change on a running dongle. The
+# rest (ppm, bias-T, direct sampling, port, enabled) only take effect when the
+# pair restarts, which `SupervisorService.reconcile()` already does on a change.
+_LIVE_TUNING_FIELDS = frozenset({"center_hz", "sample_rate", "gain_db", "gain_auto"})
+
+
+async def _reassert_live_tuning(
+    record: DeviceRecord, device_id: str, control_follower: ControlFollowerService
+) -> None:
+    """Push the stored tuning onto the running dongle, even when nothing changed.
+
+    Stored tuning only reaches the hardware as `rtl_tcp` startup arguments, and
+    the supervisor restarts a pair only when a stored value *differs*. But any
+    raw rtl_tcp client on the relay's IQ port can retune the dongle while no
+    control token is held, and nothing records that. So the dongle drifts — to
+    a raw client's 100 MHz default, say — while the record still says 1090 MHz,
+    and a holder re-sending the same values on every lease renewal changed
+    nothing: a stored no-op, a restart that never came, and an ADS-B feed that
+    stayed silent until a *different* value forced one.
+
+    Best effort. A pair that is not running has nothing to correct (it starts
+    on the stored tuning), and a token held by a live tuning owner is respected
+    rather than fought — `apply_tune` defers in both cases.
+    """
+    request = TuneRequest(
+        center_hz=record.center_hz,
+        sample_rate=record.sample_rate,
+        gain_auto=record.gain_auto,
+        # rtl_tcp ignores a gain while AGC is on; sending it would only confuse.
+        gain_db=None if record.gain_auto else record.gain_db,
+    )
+    try:
+        outcome = await control_follower.apply_tune(device_id, request)
+    except OSError as error:
+        _logger.warning("could not re-assert tuning on %s: %s", device_id, error)
+        return
+    if not outcome.applied:
+        _logger.info("tuning re-assert on %s deferred (pair not running or token held)", device_id)
+
 
 DEVICE_ID_PATH = Path(
     description='Either "serial:<value>" or "usb:<topology_path>"',
@@ -256,6 +298,7 @@ async def patch_device(
     device_registry: DeviceRegistry = Depends(get_device_registry),
     port_allocator: PortAllocatorService = Depends(get_port_allocator),
     reservations: DeviceReservationService = Depends(get_device_reservations),
+    control_follower: ControlFollowerService = Depends(get_control_follower),
     holder: str | None = Header(default=None, alias=HOLDER_HEADER),
 ) -> DeviceRecord:
     """Upsert one device's configuration; creates the row on first call for a detected device.
@@ -277,7 +320,10 @@ async def patch_device(
     # may not retune this device should be refused without its request having
     # taken the allocation lock or changed anything on the way.
     await _require_tuning_allowed(patch, device_id, holder, reservations)
-    return await apply_device_configuration(patch, device_id, device_registry, port_allocator)
+    record = await apply_device_configuration(patch, device_id, device_registry, port_allocator)
+    if set(patch.model_dump(exclude_unset=True)) & _LIVE_TUNING_FIELDS:
+        await _reassert_live_tuning(record, device_id, control_follower)
+    return record
 
 
 async def apply_device_configuration(
