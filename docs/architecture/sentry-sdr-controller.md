@@ -45,7 +45,7 @@ process, essentially unchanged**. It already provides everything a single dongle
 - reconnect with capped backoff and tuner-state replay on reconnect,
 - full env-var configuration (`RELAY_UPSTREAM_HOST/PORT`, `RELAY_LISTEN_HOST/PORT`, `RELAY_CONTROL_PORT`).
 
-**Exactly one change is permitted to the relay** (see §2.1). Everything else about it — protocol,
+**Only the changes in §2.1 and §2.2 are permitted to the relay.** Everything else about it — protocol,
 env vars, defaults, semantics — is frozen. Sentry configures N copies of it by environment and
 supervises them; it does not import it, subclass it, or fork its logic.
 
@@ -91,6 +91,40 @@ correctly reported the frequency the operator had asked for.
 
 `test_rtl_tcp_relay.py` moves to `tests/relay/test_rtl_tcp_relay.py` unmodified, plus new cases
 for the exit branch (§12).
+
+### 2.2 Permitted relay change: owner metadata passed to followers
+
+A Sentinel that owns the tuner also runs things the relay never sees: a demod channel inside the
+band (offset, mode, audio bandwidth) and a scanner or range search in its browser. A read-only
+Sentinel watching the same dongle needs that to show the owner's channel and its
+"Scanning"/"Searching" overlay. Before this change the relay only kept `center_hz`,
+`sample_rate`, `gain_db` and `gain_auto`, and quietly dropped every other `set` field, so
+followers never got it.
+
+The owner's `set` may now also carry:
+
+```
+offset_hz          int, |value| <= 10 GHz
+mode               str, capped at 64 chars
+bw_hz              int, 0..10 GHz
+scan_active        bool
+scan_groups        list of str, at most 64 items of 64 chars
+search_active      bool
+search_low_hz      int 0..10 GHz, or null
+search_high_hz     int 0..10 GHz, or null
+search_current_hz  int 0..10 GHz, or null
+search_label       str capped at 64 chars, or null
+```
+
+The relay never acts on these. It keeps the owner's last valid value of each (a field with the
+wrong type or out of range is skipped, not the whole message) and adds them to every `state`
+event. They are **not** part of the tuner state replayed to the dongle on reconnect. They reset
+to defaults (`0`, `""`, `false`, `[]`, `null`) whenever the token changes hands, so a follower
+never shows a departed owner's sweep.
+
+This is additive: a client that ignores unknown keys (Sentry's own control follower, older
+Sentinels) is unaffected, and a `set` without these keys behaves as before. The same change is
+made in Sentinel's vendored copy.
 
 ---
 
@@ -276,7 +310,7 @@ backend/
     devices.py             GET/PATCH/DELETE /api/devices…, POST …/serial
     sdrs.py                GET /api/v1/sdrs  (+ /api/sdrs alias)
   security.py              session dependency (no-op while no password is set, §7.9)
-  relay/rtl_tcp_relay.py   VENDORED, frozen except §2.1
+  relay/rtl_tcp_relay.py   VENDORED, frozen except §2.1 and §2.2
 ```
 
 One router per resource, aggregated under `/api` — never one overloaded router.

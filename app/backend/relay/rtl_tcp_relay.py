@@ -35,7 +35,9 @@ token, sends semantic ``set`` requests (centre frequency / sample rate / gain),
 and the relay — the sole writer of commands to the dongle while a token is held —
 translates them to 5-byte frames and broadcasts the resulting tuner ``state`` to
 every control client, so non-owners (read-only followers) always display the real
-tuning instead of a stale guess. The token is released on ``release`` or when the
+tuning instead of a stale guess. A ``set`` may also carry owner metadata (the demod
+channel and scan/search sweep the owner is running); the relay never acts on it but
+adds it to every ``state`` event so followers can mirror the owner. The token is released on ``release`` or when the
 owning control connection drops. While a token is held, raw 5-byte commands on the
 IQ sockets are ignored. With no token held the relay falls back to forwarding raw
 IQ-socket commands last-writer-wins, so direct/legacy ``rtl_tcp`` clients still work.
@@ -103,6 +105,83 @@ INITIAL_GAIN_AUTO = os.environ.get("RELAY_GAIN_AUTO", "") != "0"
 INITIAL_GAIN_DB = float(os.environ.get("RELAY_GAIN_DB", "") or DEFAULT_GAIN_DB)
 # A control client that falls this far behind on state pushes is treated as dead.
 CONTROL_QUEUE_MAX_MESSAGES = 64
+
+# Owner metadata: what the owner is doing with the tuner beyond its hardware
+# settings (the demod channel it listens to, its scan/search sweep). The relay
+# never acts on it; it keeps the owner's last values and adds them to every
+# ``state`` event so read-only followers can mirror the owner. Each field is
+# type-checked and size-capped because any control client can send it. A new
+# owner starts from these defaults, so a follower never shows a departed owner's
+# sweep.
+OWNER_METADATA_TEXT_MAX_CHARS = 64
+OWNER_METADATA_LIST_MAX_ITEMS = 64
+OWNER_METADATA_MAX_HZ = 10_000_000_000
+OWNER_METADATA_DEFAULTS: dict[str, object] = {
+    "offset_hz": 0,
+    "mode": "",
+    "bw_hz": 0,
+    "scan_active": False,
+    "scan_groups": [],
+    "search_active": False,
+    "search_low_hz": None,
+    "search_high_hz": None,
+    "search_current_hz": None,
+    "search_label": None,
+}
+_OWNER_METADATA_BOOLEANS = ("scan_active", "search_active")
+_OWNER_METADATA_OPTIONAL_HZ = ("search_low_hz", "search_high_hz", "search_current_hz")
+
+
+def default_owner_metadata() -> dict[str, object]:
+    """A fresh copy of OWNER_METADATA_DEFAULTS, with its own ``scan_groups`` list."""
+    return {**OWNER_METADATA_DEFAULTS, "scan_groups": []}
+
+
+def _is_integer(value: object) -> bool:
+    """Whether `value` is a JSON integer (``bool`` is an ``int`` in Python, so it is excluded)."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def owner_metadata_updates(fields: dict) -> dict[str, object]:
+    """The valid owner-metadata fields in one ``set`` message, capped to size.
+
+    Only keys the message carries are returned, so a ``set`` that only retunes
+    leaves the rest of the metadata alone. A field with the wrong type or out of
+    range is skipped rather than rejecting the whole message.
+    """
+    updates: dict[str, object] = {}
+    offset_hz = fields.get("offset_hz")
+    if _is_integer(offset_hz) and abs(offset_hz) <= OWNER_METADATA_MAX_HZ:
+        updates["offset_hz"] = offset_hz
+    bw_hz = fields.get("bw_hz")
+    if _is_integer(bw_hz) and 0 <= bw_hz <= OWNER_METADATA_MAX_HZ:
+        updates["bw_hz"] = bw_hz
+    if isinstance(fields.get("mode"), str):
+        updates["mode"] = fields["mode"][:OWNER_METADATA_TEXT_MAX_CHARS]
+    for key in _OWNER_METADATA_BOOLEANS:
+        if isinstance(fields.get(key), bool):
+            updates[key] = fields[key]
+    scan_groups = fields.get("scan_groups")
+    if isinstance(scan_groups, list):
+        updates["scan_groups"] = [
+            name[:OWNER_METADATA_TEXT_MAX_CHARS]
+            for name in scan_groups[:OWNER_METADATA_LIST_MAX_ITEMS]
+            if isinstance(name, str)
+        ]
+    for key in _OWNER_METADATA_OPTIONAL_HZ:
+        if key not in fields:
+            continue
+        value = fields[key]
+        if value is None or (_is_integer(value) and 0 <= value <= OWNER_METADATA_MAX_HZ):
+            updates[key] = value
+    if "search_label" in fields:
+        label = fields["search_label"]
+        if label is None:
+            updates["search_label"] = None
+        elif isinstance(label, str):
+            updates["search_label"] = label[:OWNER_METADATA_TEXT_MAX_CHARS]
+    return updates
+
 # Bytes pulled from upstream per fan-out iteration. Small enough for low latency,
 # large enough to avoid per-syscall overhead at multi-megabyte sample rates.
 UPSTREAM_READ_BYTES = 64 * 1024
@@ -159,6 +238,14 @@ class RelayState:
         self.gain_auto: bool = INITIAL_GAIN_AUTO
         self.current_owner: ControlSession | None = None
         self.control_sessions: set[ControlSession] = set()
+        # The owner's last demod/sweep metadata (see OWNER_METADATA_DEFAULTS).
+        # Kept apart from tuner_state(), which is replayed to the dongle.
+        self.owner_metadata: dict[str, object] = default_owner_metadata()
+
+    def change_owner(self, session: ControlSession | None) -> None:
+        """Hand the token to `session` (None frees it) and forget the old owner's metadata."""
+        self.current_owner = session
+        self.owner_metadata = default_owner_metadata()
 
     def tuner_state(self) -> dict[str, object]:
         """The current authoritative tuner state (no per-client ``owner`` flag)."""
@@ -182,6 +269,7 @@ class RelayState:
             "owner": session is not None and session is self.current_owner,
             "locked": self.current_owner is not None,
             **self.tuner_state(),
+            **self.owner_metadata,
         }
 
     def broadcast_state(self) -> None:
@@ -339,19 +427,20 @@ async def _handle_control_op(state: RelayState, session: ControlSession, message
     operation = message.get("op")
     if operation == "claim":
         if state.current_owner is None:
-            state.current_owner = session
+            state.change_owner(session)
             state.broadcast_state()  # everyone learns ownership changed (claimer gets owner=True)
         else:
             session.enqueue(state.state_message(session))
     elif operation == "release":
         if state.current_owner is session:
-            state.current_owner = None
+            state.change_owner(None)
             state.broadcast_state()
         else:
             session.enqueue(state.state_message(session))
     elif operation == "set":
         if state.current_owner is session:
             await apply_set(state, message)
+            state.owner_metadata.update(owner_metadata_updates(message))
             state.broadcast_state()
         else:
             # Reject silently but reflect the real state so a non-owner stays truthful.
@@ -399,7 +488,7 @@ async def handle_control_client(
         state.control_sessions.discard(session)
         released = state.current_owner is session
         if released:
-            state.current_owner = None
+            state.change_owner(None)
         session.enqueue(None)  # stop the drain task
         drain_task.cancel()
         if released:

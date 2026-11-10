@@ -43,9 +43,9 @@ timeout = 60
 line-length = 100
 target-version = "py312"
 # Vendored, frozen relay (architecture §2): only the additive §2.1 wedge-exit
-# diff is permitted here, so it is excluded from lint churn like the UP041
-# `asyncio.TimeoutError` alias rule, which predates and is unrelated to that
-# diff.
+# and §2.2 owner-metadata diffs are permitted here, so it is excluded from lint
+# churn like the UP041 `asyncio.TimeoutError` alias rule, which predates and is
+# unrelated to those diffs.
 extend-exclude = ["app/backend/relay/rtl_tcp_relay.py", "tests/relay/test_rtl_tcp_relay.py"]
 
 [tool.ruff.lint]
